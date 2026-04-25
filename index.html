@@ -227,104 +227,134 @@ body { background: #f0f2f5; margin: 0; }
 <div id="modal-container"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Firebase SDK (compat v10) -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script>
 'use strict';
 // ═══════════════════════════════════════
 //  CONFIG
 // ═══════════════════════════════════════
 const CFG = {
-  dbName: 'CoffinBizDB', dbVersion: 4,
   businessName: 'ร้านขายส่งโลงศพ',
   businessAddress: '', businessPhone: '', businessTaxId: '',
 };
 
 // ═══════════════════════════════════════
-//  DATABASE (IndexedDB)
+//  DATABASE (Firebase Firestore)
 // ═══════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAC85V_FLtSDR0BR3tJEvDDpv1hSIx2Zug",
+  authDomain: "kailoong-e63ed.firebaseapp.com",
+  projectId: "kailoong-e63ed",
+  storageBucket: "kailoong-e63ed.firebasestorage.app",
+  messagingSenderId: "388629310479",
+  appId: "1:388629310479:web:9eb9565ac22ad5914b477a",
+  measurementId: "G-FZ92CYLVT2"
+};
+
 const DB = {
-  _db: null,
-  init() {
-    return new Promise((res, rej) => {
-      const req = indexedDB.open(CFG.dbName, CFG.dbVersion);
-      req.onupgradeneeded = e => {
-        const db = e.target.result;
-        const stores = [
-          ['customers', { keyPath:'id', autoIncrement:true }],
-          ['products',  { keyPath:'id', autoIncrement:true }],
-          ['orders',    { keyPath:'id', autoIncrement:true }],
-          ['invoices',  { keyPath:'id', autoIncrement:true }],
-          ['settings',  { keyPath:'key' }],
-          ['expenses',  { keyPath:'id', autoIncrement:true }],
-        ];
-        stores.forEach(([name, opts]) => {
-          if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, opts);
-        });
-      };
-      req.onsuccess = e => { this._db = e.target.result; res(); };
-      req.onerror   = e => rej(e.target.error);
-    });
+  _fs: null,
+
+  async init() {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    this._fs = firebase.firestore();
   },
-  _tx(store, mode='readonly') { return this._db.transaction(store, mode).objectStore(store); },
-  _p(req) { return new Promise((res,rej) => { req.onsuccess=()=>res(req.result); req.onerror=e=>rej(e.target.error); }); },
-  _all(s)      { return this._p(this._tx(s).getAll()); },
-  _get(s,id)   { return this._p(this._tx(s).get(id)); },
-  _add(s,d)    { return this._p(this._tx(s,'readwrite').add({...d,createdAt:d.createdAt||Date.now()})); },
-  _put(s,d)    { return this._p(this._tx(s,'readwrite').put(d)); },
-  _del(s,id)   { return this._p(this._tx(s,'readwrite').delete(id)); },
 
-  getCustomers()  { return this._all('customers'); },
-  getCustomer(id) { return this._get('customers',id); },
-  addCustomer(d)  { return this._add('customers',d); },
-  putCustomer(d)  { return this._put('customers',d); },
-  delCustomer(id) { return this._del('customers',id); },
+  // ── Generic CRUD ──
+  async _all(col) {
+    const snap = await this._fs.collection(col).get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+  async _get(col, id) {
+    const snap = await this._fs.collection(col).doc(String(id)).get();
+    return snap.exists ? { id: snap.id, ...snap.data() } : null;
+  },
+  async _add(col, d) {
+    const { id: _id, ...rest } = d;
+    const data = { ...rest, createdAt: rest.createdAt || Date.now() };
+    if (_id) {
+      // restore: preserve original ID
+      await this._fs.collection(col).doc(String(_id)).set(data);
+      return String(_id);
+    }
+    const ref = await this._fs.collection(col).add(data);
+    return ref.id;
+  },
+  async _put(col, d) {
+    const { id, ...rest } = d;
+    await this._fs.collection(col).doc(String(id)).set(rest, { merge: true });
+    return id;
+  },
+  async _del(col, id) {
+    await this._fs.collection(col).doc(String(id)).delete();
+  },
 
-  getProducts()   { return this._all('products'); },
-  getProduct(id)  { return this._get('products',id); },
-  addProduct(d)   { return this._add('products',d); },
-  putProduct(d)   { return this._put('products',d); },
-  delProduct(id)  { return this._del('products',id); },
-
-  getOrders()     { return this._all('orders'); },
-  getOrder(id)    { return this._get('orders',id); },
-  addOrder(d)     { return this._add('orders',d); },
-  putOrder(d)     { return this._put('orders',d); },
-  delOrder(id)    { return this._del('orders',id); },
-
-  getInvoices()   { return this._all('invoices'); },
-  getInvoice(id)  { return this._get('invoices',id); },
-  addInvoice(d)   { return this._add('invoices',d); },
-  putInvoice(d)   { return this._put('invoices',d); },
-  delInvoice(id)  { return this._del('invoices',id); },
-
-  async getSetting(key)   { const r=await this._get('settings',key); return r?r.value:null; },
-  setSetting(key,value)   { return this._put('settings',{key,value}); },
+  // ── Settings ──
+  async getSetting(key) {
+    const snap = await this._fs.collection('settings').doc(key).get();
+    return snap.exists ? snap.data().value : null;
+  },
+  async setSetting(key, value) {
+    await this._fs.collection('settings').doc(key).set({ value });
+  },
   async loadSettings() {
     for (const k of ['businessName','businessAddress','businessPhone','businessTaxId']) {
-      const v = await this.getSetting(k); if (v!==null) CFG[k]=v;
+      const v = await this.getSetting(k); if (v !== null) CFG[k] = v;
     }
   },
+
+  // ── Sequence helpers ──
   async nextOrderNo() {
     const all = await this.getOrders();
     const yr  = new Date().getFullYear()+543;
-    return `ORD-${yr}-${String(all.length+1).padStart(4,'0')}`;
+    const prefix = `ORD-${yr}-`;
+    const nums = all.filter(o=>o.orderNo?.startsWith(prefix)).map(o=>parseInt(o.orderNo.slice(prefix.length))||0);
+    return `${prefix}${String(nums.length?Math.max(...nums)+1:1).padStart(4,'0')}`;
   },
   async nextReceiptNo() {
     const all = await this.getInvoices();
     const yr  = new Date().getFullYear()+543;
-    return `RC-${yr}-${String(all.length+1).padStart(4,'0')}`;
+    const prefix = `RC-${yr}-`;
+    const nums = all.filter(i=>i.invoiceNo?.startsWith(prefix)).map(i=>parseInt(i.invoiceNo.slice(prefix.length))||0);
+    return `${prefix}${String(nums.length?Math.max(...nums)+1:1).padStart(4,'0')}`;
   },
-  // Get customer's price for a product (custom or default)
   async getEffectivePrice(customerId, productId, defaultPrice) {
     const c = await this.getCustomer(customerId);
     if (c?.customPrices?.[productId] !== undefined) return c.customPrices[productId];
     return defaultPrice;
   },
-  // Expenses
+
+  // ── Per-store shortcuts ──
+  getCustomers()   { return this._all('customers'); },
+  getCustomer(id)  { return this._get('customers',id); },
+  addCustomer(d)   { return this._add('customers',d); },
+  putCustomer(d)   { return this._put('customers',d); },
+  delCustomer(id)  { return this._del('customers',id); },
+
+  getProducts()    { return this._all('products'); },
+  getProduct(id)   { return this._get('products',id); },
+  addProduct(d)    { return this._add('products',d); },
+  putProduct(d)    { return this._put('products',d); },
+  delProduct(id)   { return this._del('products',id); },
+
+  getOrders()      { return this._all('orders'); },
+  getOrder(id)     { return this._get('orders',id); },
+  addOrder(d)      { return this._add('orders',d); },
+  putOrder(d)      { return this._put('orders',d); },
+  delOrder(id)     { return this._del('orders',id); },
+
+  getInvoices()    { return this._all('invoices'); },
+  getInvoice(id)   { return this._get('invoices',id); },
+  addInvoice(d)    { return this._add('invoices',d); },
+  putInvoice(d)    { return this._put('invoices',d); },
+  delInvoice(id)   { return this._del('invoices',id); },
+
   getExpenses()    { return this._all('expenses'); },
-  getExpense(id)   { return this._get('expenses', id); },
-  addExpense(d)    { return this._add('expenses', d); },
-  putExpense(d)    { return this._put('expenses', d); },
-  delExpense(id)   { return this._del('expenses', id); },
+  getExpense(id)   { return this._get('expenses',id); },
+  addExpense(d)    { return this._add('expenses',d); },
+  putExpense(d)    { return this._put('expenses',d); },
+  delExpense(id)   { return this._del('expenses',id); },
 };
 
 // ═══════════════════════════════════════
@@ -508,7 +538,7 @@ async function renderDashboard(el) {
               ${(o.items||[]).map(i=>U.esc(i.productName+(i.color?' '+i.color:'')+(i.trimColor?' เส้น'+i.trimColor:''))+' ×'+i.qty).join(' · ')||'-'}
             </td>
             <td style="font-weight:600;">฿${U.money(U.orderTotal(o))}</td>
-            <td><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal(${o.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
+            <td><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
           </tr>`).join('')||`<tr><td colspan="5"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-inbox"></i><p>ยังไม่มีออเดอร์</p></div></td></tr>`}
         </tbody>
       </table>
@@ -570,9 +600,9 @@ function renderOrderRows(list) {
     <td style="font-weight:700;white-space:nowrap;">฿${U.money(U.orderTotal(o))}</td>
     <td style="max-width:140px;color:#6b7280;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${U.esc(o.notes||'-')}</td>
     <td class="d-flex gap-1">
-      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showEditOrderModal(${o.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
-      <button class="btn btn-sm btn-outline-success btn-icon" onclick="showAddItemsModal(${o.id})" title="เพิ่มรายการ"><i class="fa-solid fa-plus"></i></button>
-      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteOrder(${o.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+      <button class="btn btn-sm btn-outline-success btn-icon" onclick="showAddItemsModal('${o.id}')" title="เพิ่มรายการ"><i class="fa-solid fa-plus"></i></button>
+      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteOrder('${o.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
     </td>
   </tr>`).join('');
 }
@@ -919,9 +949,9 @@ function custRow(c,i) {
     <td>${customCount?`<span class="price-custom"><i class="fa-solid fa-tag me-1"></i>${customCount} สินค้า</span>`:
          `<span style="color:#9ca3af;font-size:12px;">ราคาปกติ</span>`}</td>
     <td class="d-flex gap-1">
-      <button class="btn btn-sm btn-outline-warning btn-icon" onclick="showCustomerPriceModal(${c.id})" title="จัดการราคา"><i class="fa-solid fa-tag"></i></button>
-      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showCustomerModal(${c.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
-      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteCustomer(${c.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+      <button class="btn btn-sm btn-outline-warning btn-icon" onclick="showCustomerPriceModal('${c.id}')" title="จัดการราคา"><i class="fa-solid fa-tag"></i></button>
+      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showCustomerModal('${c.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteCustomer('${c.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
     </td>
   </tr>`;
 }
@@ -1044,8 +1074,8 @@ function prodRow(p,i) {
     <td style="font-size:13px;">${U.esc(p.unit||'โลง')}</td>
     <td style="text-align:right;font-weight:700;color:#2563eb;">฿${U.money(p.price)}</td>
     <td class="d-flex gap-1">
-      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showProductModal(${p.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
-      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteProduct(${p.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showProductModal('${p.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteProduct('${p.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
     </td>
   </tr>`;
 }
@@ -1127,9 +1157,9 @@ function invRow(inv) {
     </td>
     <td style="text-align:right;font-weight:700;">฿${U.money(t.total)}</td>
     <td class="d-flex gap-1">
-      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="printReceiptById(${inv.id})" title="พิมพ์"><i class="fa-solid fa-print"></i></button>
-      <button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showCreateReceiptModal(${inv.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
-      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteInvoice(${inv.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="printReceiptById('${inv.id}')" title="พิมพ์"><i class="fa-solid fa-print"></i></button>
+      <button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showCreateReceiptModal('${inv.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteInvoice('${inv.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
     </td>
   </tr>`;
 }
@@ -1171,7 +1201,7 @@ async function showCreateReceiptModal(editId, prefillCustName) {
                มีใบเสร็จวันนี้แล้ว เลขที่ <strong>${U.esc(existing.invoiceNo)}</strong></span>
              </div>
              <p style="font-size:13px;color:#374151;margin:0;">ต้องการทำอะไร?</p>`,
-            `<button class="btn btn-warning" onclick="closeModal('dupInvModal');showCreateReceiptModal(${existing.id});">
+            `<button class="btn btn-warning" onclick="closeModal('dupInvModal');showCreateReceiptModal('${existing.id}');">
                <i class="fa-solid fa-pen-to-square me-1"></i>แก้ไขใบเดิม (${U.esc(existing.invoiceNo)})
              </button>
              <button class="btn btn-primary" onclick="closeModal('dupInvModal');_forceNewInvoice('${enc}');">
@@ -1923,10 +1953,10 @@ async function renderExpenses(el) {
                 <td style="font-size:13px;">${U.esc(exp.note||'-')}</td>
                 <td style="text-align:right;font-weight:600;color:#dc2626;">฿${U.money(exp.amount||0)}</td>
                 <td style="text-align:right;white-space:nowrap;">
-                  <button class="btn btn-sm" style="background:#f3f4f6;color:#374151;border:none;margin-right:4px;" onclick="showExpenseModal(${exp.id})">
+                  <button class="btn btn-sm" style="background:#f3f4f6;color:#374151;border:none;margin-right:4px;" onclick="showExpenseModal('${exp.id}')">
                     <i class="fa-solid fa-pen-to-square"></i>
                   </button>
-                  <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:none;" onclick="deleteExpense(${exp.id})">
+                  <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:none;" onclick="deleteExpense('${exp.id}')">
                     <i class="fa-solid fa-trash"></i>
                   </button>
                 </td>
