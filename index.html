@@ -1,0 +1,2058 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ระบบจัดการธุรกิจ — ขายส่งโลงศพ</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { font-family: 'Sarabun', sans-serif; }
+body { background: #f0f2f5; margin: 0; }
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 240px; min-height: 100vh; background: #1a2332;
+  position: fixed; top: 0; left: 0; z-index: 100;
+  display: flex; flex-direction: column; transition: width .25s;
+}
+#sidebar .brand { padding: 22px 20px 18px; border-bottom: 1px solid #2d3f57; color: #fff; }
+#sidebar .brand .biz-name { font-size: 15px; font-weight: 700; color: #fff; line-height: 1.3; }
+#sidebar .brand .biz-sub  { font-size: 11px; color: #8fa3bf; margin-top: 2px; }
+#sidebar nav { padding: 12px 0; flex: 1; }
+#sidebar .nav-link {
+  color: #8fa3bf; padding: 11px 20px; font-size: 14px; font-weight: 500;
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  border: none; background: none; text-decoration: none; width: 100%; transition: all .18s;
+}
+#sidebar .nav-link i { width: 18px; text-align: center; font-size: 15px; }
+#sidebar .nav-link:hover { color: #fff; background: #243040; }
+#sidebar .nav-link.active { color: #fff; background: #2563eb; }
+#sidebar .nav-section { font-size: 10px; color: #506070; padding: 14px 20px 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+/* ── Main ── */
+#main { margin-left: 240px; min-height: 100vh; }
+#topbar {
+  background: #fff; border-bottom: 1px solid #e5e7eb;
+  padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 50;
+}
+#topbar h1 { font-size: 20px; font-weight: 700; margin: 0; color: #1a2332; }
+#page-content { padding: 28px; }
+
+/* ── Cards ── */
+.stat-card {
+  background: #fff; border-radius: 12px; padding: 22px 24px;
+  border: 1px solid #e8ecf0; box-shadow: 0 1px 4px rgba(0,0,0,.04);
+}
+.stat-card .label { font-size: 13px; color: #6b7280; font-weight: 500; }
+.stat-card .value { font-size: 28px; font-weight: 700; color: #1a2332; margin: 4px 0 0; line-height: 1.2; }
+.stat-card .sub   { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+.stat-card .icon-wrap {
+  width: 44px; height: 44px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+}
+.card-box { background: #fff; border-radius: 12px; border: 1px solid #e8ecf0; box-shadow: 0 1px 4px rgba(0,0,0,.04); }
+.card-box .card-head {
+  padding: 16px 20px; border-bottom: 1px solid #f1f3f5;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+}
+.card-box .card-head h2 { font-size: 16px; font-weight: 700; margin: 0; color: #1a2332; }
+
+/* ── Table ── */
+.table-clean { width: 100%; border-collapse: collapse; }
+.table-clean th {
+  font-size: 12px; color: #6b7280; font-weight: 600; padding: 10px 16px;
+  background: #f8f9fa; text-transform: uppercase; letter-spacing: .4px;
+  border-bottom: 1px solid #e8ecf0; white-space: nowrap;
+}
+.table-clean td { padding: 13px 16px; font-size: 14px; color: #374151; border-bottom: 1px solid #f1f3f5; vertical-align: middle; }
+.table-clean tr:last-child td { border-bottom: none; }
+.table-clean tr:hover td { background: #fafbfc; }
+
+/* ── Forms ── */
+.form-label { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 5px; }
+.form-control, .form-select {
+  font-size: 14px; border-radius: 8px; border-color: #d1d5db;
+  font-family: 'Sarabun', sans-serif;
+}
+.form-control:focus, .form-select:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+
+/* ── Modal ── */
+.modal-header { border-bottom: 1px solid #f1f3f5; padding: 18px 24px; }
+.modal-footer { border-top: 1px solid #f1f3f5; padding: 14px 24px; }
+.modal-title  { font-size: 17px; font-weight: 700; }
+.modal-body   { padding: 24px; }
+.modal-content { border-radius: 14px; border: none; }
+
+/* ── Buttons ── */
+.btn-primary  { background: #2563eb; border-color: #2563eb; font-weight: 600; }
+.btn-primary:hover { background: #1d4ed8; border-color: #1d4ed8; }
+.btn-sm { font-size: 13px; padding: 5px 12px; }
+.btn-icon { width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; }
+
+/* ── Misc ── */
+.empty-state { text-align: center; padding: 60px 20px; color: #9ca3af; }
+.empty-state i { font-size: 42px; margin-bottom: 12px; display: block; }
+.empty-state p { margin: 0; font-size: 15px; }
+.search-box { position: relative; }
+.search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 13px; }
+.search-box input { padding-left: 34px; }
+
+/* ── Order item rows ── */
+.items-table { width: 100%; border-collapse: collapse; }
+.items-table th { font-size: 12px; color: #6b7280; font-weight: 600; padding: 8px 10px; background: #f8f9fa; border: 1px solid #e8ecf0; }
+.items-table td { padding: 7px 8px; border: 1px solid #e8ecf0; font-size: 14px; vertical-align: middle; }
+.items-table td input, .items-table td select {
+  border: none; background: transparent; font-family: 'Sarabun',sans-serif;
+  font-size: 14px; width: 100%; padding: 2px 4px;
+}
+.items-table td input:focus, .items-table td select:focus { outline: 1px solid #2563eb; border-radius: 4px; background: #f0f7ff; }
+
+/* ── Total box ── */
+.total-box { background: #f8f9fa; border-radius: 10px; padding: 14px 18px; }
+.total-row { display: flex; justify-content: space-between; font-size: 14px; padding: 3px 0; color: #374151; }
+.total-row.grand { font-size: 18px; font-weight: 700; color: #1a2332; border-top: 1px solid #e8ecf0; margin-top: 8px; padding-top: 10px; }
+
+/* ── Customer price badge ── */
+.price-custom { background: #dbeafe; color: #1e40af; font-size: 11px; padding: 2px 7px; border-radius: 20px; font-weight: 600; }
+
+/* ── Today highlight ── */
+.today-card { background: linear-gradient(135deg,#1e3a5f,#2563eb); color: #fff; border-radius: 14px; padding: 20px 24px; }
+.today-card h3 { font-size: 15px; font-weight: 700; margin: 0 0 14px; opacity: .85; }
+.today-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.12); font-size: 14px; }
+.today-item:last-child { border-bottom: none; }
+
+/* ── Scrollable ── */
+.table-scroll { overflow-x: auto; }
+
+/* ── Print ── */
+@media print {
+  #sidebar, #main, #topbar, #modal-container { display: none !important; }
+  #print-area { display: block !important; }
+  body { background: #fff; }
+  @page { size: A5 portrait; margin: 8mm 10mm; }
+
+  /* บังคับให้สีและ background พิมพ์ออกมาครบ ไม่ซีด */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
+
+  /* ซ่อน toast และ modal backdrop ตอนปริ้น */
+  .toast-notif, .modal-backdrop, .modal { display: none !important; }
+}
+#print-area { display: none; }
+
+/* ── Receipt design — clean black & white ── */
+.inv-page { font-family: 'Sarabun', sans-serif; color: #000; background: #fff; max-width: 680px; margin: 0 auto; }
+.inv-header { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid #000; margin-bottom: 12px; }
+.inv-company h1 { font-size: 18px; font-weight: 800; color: #000; margin: 0 0 3px; }
+.inv-company p  { font-size: 11px; color: #333; margin: 2px 0; }
+.inv-doc-info { text-align: right; }
+.inv-doc-info .doc-type { font-size: 20px; font-weight: 800; color: #000; margin-bottom: 4px; }
+.inv-doc-info table { margin-left: auto; font-size: 11px; }
+.inv-doc-info td { padding: 1px 4px; color: #000; }
+.inv-doc-info td:first-child { color: #555; padding-right: 8px; }
+.inv-doc-info td:last-child { font-weight: 700; }
+.inv-parties { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+.inv-party { background: #fff; border: 1px solid #ccc; border-radius: 4px; padding: 8px 12px; }
+.inv-party h3 { font-size: 9px; text-transform: uppercase; color: #555; margin: 0 0 4px; letter-spacing: 1px; border-bottom: 1px solid #ddd; padding-bottom: 3px; }
+.inv-party p  { font-size: 12px; margin: 1px 0; color: #000; }
+.inv-items table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
+.inv-items th { background: #fff; color: #000; font-size: 11px; font-weight: 700; padding: 6px 10px; border-top: 2px solid #000; border-bottom: 1px solid #000; }
+.inv-items td { padding: 6px 10px; border-bottom: 1px solid #ddd; font-size: 12px; color: #000; background: #fff; }
+.inv-totals { display: flex; justify-content: flex-end; margin-bottom: 12px; }
+.inv-totals table { font-size: 12px; min-width: 220px; border-top: 1px solid #ccc; }
+.inv-totals td { padding: 3px 8px; color: #000; }
+.inv-totals .grand-row td { font-size: 15px; font-weight: 800; border-top: 2px solid #000; padding-top: 6px; }
+.inv-notes { font-size: 11px; color: #333; border: 1px solid #ccc; padding: 8px 12px; border-radius: 4px; margin-bottom: 12px; background: #fff; }
+.inv-sig { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 24px; }
+.inv-sig-box { text-align: center; }
+.inv-sig-box .sig-line { border-top: 1px solid #000; margin-top: 36px; padding-top: 5px; font-size: 11px; color: #333; }
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  #sidebar { width: 58px; }
+  #sidebar .brand .biz-name, #sidebar .brand .biz-sub, #sidebar .nav-link span, #sidebar .nav-section { display: none; }
+  #main { margin-left: 58px; }
+  #page-content { padding: 14px; }
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="brand">
+    <div class="d-flex align-items-center gap-2">
+      <div style="width:32px;height:32px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🪦</div>
+      <div>
+        <div class="biz-name" id="sidebarBizName">ขายส่งโลงศพ</div>
+        <div class="biz-sub">ระบบหลังบ้าน</div>
+      </div>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-section">เมนูหลัก</div>
+    <button class="nav-link active" data-page="dashboard" onclick="navigate('dashboard')"><i class="fa-solid fa-chart-pie"></i><span>Dashboard</span></button>
+    <button class="nav-link" data-page="orders" onclick="navigate('orders')"><i class="fa-solid fa-clock-rotate-left"></i><span>ประวัติออเดอร์</span></button>
+    <button class="nav-link" data-page="invoices" onclick="navigate('invoices')"><i class="fa-solid fa-file-invoice"></i><span>ใบเสร็จรับเงิน</span></button>
+    <div class="nav-section">ข้อมูลหลัก</div>
+    <button class="nav-link" data-page="customers" onclick="navigate('customers')"><i class="fa-solid fa-users"></i><span>ลูกค้า</span></button>
+    <button class="nav-link" data-page="products" onclick="navigate('products')"><i class="fa-solid fa-box"></i><span>สินค้า</span></button>
+    <div class="nav-section">วิเคราะห์</div>
+    <button class="nav-link" data-page="reports" onclick="navigate('reports')"><i class="fa-solid fa-chart-bar"></i><span>รายงาน</span></button>
+    <button class="nav-link" data-page="expenses" onclick="navigate('expenses')"><i class="fa-solid fa-money-bill-wave"></i><span>รายจ่ายโรงงาน</span></button>
+    <div class="nav-section">ตั้งค่า</div>
+    <button class="nav-link" data-page="settings" onclick="navigate('settings')"><i class="fa-solid fa-gear"></i><span>ตั้งค่าร้าน</span></button>
+  </nav>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <h1 id="pageTitle">Dashboard</h1>
+    <div id="topbarActions"></div>
+  </div>
+  <div id="page-content">
+    <div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>กำลังโหลด...</p></div>
+  </div>
+</div>
+
+<div id="print-area"></div>
+<div id="modal-container"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+'use strict';
+// ═══════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════
+const CFG = {
+  dbName: 'CoffinBizDB', dbVersion: 4,
+  businessName: 'ร้านขายส่งโลงศพ',
+  businessAddress: '', businessPhone: '', businessTaxId: '',
+};
+
+// ═══════════════════════════════════════
+//  DATABASE (IndexedDB)
+// ═══════════════════════════════════════
+const DB = {
+  _db: null,
+  init() {
+    return new Promise((res, rej) => {
+      const req = indexedDB.open(CFG.dbName, CFG.dbVersion);
+      req.onupgradeneeded = e => {
+        const db = e.target.result;
+        const stores = [
+          ['customers', { keyPath:'id', autoIncrement:true }],
+          ['products',  { keyPath:'id', autoIncrement:true }],
+          ['orders',    { keyPath:'id', autoIncrement:true }],
+          ['invoices',  { keyPath:'id', autoIncrement:true }],
+          ['settings',  { keyPath:'key' }],
+          ['expenses',  { keyPath:'id', autoIncrement:true }],
+        ];
+        stores.forEach(([name, opts]) => {
+          if (!db.objectStoreNames.contains(name)) db.createObjectStore(name, opts);
+        });
+      };
+      req.onsuccess = e => { this._db = e.target.result; res(); };
+      req.onerror   = e => rej(e.target.error);
+    });
+  },
+  _tx(store, mode='readonly') { return this._db.transaction(store, mode).objectStore(store); },
+  _p(req) { return new Promise((res,rej) => { req.onsuccess=()=>res(req.result); req.onerror=e=>rej(e.target.error); }); },
+  _all(s)      { return this._p(this._tx(s).getAll()); },
+  _get(s,id)   { return this._p(this._tx(s).get(id)); },
+  _add(s,d)    { return this._p(this._tx(s,'readwrite').add({...d,createdAt:d.createdAt||Date.now()})); },
+  _put(s,d)    { return this._p(this._tx(s,'readwrite').put(d)); },
+  _del(s,id)   { return this._p(this._tx(s,'readwrite').delete(id)); },
+
+  getCustomers()  { return this._all('customers'); },
+  getCustomer(id) { return this._get('customers',id); },
+  addCustomer(d)  { return this._add('customers',d); },
+  putCustomer(d)  { return this._put('customers',d); },
+  delCustomer(id) { return this._del('customers',id); },
+
+  getProducts()   { return this._all('products'); },
+  getProduct(id)  { return this._get('products',id); },
+  addProduct(d)   { return this._add('products',d); },
+  putProduct(d)   { return this._put('products',d); },
+  delProduct(id)  { return this._del('products',id); },
+
+  getOrders()     { return this._all('orders'); },
+  getOrder(id)    { return this._get('orders',id); },
+  addOrder(d)     { return this._add('orders',d); },
+  putOrder(d)     { return this._put('orders',d); },
+  delOrder(id)    { return this._del('orders',id); },
+
+  getInvoices()   { return this._all('invoices'); },
+  getInvoice(id)  { return this._get('invoices',id); },
+  addInvoice(d)   { return this._add('invoices',d); },
+  putInvoice(d)   { return this._put('invoices',d); },
+  delInvoice(id)  { return this._del('invoices',id); },
+
+  async getSetting(key)   { const r=await this._get('settings',key); return r?r.value:null; },
+  setSetting(key,value)   { return this._put('settings',{key,value}); },
+  async loadSettings() {
+    for (const k of ['businessName','businessAddress','businessPhone','businessTaxId']) {
+      const v = await this.getSetting(k); if (v!==null) CFG[k]=v;
+    }
+  },
+  async nextOrderNo() {
+    const all = await this.getOrders();
+    const yr  = new Date().getFullYear()+543;
+    return `ORD-${yr}-${String(all.length+1).padStart(4,'0')}`;
+  },
+  async nextReceiptNo() {
+    const all = await this.getInvoices();
+    const yr  = new Date().getFullYear()+543;
+    return `RC-${yr}-${String(all.length+1).padStart(4,'0')}`;
+  },
+  // Get customer's price for a product (custom or default)
+  async getEffectivePrice(customerId, productId, defaultPrice) {
+    const c = await this.getCustomer(customerId);
+    if (c?.customPrices?.[productId] !== undefined) return c.customPrices[productId];
+    return defaultPrice;
+  },
+  // Expenses
+  getExpenses()    { return this._all('expenses'); },
+  getExpense(id)   { return this._get('expenses', id); },
+  addExpense(d)    { return this._add('expenses', d); },
+  putExpense(d)    { return this._put('expenses', d); },
+  delExpense(id)   { return this._del('expenses', id); },
+};
+
+// ═══════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════
+const U = {
+  money(n)  { return Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); },
+  date(ts)  { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}); },
+  datetime(ts) { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); },
+  dateInput(ts) { if(!ts)return''; return new Date(ts).toISOString().split('T')[0]; },
+  esc(s)    { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); },
+  orderTotal(o) {
+    const sub=(o.items||[]).reduce((a,i)=>a+(i.qty*i.price),0);
+    return sub-(o.discount||0);
+  },
+  invTotal(inv) {
+    const sub=(inv.items||[]).reduce((a,i)=>a+(i.qty*i.price),0);
+    const disc=inv.discount||0;
+    const base=sub-disc;
+    const tax=inv.taxRate?base*inv.taxRate/100:0;
+    return {sub,disc,base,tax,total:base+tax};
+  },
+  isToday(ts) {
+    const d=new Date(ts), n=new Date();
+    return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate();
+  },
+  toast(msg,type='success') {
+    const el=document.createElement('div');
+    el.className='toast-notif';
+    el.style.cssText='position:fixed;bottom:24px;right:24px;z-index:9999;min-width:240px;';
+    el.innerHTML=`<div class="alert alert-${type==='success'?'success':'danger'} shadow-sm d-flex align-items-center gap-2" style="border-radius:10px;font-size:14px;">
+      <i class="fa-solid ${type==='success'?'fa-circle-check':'fa-circle-xmark'}"></i>${msg}</div>`;
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),3000);
+  },
+};
+
+// ═══════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════
+const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน' };
+
+function navigate(page) {
+  document.querySelectorAll('#sidebar .nav-link').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
+  document.getElementById('pageTitle').textContent=PAGE_TITLES[page]||page;
+  document.getElementById('topbarActions').innerHTML='';
+  const el=document.getElementById('page-content');
+  el.innerHTML='<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>กำลังโหลด...</p></div>';
+  ({dashboard:renderDashboard,orders:renderOrders,invoices:renderInvoices,customers:renderCustomers,products:renderProducts,reports:renderReports,expenses:renderExpenses,settings:renderSettings}[page]||((el)=>{el.innerHTML='<div class="empty-state"><p>ไม่พบหน้านี้</p></div>';}))(el);
+}
+
+// ═══════════════════════════════════════
+//  MODAL HELPERS
+// ═══════════════════════════════════════
+function showModal(id,title,body,footer,size='') {
+  const old=document.getElementById(id); if(old)old.remove();
+  const div=document.createElement('div');
+  div.className='modal fade'; div.id=id; div.tabIndex=-1;
+  div.innerHTML=`<div class="modal-dialog ${size} modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">${title}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">${body}</div>
+    <div class="modal-footer">${footer}</div>
+  </div></div>`;
+  document.getElementById('modal-container').appendChild(div);
+  const m=new bootstrap.Modal(div);
+  div.addEventListener('hidden.bs.modal',()=>{m.dispose();div.remove();});
+  m.show(); return m;
+}
+function closeModal(id) { const el=document.getElementById(id); if(el){try{bootstrap.Modal.getInstance(el)?.hide();}catch(e){}el.remove();} }
+
+// ═══════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════
+async function renderDashboard(el) {
+  const [orders, invoices, customers] = await Promise.all([DB.getOrders(), DB.getInvoices(), DB.getCustomers()]);
+  const now = new Date(); now.setHours(0,0,0,0);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const todayOrders  = orders.filter(o=>U.isToday(o.createdAt));
+  const monthIncome  = invoices.filter(i=>i.createdAt>=monthStart).reduce((a,i)=>a+U.invTotal(i).total,0);
+
+  // รวมสินค้าวันนี้ทั้งหมด
+  const todayItems = {};
+  todayOrders.forEach(o=>(o.items||[]).forEach(i=>{
+    todayItems[i.productName]=(todayItems[i.productName]||0)+i.qty;
+  }));
+
+  // แยกรายลูกค้าวันนี้
+  const custTodayMap = {};
+  todayOrders.forEach(o=>{
+    if (!custTodayMap[o.customerId]) custTodayMap[o.customerId]={name:o.customerName,items:{},total:0};
+    (o.items||[]).forEach(i=>{
+      const key=i.productName+(i.color?' ('+i.color+')':'')+(i.trimColor?' เส้น'+i.trimColor:'');
+      custTodayMap[o.customerId].items[key]=(custTodayMap[o.customerId].items[key]||0)+i.qty;
+    });
+    custTodayMap[o.customerId].total+=U.orderTotal(o);
+  });
+  const custTodayList=Object.values(custTodayMap);
+
+  el.innerHTML=`
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
+      <div class="icon-wrap" style="background:#dbeafe;color:#2563eb;"><i class="fa-solid fa-cart-plus"></i></div>
+      <div><div class="label">ออเดอร์วันนี้</div><div class="value">${todayOrders.length}</div><div class="sub">รายการ</div></div>
+    </div></div>
+    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
+      <div class="icon-wrap" style="background:#d1fae5;color:#059669;"><i class="fa-solid fa-baht-sign"></i></div>
+      <div><div class="label">ยอดรับเงินเดือนนี้</div><div class="value" style="font-size:20px;">฿${U.money(monthIncome)}</div><div class="sub">จากใบเสร็จ</div></div>
+    </div></div>
+    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
+      <div class="icon-wrap" style="background:#ede9fe;color:#7c3aed;"><i class="fa-solid fa-users"></i></div>
+      <div><div class="label">ลูกค้าทั้งหมด</div><div class="value">${customers.length}</div><div class="sub">ราย</div></div>
+    </div></div>
+    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
+      <div class="icon-wrap" style="background:#fef3c7;color:#d97706;"><i class="fa-solid fa-file-invoice"></i></div>
+      <div><div class="label">ออเดอร์ทั้งหมด</div><div class="value">${orders.length}</div><div class="sub">รายการ</div></div>
+    </div></div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <!-- สรุปยอดวันนี้ทั้งหมด -->
+    <div class="col-xl-3">
+      <div class="today-card" style="height:100%;">
+        <h3><i class="fa-solid fa-sun me-2"></i>${new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'})}</h3>
+        ${Object.keys(todayItems).length ? Object.entries(todayItems).map(([name,qty])=>`
+          <div class="today-item"><span>${U.esc(name)}</span><strong>${qty} ชิ้น</strong></div>`).join('')
+          : '<div style="opacity:.6;font-size:13px;text-align:center;padding:12px 0;">ยังไม่มีออเดอร์วันนี้</div>'}
+        ${Object.keys(todayItems).length ? `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;font-size:13px;opacity:.8;">รวม ${Object.values(todayItems).reduce((a,v)=>a+v,0)} ชิ้น</div>` : ''}
+      </div>
+    </div>
+
+    <!-- แยกรายลูกค้าวันนี้ -->
+    <div class="col-xl-9">
+      <div class="card-box" style="height:100%;">
+        <div class="card-head">
+          <h2><i class="fa-solid fa-users me-2 text-primary"></i>ใครสั่งอะไรบ้างวันนี้ — แยกรายลูกค้า</h2>
+          <button class="btn btn-primary btn-sm" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>
+        </div>
+        ${custTodayList.length ? `
+        <div class="table-scroll">
+          <table class="table-clean">
+            <thead><tr><th>ลูกค้า</th><th>รายการสินค้า (จำนวน)</th><th style="text-align:right;">ยอดรวม</th><th></th></tr></thead>
+            <tbody>
+              ${custTodayList.map(c=>`
+              <tr>
+                <td><strong style="font-size:15px;">${U.esc(c.name)}</strong></td>
+                <td>
+                  ${Object.entries(c.items).map(([name,qty])=>
+                    `<span style="display:inline-block;background:#f1f5f9;border-radius:5px;padding:3px 9px;font-size:13px;margin:2px;">${U.esc(name)} <strong>×${qty}</strong></span>`
+                  ).join('')}
+                </td>
+                <td style="text-align:right;font-weight:700;white-space:nowrap;font-size:15px;">฿${U.money(c.total)}</td>
+                <td>
+                  <button class="btn btn-sm btn-outline-primary" onclick="showCreateReceiptModal(null,'${encodeURIComponent(c.name)}')" title="ออกบิลลูกค้านี้">
+                    <i class="fa-solid fa-file-invoice me-1"></i>ออกบิล
+                  </button>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` : '<div class="empty-state" style="padding:30px"><i class="fa-solid fa-moon"></i><p>ยังไม่มีออเดอร์วันนี้</p></div>'}
+      </div>
+    </div>
+  </div>
+
+  <!-- ออเดอร์ล่าสุด -->
+  <div class="card-box">
+    <div class="card-head">
+      <h2><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>ออเดอร์ล่าสุด</h2>
+      <a href="#" onclick="navigate('orders');return false;" style="font-size:13px;">ดูทั้งหมด →</a>
+    </div>
+    <div class="table-scroll">
+      <table class="table-clean">
+        <thead><tr><th>วันที่/เวลา</th><th>ลูกค้า</th><th>รายการ</th><th>ยอดรวม</th><th></th></tr></thead>
+        <tbody>
+          ${[...orders].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6).map(o=>`
+          <tr>
+            <td style="white-space:nowrap;font-size:13px;">${U.datetime(o.createdAt)}</td>
+            <td><strong>${U.esc(o.customerName||'-')}</strong></td>
+            <td style="max-width:240px;font-size:12px;color:#6b7280;">
+              ${(o.items||[]).map(i=>U.esc(i.productName+(i.color?' '+i.color:'')+(i.trimColor?' เส้น'+i.trimColor:''))+' ×'+i.qty).join(' · ')||'-'}
+            </td>
+            <td style="font-weight:600;">฿${U.money(U.orderTotal(o))}</td>
+            <td><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal(${o.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
+          </tr>`).join('')||`<tr><td colspan="5"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-inbox"></i><p>ยังไม่มีออเดอร์</p></div></td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════
+//  ORDERS — ประวัติการสั่งของ
+// ═══════════════════════════════════════
+async function renderOrders(el) {
+  document.getElementById('topbarActions').innerHTML =
+    `<button class="btn btn-primary" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>`;
+
+  const [orders, customers] = await Promise.all([DB.getOrders(), DB.getCustomers()]);
+  const sorted = [...orders].sort((a,b)=>b.createdAt-a.createdAt);
+  const custOpts = customers.map(c=>`<option value="${c.id}">${U.esc(c.name)}</option>`).join('');
+
+  el.innerHTML=`
+  <div class="card-box">
+    <div class="card-head">
+      <h2><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>ประวัติออเดอร์ทั้งหมด</h2>
+      <div class="d-flex gap-2 flex-wrap">
+        <select class="form-select form-select-sm" id="filterCust" style="width:auto;min-width:160px;" onchange="applyOrderFilter()">
+          <option value="">ลูกค้าทุกราย</option>${custOpts}
+        </select>
+        <input type="date" class="form-control form-control-sm" id="filterDate" onchange="applyOrderFilter()" style="width:auto;">
+        <div class="search-box"><i class="fa-solid fa-search"></i>
+          <input type="text" class="form-control form-control-sm" id="filterSearch" placeholder="ค้นหา..." style="min-width:160px;" oninput="applyOrderFilter()">
+        </div>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="table-clean">
+        <thead><tr>
+          <th>วันที่ / เวลา</th><th>เลขออเดอร์</th><th>ลูกค้า</th>
+          <th>รายการสินค้า</th><th>ยอดรวม</th><th>หมายเหตุ</th><th></th>
+        </tr></thead>
+        <tbody id="ordersTbody">${renderOrderRows(sorted)}</tbody>
+      </table>
+    </div>
+  </div>`;
+  window._allOrders = sorted;
+}
+
+function renderOrderRows(list) {
+  if (!list.length) return `<tr><td colspan="7"><div class="empty-state" style="padding:30px"><i class="fa-solid fa-inbox"></i><p>ไม่มีออเดอร์</p></div></td></tr>`;
+  return list.map(o=>`
+  <tr>
+    <td style="white-space:nowrap;font-size:13px;">${U.datetime(o.createdAt)}</td>
+    <td><code style="background:#f3f4f6;padding:2px 7px;border-radius:4px;font-size:12px;">${U.esc(o.orderNo)}</code></td>
+    <td><strong>${U.esc(o.customerName||'-')}</strong></td>
+    <td style="max-width:260px;">
+      ${(o.items||[]).map(i=>{
+        const label=U.esc(i.productName)+(i.color?` <span style="background:${i.color==='แดง'?'#fee2e2':'#f1f5f9'};border-radius:3px;padding:1px 5px;font-size:11px;">${U.esc(i.color)}</span>`:'')+(i.trimColor?` <span style="background:#fef9c3;border-radius:3px;padding:1px 5px;font-size:11px;">เส้น${U.esc(i.trimColor)}</span>`:'')+(i.specialNote?` <em style="color:#9ca3af;font-size:11px;">${U.esc(i.specialNote)}</em>`:'');
+        return `<span style="display:inline-block;background:#f1f5f9;border-radius:4px;padding:2px 8px;font-size:12px;margin:2px 2px 2px 0;">${label} ×${i.qty}</span>`;
+      }).join('')||'-'}
+    </td>
+    <td style="font-weight:700;white-space:nowrap;">฿${U.money(U.orderTotal(o))}</td>
+    <td style="max-width:140px;color:#6b7280;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${U.esc(o.notes||'-')}</td>
+    <td class="d-flex gap-1">
+      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showEditOrderModal(${o.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+      <button class="btn btn-sm btn-outline-success btn-icon" onclick="showAddItemsModal(${o.id})" title="เพิ่มรายการ"><i class="fa-solid fa-plus"></i></button>
+      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteOrder(${o.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+    </td>
+  </tr>`).join('');
+}
+
+function applyOrderFilter() {
+  const custId  = document.getElementById('filterCust')?.value||'';
+  const date    = document.getElementById('filterDate')?.value||'';
+  const search  = (document.getElementById('filterSearch')?.value||'').toLowerCase();
+  let list = window._allOrders||[];
+  if (custId)  list = list.filter(o=>String(o.customerId)===custId);
+  if (date)    list = list.filter(o=>new Date(o.createdAt).toISOString().startsWith(date));
+  if (search)  list = list.filter(o=>o.orderNo?.toLowerCase().includes(search)||o.customerName?.toLowerCase().includes(search)||(o.items||[]).some(i=>i.productName?.toLowerCase().includes(search)));
+  document.getElementById('ordersTbody').innerHTML = renderOrderRows(list);
+}
+
+// ── เพิ่มรายการใหม่เข้าออเดอร์เดิม ──
+async function showAddItemsModal(orderId) {
+  const [order, products, customers] = await Promise.all([DB.getOrder(orderId), DB.getProducts(), DB.getCustomers()]);
+  if (!order) return;
+  window._addItemsOrder   = order;
+  window._addItemsProducts= products;
+  window._addItemsCustId  = order.customerId;
+  window._addItemsIdx     = 0;
+
+  const body=`
+    <p style="color:#6b7280;font-size:13px;">ออเดอร์ <strong>${U.esc(order.orderNo)}</strong> — ลูกค้า: <strong>${U.esc(order.customerName)}</strong></p>
+    <p style="font-size:13px;color:#374151;">รายการเดิม: ${(order.items||[]).map(i=>`${U.esc(i.productName)} ×${i.qty}`).join(', ')||'ไม่มี'}</p>
+    <hr>
+    <p class="form-label">เพิ่มรายการใหม่</p>
+    <table class="items-table w-100">
+      <thead><tr><th style="width:42%">สินค้า</th><th style="width:14%">จำนวน</th><th style="width:22%">ราคา/ชิ้น</th><th style="width:16%">รวม</th><th style="width:6%"></th></tr></thead>
+      <tbody id="addItemsBody">${addItemRow(0, order.customerId, products)}</tbody>
+    </table>
+    <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="appendAddItemRow()"><i class="fa-solid fa-plus me-1"></i>เพิ่มบรรทัด</button>
+    <div class="total-box mt-3 d-flex justify-content-end">
+      <div><div class="total-row grand"><span>รวมที่เพิ่ม</span><span id="addItemTotal">฿0.00</span></div></div>
+    </div>
+    <div class="mt-3">
+      <label class="form-label">หมายเหตุ (ถ้ามี)</label>
+      <input type="text" class="form-control" id="addItemNotes" placeholder="เช่น ชื่อช่าง, หมายเหตุเพิ่มเติม">
+    </div>`;
+
+  window._addItemsIdx=1;
+  showModal('addItemsModal',`เพิ่มรายการเข้าออเดอร์ ${U.esc(order.orderNo)}`,body,
+    `<button class="btn btn-primary" onclick="saveAddItems(${orderId})"><i class="fa-solid fa-plus me-1"></i>เพิ่มรายการ</button>
+     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,'modal-lg');
+}
+
+function addItemRow(i, custId, products) {
+  const opts=(products||window._addItemsProducts||[]).map(p=>`<option value="${p.id}" data-price="${p.price}" data-name="${U.esc(p.name)}">${U.esc(p.name)}</option>`).join('');
+  return `<tr id="airow_${i}">
+    <td><select class="form-select form-select-sm" onchange="onAddItemProdChange(this,${i},${custId})" id="aiprod_${i}">
+      <option value="">-- เลือกสินค้า --</option>${opts}</select></td>
+    <td><input type="number" class="form-control form-control-sm" id="aiqty_${i}" value="1" min="1" oninput="updateAddItemTotal()"></td>
+    <td><input type="number" class="form-control form-control-sm" id="aiprice_${i}" value="0" min="0" oninput="updateAddItemTotal()"></td>
+    <td><span id="aitotal_${i}" style="font-size:13px;font-weight:600;">฿0.00</span></td>
+    <td><button type="button" class="btn btn-sm btn-outline-danger btn-icon" onclick="document.getElementById('airow_${i}').remove();updateAddItemTotal()"><i class="fa-solid fa-trash"></i></button></td>
+  </tr>`;
+}
+
+function appendAddItemRow() {
+  const i=window._addItemsIdx++;
+  document.getElementById('addItemsBody').insertAdjacentHTML('beforeend',addItemRow(i,window._addItemsCustId,window._addItemsProducts));
+}
+
+async function onAddItemProdChange(sel,i,custId) {
+  const opt=sel.options[sel.selectedIndex];
+  const prodId=parseInt(sel.value);
+  if (!prodId) return;
+  const defaultPrice=parseFloat(opt.dataset.price||0);
+  const price=await DB.getEffectivePrice(custId,prodId,defaultPrice);
+  const priceEl=document.getElementById(`aiprice_${i}`);
+  if (priceEl) priceEl.value=price;
+  updateAddItemTotal();
+}
+
+function updateAddItemTotal() {
+  let sum=0;
+  document.querySelectorAll('#addItemsBody tr').forEach(row=>{
+    const m=row.id?.match(/airow_(\d+)/); if(!m)return;
+    const i=m[1];
+    const qty=parseFloat(document.getElementById(`aiqty_${i}`)?.value||0);
+    const pr=parseFloat(document.getElementById(`aiprice_${i}`)?.value||0);
+    const t=qty*pr;
+    const tel=document.getElementById(`aitotal_${i}`); if(tel)tel.textContent='฿'+U.money(t);
+    sum+=t;
+  });
+  const el=document.getElementById('addItemTotal'); if(el)el.textContent='฿'+U.money(sum);
+}
+
+async function saveAddItems(orderId) {
+  const order=await DB.getOrder(orderId); if(!order)return;
+  const newItems=[];
+  document.querySelectorAll('#addItemsBody tr').forEach(row=>{
+    const m=row.id?.match(/airow_(\d+)/); if(!m)return;
+    const i=m[1];
+    const sel=document.getElementById(`aiprod_${i}`);
+    const prodId=parseInt(sel?.value||0); if(!prodId)return;
+    const opt=sel.options[sel.selectedIndex];
+    const qty=parseFloat(document.getElementById(`aiqty_${i}`)?.value||1);
+    const price=parseFloat(document.getElementById(`aiprice_${i}`)?.value||0);
+    const productName=opt.dataset.name||opt.text||'';
+    // Merge with existing item of same product if exists
+    const existingIdx=(order.items||[]).findIndex(x=>x.productId===prodId);
+    if (existingIdx>=0) {
+      order.items[existingIdx].qty+=qty;
+    } else {
+      newItems.push({productId:prodId,productName,qty,price});
+    }
+  });
+  if (!newItems.length && !document.querySelectorAll('#addItemsBody tr').length) {
+    U.toast('กรุณาเพิ่มรายการสินค้า','error'); return;
+  }
+  const extraNotes=document.getElementById('addItemNotes')?.value.trim();
+  order.items=[...(order.items||[]),...newItems];
+  if (extraNotes) order.notes=(order.notes?order.notes+' | ':'')+extraNotes;
+  await DB.putOrder(order);
+  U.toast('เพิ่มรายการเข้าออเดอร์แล้ว ✓');
+  closeModal('addItemsModal');
+  navigate('orders');
+}
+
+// ── สร้างออเดอร์ใหม่ / แก้ไข ──
+async function showCreateOrderModal(editId) {
+  const [customers, products] = await Promise.all([DB.getCustomers(), DB.getProducts()]);
+  const edit = editId ? await DB.getOrder(editId) : null;
+
+  window._orderProds  = products;
+  window._orderCustId = edit?.customerId||null;
+  window._orderItemIdx= edit ? (edit.items||[]).length : 1;
+
+  const custOpts=customers.map(c=>`<option value="${c.id}" ${edit?.customerId===c.id?'selected':''}>${U.esc(c.name)}</option>`).join('');
+  const initItems=edit?.items||[{productId:'',productName:'',qty:1,price:0}];
+
+  const body=`<form class="row g-3" id="orderForm">
+    <div class="col-sm-7">
+      <label class="form-label">ลูกค้า <span class="text-danger">*</span></label>
+      <select class="form-select" id="of_cust" required onchange="onOrderCustChange(this)">
+        <option value="">-- เลือกลูกค้า --</option>${custOpts}
+      </select>
+    </div>
+    <div class="col-sm-5">
+      <label class="form-label">วันที่รับออเดอร์</label>
+      <input type="date" class="form-control" id="of_date" value="${edit?U.dateInput(edit.createdAt):new Date().toISOString().split('T')[0]}">
+    </div>
+    <div class="col-12">
+      <label class="form-label">รายการสินค้า <span style="font-size:12px;color:#9ca3af;font-weight:400;">(เลือกสี + สีเส้น + หมายเหตุพิเศษได้)</span></label>
+      <table class="items-table w-100">
+        <thead><tr><th style="width:40%">สินค้า / สี / เส้น</th><th style="width:12%">จำนวน</th><th style="width:18%">ราคา/ชิ้น</th><th style="width:16%">รวม</th><th style="width:14%"></th></tr></thead>
+        <tbody id="orderItemsBody">
+          ${initItems.map((item,i)=>orderItemRow(i,products,item,edit?.customerId)).join('')}
+        </tbody>
+      </table>
+      <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addOrderItemRow()"><i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้า</button>
+    </div>
+    <div class="col-sm-6">
+      <label class="form-label">ส่วนลด (บาท)</label>
+      <input type="number" class="form-control" id="of_discount" min="0" value="${edit?.discount||0}" oninput="calcOrderTotal()">
+    </div>
+    <div class="col-sm-6">
+      <label class="form-label">หมายเหตุ (เช่น ชื่อช่าง, หมายเหตุพิเศษ)</label>
+      <input type="text" class="form-control" id="of_notes" placeholder="หมายเหตุ..." value="${U.esc(edit?.notes||'')}">
+    </div>
+    <div class="col-12">
+      <div class="total-box d-flex justify-content-end">
+        <table style="min-width:240px;font-size:14px;">
+          <tr><td style="padding:3px 8px;color:#6b7280;">ยอดก่อนส่วนลด</td><td id="os_sub" style="text-align:right;font-weight:600;">฿0.00</td></tr>
+          <tr><td style="padding:3px 8px;color:#6b7280;">ส่วนลด</td><td id="os_disc" style="text-align:right;">฿0.00</td></tr>
+          <tr style="border-top:2px solid #1a2332;"><td style="padding:8px;font-weight:700;font-size:16px;">รวมทั้งสิ้น</td><td id="os_total" style="text-align:right;font-weight:700;font-size:16px;">฿0.00</td></tr>
+        </table>
+      </div>
+    </div>
+    <input type="hidden" id="of_editId" value="${edit?.id||''}">
+  </form>`;
+
+  showModal('orderModal', edit?`แก้ไขออเดอร์ ${U.esc(edit.orderNo)}`:'รับออเดอร์ใหม่', body,
+    `<button class="btn btn-primary" onclick="saveOrder()"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึก</button>
+     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,
+    'modal-lg');
+
+  calcOrderTotal();
+}
+
+async function showEditOrderModal(id) { await showCreateOrderModal(id); }
+
+function orderItemRow(i, products, item={}, custId) {
+  const opts=(products||[]).map(p=>`<option value="${p.id}" data-price="${p.price}" data-name="${U.esc(p.name)}" ${item.productId==p.id?'selected':''}>${U.esc(p.name)}</option>`).join('');
+  const colorVal   = item.color||'ขาว';
+  const trimVal    = item.trimColor||'ทอง';
+  const specialVal = U.esc(item.specialNote||'');
+  return `<tr id="oirow_${i}" style="vertical-align:top;">
+    <td style="min-width:140px;">
+      <select class="form-select form-select-sm" onchange="onOrderProdChange(this,${i})" id="oiprod_${i}">
+        <option value="">-- เลือกสินค้า --</option>${opts}
+      </select>
+      <div style="display:flex;gap:4px;margin-top:5px;">
+        <select class="form-select form-select-sm" id="oicolor_${i}" style="flex:1;" title="สีโลง">
+          <option value="ขาว" ${colorVal==='ขาว'?'selected':''}>⬜ ขาว</option>
+          <option value="แดง" ${colorVal==='แดง'?'selected':''}>🟥 แดง</option>
+        </select>
+        <select class="form-select form-select-sm" id="oitrim_${i}" style="flex:1;" title="สีเส้น">
+          <option value="ทอง"  ${trimVal==='ทอง'?'selected':''}>เส้นทอง</option>
+          <option value="เงิน" ${trimVal==='เงิน'?'selected':''}>เส้นเงิน</option>
+          <option value="ซีด"  ${trimVal==='ซีด'?'selected':''}>เส้นซีด</option>
+          <option value="ขาว"  ${trimVal==='ขาว'?'selected':''}>เส้นขาว</option>
+        </select>
+      </div>
+      <input type="text" class="form-control form-control-sm mt-1" id="oisp_${i}" value="${specialVal}" placeholder="หมายเหตุพิเศษ / ประเภทโลง...">
+    </td>
+    <td style="min-width:60px;"><input type="number" class="form-control form-control-sm" id="oiqty_${i}" value="${item.qty||1}" min="1" oninput="calcOrderTotal()"></td>
+    <td style="min-width:90px;"><input type="number" class="form-control form-control-sm" id="oiprice_${i}" value="${item.price||0}" min="0" oninput="calcOrderTotal()"></td>
+    <td style="min-width:80px;"><span id="oitotal_${i}" style="font-size:13px;font-weight:600;">฿${U.money((item.qty||1)*(item.price||0))}</span></td>
+    <td><button type="button" class="btn btn-sm btn-outline-danger btn-icon" onclick="document.getElementById('oirow_${i}').remove();calcOrderTotal()"><i class="fa-solid fa-trash"></i></button></td>
+  </tr>`;
+}
+
+function addOrderItemRow() {
+  const i=window._orderItemIdx++;
+  document.getElementById('orderItemsBody').insertAdjacentHTML('beforeend',orderItemRow(i,window._orderProds||[]));
+}
+
+function onOrderCustChange(sel) {
+  window._orderCustId=parseInt(sel.value)||null;
+  // re-apply prices for all selected products
+  document.querySelectorAll('#orderItemsBody tr').forEach(row=>{
+    const m=row.id?.match(/oirow_(\d+)/); if(!m)return;
+    const prodSel=document.getElementById(`oiprod_${m[1]}`);
+    if (prodSel?.value) onOrderProdChange(prodSel,m[1]);
+  });
+}
+
+async function onOrderProdChange(sel,i) {
+  const opt=sel.options[sel.selectedIndex];
+  const prodId=parseInt(sel.value); if(!prodId)return;
+  const defaultPrice=parseFloat(opt.dataset.price||0);
+  let price=defaultPrice;
+  if (window._orderCustId) price=await DB.getEffectivePrice(window._orderCustId,prodId,defaultPrice);
+  const priceEl=document.getElementById(`oiprice_${i}`);
+  if (priceEl) priceEl.value=price;
+  calcOrderTotal();
+}
+
+function calcOrderTotal() {
+  let sub=0;
+  document.querySelectorAll('#orderItemsBody tr').forEach(row=>{
+    const m=row.id?.match(/oirow_(\d+)/); if(!m)return;
+    const i=m[1];
+    const qty=parseFloat(document.getElementById(`oiqty_${i}`)?.value||0);
+    const pr=parseFloat(document.getElementById(`oiprice_${i}`)?.value||0);
+    const t=qty*pr;
+    const tel=document.getElementById(`oitotal_${i}`); if(tel)tel.textContent='฿'+U.money(t);
+    sub+=t;
+  });
+  const disc=parseFloat(document.getElementById('of_discount')?.value||0);
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent='฿'+U.money(v);};
+  s('os_sub',sub); s('os_disc',disc); s('os_total',sub-disc);
+}
+
+async function saveOrder() {
+  const custId=parseInt(document.getElementById('of_cust')?.value||0);
+  if (!custId){U.toast('กรุณาเลือกลูกค้า','error');return;}
+  const cust=await DB.getCustomer(custId);
+
+  const items=[]; let anyItem=false;
+  document.querySelectorAll('#orderItemsBody tr').forEach(row=>{
+    const m=row.id?.match(/oirow_(\d+)/); if(!m)return;
+    const i=m[1];
+    const sel=document.getElementById(`oiprod_${i}`);
+    const prodId=parseInt(sel?.value||0); if(!prodId)return;
+    const opt=sel.options[sel.selectedIndex];
+    const qty=parseFloat(document.getElementById(`oiqty_${i}`)?.value||1);
+    const price=parseFloat(document.getElementById(`oiprice_${i}`)?.value||0);
+    const color      = document.getElementById(`oicolor_${i}`)?.value||'ขาว';
+    const trimColor  = document.getElementById(`oitrim_${i}`)?.value||'ทอง';
+    const specialNote= document.getElementById(`oisp_${i}`)?.value.trim()||'';
+    items.push({productId:prodId,productName:opt.dataset.name||opt.text,qty,price,color,trimColor,specialNote});
+    anyItem=true;
+  });
+  if (!anyItem){U.toast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','error');return;}
+
+  const editId=parseInt(document.getElementById('of_editId')?.value||0);
+  const dateStr=document.getElementById('of_date')?.value;
+  const createdAt=dateStr?new Date(dateStr).setHours(new Date().getHours(),new Date().getMinutes(),0,0):Date.now();
+
+  const data={
+    customerId:custId, customerName:cust?.name||'',
+    items,
+    discount:parseFloat(document.getElementById('of_discount')?.value||0),
+    notes:document.getElementById('of_notes')?.value.trim()||'',
+    createdAt,
+  };
+  if (editId) {
+    const old=await DB.getOrder(editId);
+    await DB.putOrder({...old,...data,id:editId});
+    U.toast('แก้ไขออเดอร์แล้ว ✓');
+  } else {
+    data.orderNo=await DB.nextOrderNo();
+    await DB.addOrder(data);
+    U.toast('บันทึกออเดอร์แล้ว ✓');
+  }
+  closeModal('orderModal');
+  navigate('orders');
+}
+
+async function deleteOrder(id) {
+  if (!confirm('ลบออเดอร์นี้?'))return;
+  await DB.delOrder(id); U.toast('ลบออเดอร์แล้ว');
+  navigate('orders');
+}
+
+// ═══════════════════════════════════════
+//  CUSTOMERS
+// ═══════════════════════════════════════
+async function renderCustomers(el) {
+  document.getElementById('topbarActions').innerHTML=
+    `<button class="btn btn-primary" onclick="showCustomerModal()"><i class="fa-solid fa-plus me-1"></i>เพิ่มลูกค้า</button>`;
+  const customers=(await DB.getCustomers()).sort((a,b)=>a.name.localeCompare(b.name,'th'));
+  el.innerHTML=`
+  <div class="card-box">
+    <div class="card-head">
+      <h2><i class="fa-solid fa-users me-2 text-primary"></i>รายชื่อลูกค้า (${customers.length} ราย)</h2>
+      <div class="search-box"><i class="fa-solid fa-search"></i>
+        <input type="text" class="form-control form-control-sm" placeholder="ค้นหาชื่อ / เบอร์..." style="min-width:200px;"
+          oninput="filterCustTable(this.value)">
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="table-clean">
+        <thead><tr><th>#</th><th>ชื่อลูกค้า / ร้านค้า</th><th>เบอร์โทร</th><th>ที่อยู่</th><th>ราคาพิเศษ</th><th></th></tr></thead>
+        <tbody id="custTbody">${customers.map((c,i)=>custRow(c,i)).join('')||emptyRow(6,'ยังไม่มีลูกค้า','fa-users-slash')}</tbody>
+      </table>
+    </div>
+  </div>`;
+  window._custData=customers;
+}
+
+function custRow(c,i) {
+  const customCount=Object.keys(c.customPrices||{}).length;
+  return `<tr>
+    <td style="color:#9ca3af;font-size:12px;">${i+1}</td>
+    <td><strong>${U.esc(c.name)}</strong></td>
+    <td>${U.esc(c.phone||'-')}</td>
+    <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#6b7280;">${U.esc(c.address||'-')}</td>
+    <td>${customCount?`<span class="price-custom"><i class="fa-solid fa-tag me-1"></i>${customCount} สินค้า</span>`:
+         `<span style="color:#9ca3af;font-size:12px;">ราคาปกติ</span>`}</td>
+    <td class="d-flex gap-1">
+      <button class="btn btn-sm btn-outline-warning btn-icon" onclick="showCustomerPriceModal(${c.id})" title="จัดการราคา"><i class="fa-solid fa-tag"></i></button>
+      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showCustomerModal(${c.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteCustomer(${c.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+    </td>
+  </tr>`;
+}
+
+function filterCustTable(val) {
+  const q=val.toLowerCase();
+  const data=(window._custData||[]).filter(c=>!q||c.name.toLowerCase().includes(q)||(c.phone||'').includes(q));
+  document.getElementById('custTbody').innerHTML=data.map((c,i)=>custRow(c,i)).join('')||emptyRow(6,'ไม่พบลูกค้า');
+}
+
+async function showCustomerModal(id) {
+  const c=id?await DB.getCustomer(id):null;
+  const body=`<form class="row g-3" id="custForm">
+    <div class="col-12"><label class="form-label">ชื่อลูกค้า / ร้านค้า <span class="text-danger">*</span></label>
+      <input type="text" class="form-control" id="cf_name" required value="${U.esc(c?.name||'')}" placeholder="ชื่อร้านหรือชื่อลูกค้า"></div>
+    <div class="col-sm-6"><label class="form-label">เบอร์โทรศัพท์</label>
+      <input type="tel" class="form-control" id="cf_phone" value="${U.esc(c?.phone||'')}" placeholder="08x-xxx-xxxx"></div>
+    <div class="col-sm-6"><label class="form-label">เลขผู้เสียภาษี</label>
+      <input type="text" class="form-control" id="cf_taxId" value="${U.esc(c?.taxId||'')}" placeholder="(ถ้ามี)"></div>
+    <div class="col-12"><label class="form-label">ที่อยู่</label>
+      <textarea class="form-control" id="cf_address" rows="2">${U.esc(c?.address||'')}</textarea></div>
+    <div class="col-12"><label class="form-label">หมายเหตุ</label>
+      <input type="text" class="form-control" id="cf_notes" value="${U.esc(c?.notes||'')}" placeholder="บันทึกเพิ่มเติม"></div>
+    <input type="hidden" id="cf_id" value="${c?.id||''}">
+  </form>`;
+  showModal('custModal',c?'แก้ไขลูกค้า':'เพิ่มลูกค้าใหม่',body,
+    `<button class="btn btn-primary" onclick="saveCustomer()"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึก</button>
+     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`);
+}
+
+async function saveCustomer() {
+  const name=document.getElementById('cf_name')?.value.trim();
+  if (!name){U.toast('กรุณากรอกชื่อ','error');return;}
+  const id=parseInt(document.getElementById('cf_id')?.value||0);
+  const data={name,phone:document.getElementById('cf_phone')?.value.trim()||'',taxId:document.getElementById('cf_taxId')?.value.trim()||'',address:document.getElementById('cf_address')?.value.trim()||'',notes:document.getElementById('cf_notes')?.value.trim()||''};
+  if (id){const old=await DB.getCustomer(id);await DB.putCustomer({...old,...data});U.toast('แก้ไขข้อมูลลูกค้าแล้ว ✓');}
+  else{await DB.addCustomer(data);U.toast('เพิ่มลูกค้าแล้ว ✓');}
+  closeModal('custModal');navigate('customers');
+}
+
+async function deleteCustomer(id) {
+  if (!confirm('ลบลูกค้านี้?'))return;
+  await DB.delCustomer(id);U.toast('ลบลูกค้าแล้ว');navigate('customers');
+}
+
+// ── ราคาพิเศษต่อลูกค้า ──
+async function showCustomerPriceModal(custId) {
+  const [cust, products] = await Promise.all([DB.getCustomer(custId), DB.getProducts()]);
+  if (!cust||!products.length){U.toast('กรุณาเพิ่มสินค้าก่อน','error');return;}
+
+  const rows=products.map(p=>`
+    <tr>
+      <td><strong>${U.esc(p.name)}</strong> ${p.code?`<code style="font-size:11px;color:#9ca3af;">${U.esc(p.code)}</code>`:''}${p.category?`<div style="font-size:11px;color:#9ca3af;">${U.esc(p.category)}</div>`:''}</td>
+      <td style="text-align:center;color:#6b7280;">฿${U.money(p.price)}</td>
+      <td><input type="number" class="form-control form-control-sm" id="cp_${p.id}" min="0"
+        value="${cust.customPrices?.[p.id]!==undefined?cust.customPrices[p.id]:''}"
+        placeholder="ราคาปกติ ${U.money(p.price)}"></td>
+    </tr>`).join('');
+
+  const body=`
+    <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">
+      ตั้งราคาพิเศษสำหรับ <strong>${U.esc(cust.name)}</strong><br>
+      ปล่อยว่างไว้ = ใช้ราคาปกติของสินค้า
+    </p>
+    <table class="table-clean">
+      <thead><tr><th>สินค้า</th><th style="text-align:center;">ราคาปกติ</th><th>ราคาของร้านนี้</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+
+  showModal('custPriceModal',`ราคาพิเศษ — ${U.esc(cust.name)}`,body,
+    `<button class="btn btn-primary" onclick="saveCustomerPrices(${custId})"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึกราคา</button>
+     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,'modal-lg');
+  window._custPriceProducts=products;
+}
+
+async function saveCustomerPrices(custId) {
+  const cust=await DB.getCustomer(custId);
+  const customPrices={};
+  (window._custPriceProducts||[]).forEach(p=>{
+    const val=document.getElementById(`cp_${p.id}`)?.value.trim();
+    if (val!=='') customPrices[p.id]=parseFloat(val);
+  });
+  await DB.putCustomer({...cust,customPrices});
+  U.toast('บันทึกราคาพิเศษแล้ว ✓');
+  closeModal('custPriceModal');
+  navigate('customers');
+}
+
+// ═══════════════════════════════════════
+//  PRODUCTS
+// ═══════════════════════════════════════
+async function renderProducts(el) {
+  document.getElementById('topbarActions').innerHTML=
+    `<button class="btn btn-primary" onclick="showProductModal()"><i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้า</button>`;
+  const products=(await DB.getProducts()).sort((a,b)=>(a.code||'').localeCompare(b.code||''));
+  el.innerHTML=`
+  <div class="card-box">
+    <div class="card-head">
+      <h2><i class="fa-solid fa-box me-2 text-primary"></i>รายการสินค้า (${products.length} รายการ)</h2>
+      <div class="search-box"><i class="fa-solid fa-search"></i>
+        <input type="text" class="form-control form-control-sm" placeholder="ค้นหารหัส / ชื่อ..." style="min-width:200px;"
+          oninput="filterProdTable(this.value)">
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="table-clean">
+        <thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th>ประเภท</th><th>หน่วย</th><th style="text-align:right;">ราคาปกติ (บาท)</th><th></th></tr></thead>
+        <tbody id="prodTbody">${products.map((p,i)=>prodRow(p,i)).join('')||emptyRow(6,'ยังไม่มีสินค้า','fa-box-open')}</tbody>
+      </table>
+    </div>
+  </div>`;
+  window._prodData=products;
+}
+
+function prodRow(p,i) {
+  return `<tr>
+    <td><code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px;">${U.esc(p.code||'-')}</code></td>
+    <td><strong>${U.esc(p.name)}</strong></td>
+    <td style="font-size:13px;color:#6b7280;">${U.esc(p.category||'-')}</td>
+    <td style="font-size:13px;">${U.esc(p.unit||'โลง')}</td>
+    <td style="text-align:right;font-weight:700;color:#2563eb;">฿${U.money(p.price)}</td>
+    <td class="d-flex gap-1">
+      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showProductModal(${p.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteProduct(${p.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+    </td>
+  </tr>`;
+}
+
+function filterProdTable(val) {
+  const q=val.toLowerCase();
+  const data=(window._prodData||[]).filter(p=>!q||p.name.toLowerCase().includes(q)||(p.code||'').toLowerCase().includes(q));
+  document.getElementById('prodTbody').innerHTML=data.map((p,i)=>prodRow(p,i)).join('')||emptyRow(6,'ไม่พบสินค้า');
+}
+
+async function showProductModal(id) {
+  const p=id?await DB.getProduct(id):null;
+  const body=`<form class="row g-3">
+    <div class="col-sm-4"><label class="form-label">รหัสสินค้า</label>
+      <input type="text" class="form-control" id="pf_code" placeholder="เช่น L001" value="${U.esc(p?.code||'')}"></div>
+    <div class="col-sm-8"><label class="form-label">ชื่อสินค้า <span class="text-danger">*</span></label>
+      <input type="text" class="form-control" id="pf_name" required value="${U.esc(p?.name||'')}" placeholder="ชื่อโลง / รุ่น"></div>
+    <div class="col-sm-6"><label class="form-label">ประเภท</label>
+      <input type="text" class="form-control" id="pf_cat" value="${U.esc(p?.category||'')}" placeholder="เช่น ไม้สัก, MDF, อัดลาย"></div>
+    <div class="col-sm-3"><label class="form-label">หน่วย</label>
+      <input type="text" class="form-control" id="pf_unit" value="${U.esc(p?.unit||'โลง')}"></div>
+    <div class="col-sm-3"><label class="form-label">ราคาปกติ (฿)</label>
+      <input type="number" class="form-control" id="pf_price" min="0" value="${p?.price||''}"></div>
+    <input type="hidden" id="pf_id" value="${p?.id||''}">
+  </form>`;
+  showModal('prodModal',p?'แก้ไขสินค้า':'เพิ่มสินค้าใหม่',body,
+    `<button class="btn btn-primary" onclick="saveProduct()"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึก</button>
+     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`);
+}
+
+async function saveProduct() {
+  const name=document.getElementById('pf_name')?.value.trim();
+  if (!name){U.toast('กรุณากรอกชื่อสินค้า','error');return;}
+  const id=parseInt(document.getElementById('pf_id')?.value||0);
+  const data={code:document.getElementById('pf_code')?.value.trim()||'',name,category:document.getElementById('pf_cat')?.value.trim()||'',unit:document.getElementById('pf_unit')?.value.trim()||'โลง',price:parseFloat(document.getElementById('pf_price')?.value||0)};
+  if (id){const old=await DB.getProduct(id);await DB.putProduct({...old,...data});U.toast('แก้ไขสินค้าแล้ว ✓');}
+  else{await DB.addProduct(data);U.toast('เพิ่มสินค้าแล้ว ✓');}
+  closeModal('prodModal');navigate('products');
+}
+
+async function deleteProduct(id) {
+  if (!confirm('ลบสินค้านี้?'))return;
+  await DB.delProduct(id);U.toast('ลบสินค้าแล้ว');navigate('products');
+}
+
+// ═══════════════════════════════════════
+//  INVOICES — ใบเสร็จรับเงิน เท่านั้น
+// ═══════════════════════════════════════
+async function renderInvoices(el) {
+  document.getElementById('topbarActions').innerHTML=
+    `<button class="btn btn-primary" onclick="showCreateReceiptModal()"><i class="fa-solid fa-plus me-1"></i>ออกใบเสร็จรับเงิน</button>`;
+  const invoices=(await DB.getInvoices()).sort((a,b)=>b.createdAt-a.createdAt);
+  el.innerHTML=`
+  <div class="card-box">
+    <div class="card-head">
+      <h2><i class="fa-solid fa-file-invoice me-2 text-primary"></i>ใบเสร็จรับเงิน</h2>
+      <div class="search-box"><i class="fa-solid fa-search"></i>
+        <input type="text" class="form-control form-control-sm" placeholder="ค้นหาเลขบิล / ชื่อลูกค้า..." style="min-width:220px;" oninput="filterInvTable(this.value)">
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table class="table-clean">
+        <thead><tr><th>เลขที่ใบเสร็จ</th><th>ลูกค้า</th><th>วันที่</th><th>รายการ</th><th style="text-align:right;">ยอดรวม</th><th></th></tr></thead>
+        <tbody id="invTbody">${invoices.map(inv=>invRow(inv)).join('')||emptyRow(6,'ยังไม่มีใบเสร็จ','fa-file-circle-xmark')}</tbody>
+      </table>
+    </div>
+  </div>`;
+  window._invData=invoices;
+}
+
+function invRow(inv) {
+  const t=U.invTotal(inv);
+  return `<tr>
+    <td><strong>${U.esc(inv.invoiceNo)}</strong></td>
+    <td>${U.esc(inv.customerName||'-')}</td>
+    <td style="white-space:nowrap;font-size:13px;">${U.date(inv.createdAt)}</td>
+    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#6b7280;">
+      ${(inv.items||[]).map(i=>U.esc(i.name)+' ×'+i.qty).join(', ')||'-'}
+    </td>
+    <td style="text-align:right;font-weight:700;">฿${U.money(t.total)}</td>
+    <td class="d-flex gap-1">
+      <button class="btn btn-sm btn-outline-primary btn-icon" onclick="printReceiptById(${inv.id})" title="พิมพ์"><i class="fa-solid fa-print"></i></button>
+      <button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showCreateReceiptModal(${inv.id})" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
+      <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteInvoice(${inv.id})" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+    </td>
+  </tr>`;
+}
+
+function filterInvTable(val) {
+  const q=val.toLowerCase();
+  const data=(window._invData||[]).filter(i=>!q||i.invoiceNo?.toLowerCase().includes(q)||i.customerName?.toLowerCase().includes(q));
+  document.getElementById('invTbody').innerHTML=data.map(invRow).join('')||emptyRow(6,'ไม่พบใบเสร็จ');
+}
+
+async function showCreateReceiptModal(editId, prefillCustName) {
+  const [customers,products,allOrders]=await Promise.all([DB.getCustomers(),DB.getProducts(),DB.getOrders()]);
+  const edit=editId?await DB.getInvoice(editId):null;
+  window._rcCustList=customers; window._rcProdList=products; window._rcAllOrders=allOrders;
+  window._rcCustId=edit?.customerId||null; window._rcItemIdx=edit?(edit.items||[]).length:1;
+
+  // Pre-select customer from dashboard button + ตรวจใบซ้ำวันนี้
+  let prefillCustId = null;
+  const skipDup = !!window._skipDupCheck; window._skipDupCheck = false;
+  if (prefillCustName && !editId) {
+    const decoded = decodeURIComponent(prefillCustName);
+    const found   = customers.find(c => c.name === decoded);
+    if (found) {
+      prefillCustId = found.id;
+      window._rcCustId = found.id;
+
+      if (!skipDup) {
+        const allInvoices = await DB.getInvoices();
+        const todayStart  = new Date(); todayStart.setHours(0,0,0,0);
+        const existing    = allInvoices.find(inv =>
+          inv.customerId === found.id && inv.createdAt >= todayStart.getTime()
+        );
+        if (existing) {
+          const enc = encodeURIComponent(decoded);
+          showModal('dupInvModal', 'พบใบเสร็จซ้ำ',
+            `<div style="background:#fef3c7;border-radius:10px;padding:14px 18px;border-left:4px solid #f59e0b;margin-bottom:12px;">
+               <strong style="color:#92400e;">⚠️ พบใบเสร็จวันนี้แล้ว</strong><br>
+               <span style="font-size:13px;color:#78350f;">ลูกค้า <strong>${U.esc(found.name)}</strong>
+               มีใบเสร็จวันนี้แล้ว เลขที่ <strong>${U.esc(existing.invoiceNo)}</strong></span>
+             </div>
+             <p style="font-size:13px;color:#374151;margin:0;">ต้องการทำอะไร?</p>`,
+            `<button class="btn btn-warning" onclick="closeModal('dupInvModal');showCreateReceiptModal(${existing.id});">
+               <i class="fa-solid fa-pen-to-square me-1"></i>แก้ไขใบเดิม (${U.esc(existing.invoiceNo)})
+             </button>
+             <button class="btn btn-primary" onclick="closeModal('dupInvModal');_forceNewInvoice('${enc}');">
+               <i class="fa-solid fa-plus me-1"></i>สร้างใบใหม่
+             </button>
+             <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`);
+          return;
+        }
+      }
+    }
+  }
+
+  const custOpts=customers.map(c=>`<option value="${c.id}" ${(edit?.customerId===c.id||c.id===prefillCustId)?'selected':''}>${U.esc(c.name)}</option>`).join('');
+  const initItems=edit?.items||[{name:'',qty:1,price:0}];
+
+  const body=`<form class="row g-3">
+    <div class="col-sm-5">
+      <label class="form-label">ลูกค้า <span class="text-danger">*</span></label>
+      <select class="form-select" id="rc_cust" onchange="onRcCustChange(this)">
+        <option value="">-- เลือกลูกค้า --</option>${custOpts}
+      </select>
+    </div>
+    <div class="col-sm-4">
+      <label class="form-label">ดึงออเดอร์ของวันที่</label>
+      <input type="date" class="form-control" id="rc_pullDate" value="${new Date().toISOString().split('T')[0]}">
+    </div>
+    <div class="col-sm-3 d-flex align-items-end">
+      <button type="button" class="btn btn-success w-100" onclick="pullOrdersToReceipt()">
+        <i class="fa-solid fa-wand-magic-sparkles me-1"></i>ดึงออเดอร์
+      </button>
+    </div>
+    <div class="col-12">
+      <label class="form-label">ที่อยู่ (สำหรับบิล)</label>
+      <input type="text" class="form-control" id="rc_addr" value="${U.esc(edit?.customerAddress||'')}" placeholder="ที่อยู่ลูกค้า">
+    </div>
+    <div class="col-12">
+      <label class="form-label">รายการสินค้า</label>
+      <table class="items-table w-100">
+        <thead><tr>
+          <th style="width:40%">ชื่อสินค้า</th>
+          <th style="width:8%">จำนวน</th>
+          <th style="width:20%">ราคา/ชิ้น</th>
+          <th style="width:16%">รวม</th>
+          <th style="width:16%">นำเข้าจากสินค้า</th>
+        </tr></thead>
+        <tbody id="rcItemsBody">
+          ${initItems.map((item,i)=>rcItemRow(i,item)).join('')}
+        </tbody>
+      </table>
+      <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addRcItemRow()"><i class="fa-solid fa-plus me-1"></i>เพิ่มรายการ</button>
+    </div>
+    <div class="col-sm-4"><label class="form-label">ส่วนลด (บาท)</label>
+      <input type="number" class="form-control" id="rc_disc" min="0" value="${edit?.discount||0}" oninput="calcRcTotal()"></div>
+    <div class="col-sm-4"><label class="form-label">ภาษีมูลค่าเพิ่ม</label>
+      <select class="form-select" id="rc_tax" onchange="calcRcTotal()">
+        <option value="0" ${!edit?.taxRate?'selected':''}>ไม่มี VAT</option>
+        <option value="7" ${edit?.taxRate===7?'selected':''}>VAT 7%</option>
+      </select></div>
+    <div class="col-sm-4"><label class="form-label">หมายเหตุ</label>
+      <input type="text" class="form-control" id="rc_notes" value="${U.esc(edit?.notes||'')}" placeholder="หมายเหตุ"></div>
+    <div class="col-12">
+      <div class="total-box d-flex justify-content-end">
+        <table style="min-width:260px;font-size:14px;">
+          <tr><td style="padding:3px 8px;color:#6b7280;">ยอดก่อนส่วนลด</td><td id="rcs_sub" style="text-align:right;">฿0.00</td></tr>
+          <tr><td style="padding:3px 8px;color:#6b7280;">ส่วนลด</td><td id="rcs_disc" style="text-align:right;">฿0.00</td></tr>
+          <tr><td style="padding:3px 8px;color:#6b7280;">ภาษีมูลค่าเพิ่ม</td><td id="rcs_tax" style="text-align:right;">฿0.00</td></tr>
+          <tr style="border-top:2px solid #1a2332;"><td style="padding:8px;font-weight:700;font-size:16px;">รวมทั้งสิ้น</td>
+            <td id="rcs_total" style="text-align:right;font-weight:700;font-size:16px;">฿0.00</td></tr>
+        </table>
+      </div>
+    </div>
+    <input type="hidden" id="rc_editId" value="${edit?.id||''}">
+  </form>`;
+
+  showModal('rcModal',edit?`แก้ไข ${U.esc(edit.invoiceNo)}`:'ออกใบเสร็จรับเงิน',body,
+    `<button class="btn btn-primary" onclick="saveReceipt(false)"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึก</button>
+     <button class="btn btn-outline-primary" onclick="saveReceipt(true)"><i class="fa-solid fa-print me-1"></i>บันทึก & พิมพ์</button>
+     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,
+    'modal-xl');
+
+  if (edit?.customerId) onRcCustChange(document.getElementById('rc_cust'));
+  calcRcTotal();
+}
+
+function rcItemRow(i, item={}) {
+  const opts=(window._rcProdList||[]).map(p=>`<option value="${p.id}" data-price="${p.price}" data-name="${U.esc(p.name)}">${U.esc(p.name)}</option>`).join('');
+  return `<tr id="rcrow_${i}">
+    <td><input type="text" class="form-control form-control-sm" id="rcname_${i}" value="${U.esc(item.name||'')}" placeholder="ชื่อสินค้า" oninput="calcRcTotal()"></td>
+    <td><input type="number" class="form-control form-control-sm" id="rcqty_${i}" value="${item.qty||1}" min="1" oninput="calcRcTotal()"></td>
+    <td><input type="number" class="form-control form-control-sm" id="rcprice_${i}" value="${item.price||0}" min="0" oninput="calcRcTotal()"></td>
+    <td><span id="rctotal_${i}" style="font-size:13px;font-weight:600;">฿${U.money((item.qty||1)*(item.price||0))}</span></td>
+    <td>
+      <select class="form-select form-select-sm" onchange="onRcProdSelect(this,${i})" style="font-size:12px;">
+        <option value="">เลือกสินค้า...</option>${opts}
+      </select>
+    </td>
+  </tr>`;
+}
+
+function addRcItemRow() {
+  const i=window._rcItemIdx++;
+  document.getElementById('rcItemsBody').insertAdjacentHTML('beforeend',rcItemRow(i));
+}
+
+function onRcCustChange(sel) {
+  window._rcCustId=parseInt(sel.value)||null;
+  const cust=(window._rcCustList||[]).find(c=>c.id===window._rcCustId);
+  const addrEl=document.getElementById('rc_addr');
+  if (addrEl&&cust?.address) addrEl.value=cust.address;
+}
+
+// ดึงออเดอร์ของลูกค้าในวันที่เลือกมาใส่บิลอัตโนมัติ
+// เปิด receipt modal ใหม่โดยข้ามการตรวจสอบใบซ้ำ (กรณีผู้ใช้ยืนยันสร้างใหม่)
+function _forceNewInvoice(encodedName) {
+  window._skipDupCheck = true;
+  showCreateReceiptModal(null, encodedName);
+}
+
+function pullOrdersToReceipt() {
+  const custId=window._rcCustId;
+  if (!custId){U.toast('กรุณาเลือกลูกค้าก่อน','error');return;}
+  const dateStr=document.getElementById('rc_pullDate')?.value;
+  if (!dateStr){U.toast('กรุณาเลือกวันที่','error');return;}
+  const date=new Date(dateStr);
+
+  const orders=(window._rcAllOrders||[]).filter(o=>{
+    const d=new Date(o.createdAt);
+    return o.customerId===custId &&
+      d.getFullYear()===date.getFullYear() &&
+      d.getMonth()===date.getMonth() &&
+      d.getDate()===date.getDate();
+  });
+
+  if (!orders.length){
+    U.toast(`ไม่พบออเดอร์ของลูกค้านี้ในวันที่ ${date.toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}`, 'error');
+    return;
+  }
+
+  // รวมรายการทั้งหมดจากทุกออเดอร์
+  const merged = {};
+  orders.forEach(o=>(o.items||[]).forEach(i=>{
+    const key = i.productName+'|'+i.price+'|'+(i.color||'')+'|'+(i.trimColor||'')+'|'+(i.specialNote||'');
+    if (merged[key]) { merged[key].qty+=i.qty; }
+    else { merged[key]={name:itemLabel(i),qty:i.qty,price:i.price}; }
+  }));
+
+  const items=Object.values(merged);
+  window._rcItemIdx=items.length;
+  document.getElementById('rcItemsBody').innerHTML=items.map((item,i)=>rcItemRow(i,item)).join('');
+  calcRcTotal();
+  U.toast(`✓ ดึง ${items.length} รายการ จาก ${orders.length} ออเดอร์ของวันนี้`);
+}
+
+function itemLabel(i) {
+  let label=i.productName||'';
+  if (i.color)      label+=' '+i.color;
+  if (i.trimColor)  label+=' เส้น'+i.trimColor;
+  if (i.specialNote) label+=' ('+i.specialNote+')';
+  return label;
+}
+
+async function onRcProdSelect(sel,i) {
+  const opt=sel.options[sel.selectedIndex];
+  const prodId=parseInt(sel.value); if(!prodId)return;
+  const defaultPrice=parseFloat(opt.dataset.price||0);
+  let price=defaultPrice;
+  if (window._rcCustId) price=await DB.getEffectivePrice(window._rcCustId,prodId,defaultPrice);
+  const nameEl=document.getElementById(`rcname_${i}`);
+  const priceEl=document.getElementById(`rcprice_${i}`);
+  if (nameEl) nameEl.value=opt.dataset.name||opt.text;
+  if (priceEl) priceEl.value=price;
+  sel.value=''; calcRcTotal();
+}
+
+function calcRcTotal() {
+  let sub=0;
+  document.querySelectorAll('#rcItemsBody tr').forEach(row=>{
+    const m=row.id?.match(/rcrow_(\d+)/); if(!m)return;
+    const i=m[1];
+    const qty=parseFloat(document.getElementById(`rcqty_${i}`)?.value||0);
+    const pr=parseFloat(document.getElementById(`rcprice_${i}`)?.value||0);
+    const t=qty*pr;
+    const tel=document.getElementById(`rctotal_${i}`); if(tel)tel.textContent='฿'+U.money(t);
+    sub+=t;
+  });
+  const disc=parseFloat(document.getElementById('rc_disc')?.value||0);
+  const taxRate=parseFloat(document.getElementById('rc_tax')?.value||0);
+  const base=sub-disc; const tax=base*taxRate/100;
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent='฿'+U.money(v);};
+  s('rcs_sub',sub);s('rcs_disc',disc);s('rcs_tax',tax);s('rcs_total',base+tax);
+}
+
+async function saveReceipt(andPrint=false) {
+  const custId=parseInt(document.getElementById('rc_cust')?.value||0);
+  if (!custId){U.toast('กรุณาเลือกลูกค้า','error');return;}
+  const cust=(window._rcCustList||[]).find(c=>c.id===custId)||{};
+
+  const items=[];
+  document.querySelectorAll('#rcItemsBody tr').forEach(row=>{
+    const m=row.id?.match(/rcrow_(\d+)/); if(!m)return;
+    const i=m[1];
+    const name=document.getElementById(`rcname_${i}`)?.value.trim();
+    const qty=parseFloat(document.getElementById(`rcqty_${i}`)?.value||0);
+    const price=parseFloat(document.getElementById(`rcprice_${i}`)?.value||0);
+    if (name) items.push({name,qty,price});
+  });
+  if (!items.length){U.toast('กรุณาเพิ่มรายการสินค้า','error');return;}
+
+  const editId=parseInt(document.getElementById('rc_editId')?.value||0);
+  const data={
+    type:'receipt',
+    customerId:custId, customerName:cust.name||'',
+    customerAddress:document.getElementById('rc_addr')?.value.trim()||'',
+    customerPhone:cust.phone||'', customerTaxId:cust.taxId||'',
+    items,
+    discount:parseFloat(document.getElementById('rc_disc')?.value||0),
+    taxRate:parseFloat(document.getElementById('rc_tax')?.value||0),
+    notes:document.getElementById('rc_notes')?.value.trim()||'',
+  };
+
+  let savedId;
+  if (editId){const old=await DB.getInvoice(editId);await DB.putInvoice({...old,...data});savedId=editId;U.toast('แก้ไขใบเสร็จแล้ว ✓');}
+  else{data.invoiceNo=await DB.nextReceiptNo();savedId=await DB.addInvoice(data);U.toast('ออกใบเสร็จแล้ว ✓');}
+  closeModal('rcModal');
+  if (andPrint){
+    const inv=await DB.getInvoice(savedId);
+    // รอ Bootstrap modal animation ปิดสนิท (~350ms) ก่อนสั่งปริ้น
+    // เพื่อให้ backdrop หายออกไปก่อน จะได้ไม่มืด
+    setTimeout(()=>printReceiptData(inv), 400);
+  }
+  navigate('invoices');
+}
+
+async function printReceiptById(id) { const inv=await DB.getInvoice(id); if(inv)printReceiptData(inv); }
+
+function printReceiptData(inv) {
+  const t=U.invTotal(inv);
+  const rows=(inv.items||[]).map((item,i)=>`
+    <tr>
+      <td style="text-align:center;">${i+1}</td>
+      <td>${U.esc(item.name)}</td>
+      <td style="text-align:center;">${item.qty}</td>
+      <td style="text-align:right;">฿${U.money(item.price)}</td>
+      <td style="text-align:right;">฿${U.money(item.qty*item.price)}</td>
+    </tr>`).join('');
+
+  document.getElementById('print-area').innerHTML=`
+  <div class="inv-page">
+    <div class="inv-header">
+      <div class="inv-company">
+        <h1>${U.esc(CFG.businessName)}</h1>
+        ${CFG.businessAddress?`<p>${U.esc(CFG.businessAddress)}</p>`:''}
+        ${CFG.businessPhone?`<p>โทร: ${U.esc(CFG.businessPhone)}</p>`:''}
+        ${CFG.businessTaxId?`<p>เลขผู้เสียภาษี: ${U.esc(CFG.businessTaxId)}</p>`:''}
+      </div>
+      <div class="inv-doc-info">
+        <div class="doc-type">ใบเสร็จรับเงิน</div>
+        <table>
+          <tr><td>เลขที่</td><td>${U.esc(inv.invoiceNo)}</td></tr>
+          <tr><td>วันที่</td><td>${U.date(inv.createdAt)}</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="inv-parties">
+      <div class="inv-party">
+        <h3>ลูกค้า / ผู้ซื้อ</h3>
+        <p><strong>${U.esc(inv.customerName||'-')}</strong></p>
+        ${inv.customerAddress?`<p style="font-size:12px;white-space:pre-line;">${U.esc(inv.customerAddress)}</p>`:''}
+        ${inv.customerPhone?`<p>โทร: ${U.esc(inv.customerPhone)}</p>`:''}
+        ${inv.customerTaxId?`<p>เลขผู้เสียภาษี: ${U.esc(inv.customerTaxId)}</p>`:''}
+      </div>
+      <div class="inv-party">
+        <h3>ผู้ขาย</h3>
+        <p><strong>${U.esc(CFG.businessName)}</strong></p>
+        ${CFG.businessAddress?`<p style="font-size:12px;white-space:pre-line;">${U.esc(CFG.businessAddress)}</p>`:''}
+        ${CFG.businessPhone?`<p>โทร: ${U.esc(CFG.businessPhone)}</p>`:''}
+      </div>
+    </div>
+    <div class="inv-items">
+      <table>
+        <thead><tr>
+          <th style="width:5%;text-align:center;">#</th>
+          <th>รายการสินค้า</th>
+          <th style="width:10%;text-align:center;">จำนวน</th>
+          <th style="width:15%;text-align:right;">ราคา/หน่วย</th>
+          <th style="width:15%;text-align:right;">จำนวนเงิน</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div class="inv-totals">
+      <table>
+        <tr><td>รวมก่อนส่วนลด</td><td style="text-align:right;">฿${U.money(t.sub)}</td></tr>
+        ${t.disc?`<tr><td>ส่วนลด</td><td style="text-align:right;">-฿${U.money(t.disc)}</td></tr>`:''}
+        ${t.tax?`<tr><td>ภาษีมูลค่าเพิ่ม ${inv.taxRate}%</td><td style="text-align:right;">฿${U.money(t.tax)}</td></tr>`:''}
+        <tr class="grand-row"><td><strong>รวมทั้งสิ้น</strong></td><td style="text-align:right;"><strong>฿${U.money(t.total)}</strong></td></tr>
+      </table>
+    </div>
+    ${inv.notes?`<div class="inv-notes"><strong>หมายเหตุ:</strong> ${U.esc(inv.notes)}</div>`:''}
+    <div class="inv-sig">
+      <div class="inv-sig-box"><div class="sig-line">ผู้รับสินค้า / ลูกค้า</div></div>
+      <div class="inv-sig-box"><div class="sig-line">ผู้ส่งสินค้า / ผู้ขาย</div></div>
+    </div>
+  </div>`;
+  window.print();
+}
+
+async function deleteInvoice(id) {
+  if (!confirm('ลบใบเสร็จนี้?'))return;
+  await DB.delInvoice(id);U.toast('ลบใบเสร็จแล้ว');navigate('invoices');
+}
+
+// ═══════════════════════════════════════
+//  REPORTS
+// ═══════════════════════════════════════
+async function renderReports(el) {
+  const [orders,invoices,customers,expenses]=await Promise.all([DB.getOrders(),DB.getInvoices(),DB.getCustomers(),DB.getExpenses()]);
+  const now=new Date();
+  const monthStart=new Date(now.getFullYear(),now.getMonth(),1).getTime();
+
+  // ── วันนี้ ──
+  const todayOrders=orders.filter(o=>U.isToday(o.createdAt));
+  const todayItemsMap={};
+  todayOrders.forEach(o=>(o.items||[]).forEach(i=>{
+    if(!todayItemsMap[i.productName])todayItemsMap[i.productName]={qty:0,total:0};
+    todayItemsMap[i.productName].qty+=i.qty;
+    todayItemsMap[i.productName].total+=i.qty*i.price;
+  }));
+  const todayTotal=todayOrders.reduce((a,o)=>a+U.orderTotal(o),0);
+
+  // ── เดือน ──
+  const monthIncome=invoices.filter(i=>i.createdAt>=monthStart).reduce((a,i)=>a+U.invTotal(i).total,0);
+
+  // ── 6 เดือน ──
+  const months=Array.from({length:6},(_,k)=>{
+    const d=new Date(now.getFullYear(),now.getMonth()-5+k,1);
+    return {year:d.getFullYear(),month:d.getMonth(),label:d.toLocaleDateString('th-TH',{month:'short',year:'2-digit'})};
+  });
+  const monthRevenue=months.map(m=>invoices.filter(r=>{const d=new Date(r.createdAt);return d.getFullYear()===m.year&&d.getMonth()===m.month;}).reduce((a,r)=>a+U.invTotal(r).total,0));
+  const monthOrderCt=months.map(m=>orders.filter(o=>{const d=new Date(o.createdAt);return d.getFullYear()===m.year&&d.getMonth()===m.month;}).length);
+
+  // ── สินค้าขายดี ──
+  const prodCount={};
+  orders.forEach(o=>(o.items||[]).forEach(i=>{prodCount[i.productName]=(prodCount[i.productName]||0)+i.qty;}));
+  const topProds=Object.entries(prodCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  const avgOrder=orders.length?orders.reduce((a,o)=>a+U.orderTotal(o),0)/orders.length:0;
+
+  // ── กำไร/ขาดทุน ──
+  const monthExpenseTotal = expenses.filter(e=>e.date>=monthStart).reduce((a,e)=>a+(e.amount||0),0);
+  const allExpenseTotal   = expenses.reduce((a,e)=>a+(e.amount||0),0);
+  const allIncomeTotal    = invoices.reduce((a,i)=>a+U.invTotal(i).total,0);
+  const monthProfit       = monthIncome - monthExpenseTotal;
+  const allProfit         = allIncomeTotal - allExpenseTotal;
+
+  // expense breakdown 6 months
+  const monthExpenses6 = months.map(m=>expenses.filter(e=>{const d=new Date(e.date);return d.getFullYear()===m.year&&d.getMonth()===m.month;}).reduce((a,e)=>a+(e.amount||0),0));
+
+  el.innerHTML=`
+  <!-- วันนี้สั่งอะไรบ้าง -->
+  <div class="card-box mb-4" style="border-left:4px solid #2563eb;">
+    <div class="card-head" style="background:#f0f7ff;">
+      <h2 style="color:#2563eb;"><i class="fa-solid fa-sun me-2"></i>สั่งของวันนี้ — ${new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</h2>
+      <div style="font-weight:700;font-size:18px;color:#2563eb;">รวม ฿${U.money(todayTotal)}</div>
+    </div>
+    <div class="p-3">
+      ${Object.keys(todayItemsMap).length ? `
+      <div class="table-scroll">
+        <table class="table-clean">
+          <thead><tr><th>สินค้า</th><th style="text-align:center;">รวมจำนวน</th><th style="text-align:right;">รวมมูลค่า</th><th>ออเดอร์ที่เกี่ยวข้อง</th></tr></thead>
+          <tbody>
+            ${Object.entries(todayItemsMap).map(([name,v])=>`
+            <tr>
+              <td><strong>${U.esc(name)}</strong></td>
+              <td style="text-align:center;font-size:18px;font-weight:700;">${v.qty} <span style="font-size:13px;color:#9ca3af;font-weight:400;">ชิ้น</span></td>
+              <td style="text-align:right;font-weight:600;">฿${U.money(v.total)}</td>
+              <td style="font-size:12px;color:#6b7280;">
+                ${todayOrders.filter(o=>(o.items||[]).some(i=>i.productName===name)).map(o=>`${U.esc(o.customerName)}`).join(', ')}
+              </td>
+            </tr>`).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background:#f8f9fa;">
+              <td style="font-weight:700;">รวมทั้งหมด</td>
+              <td style="text-align:center;font-weight:700;">${Object.values(todayItemsMap).reduce((a,v)=>a+v.qty,0)} ชิ้น</td>
+              <td style="text-align:right;font-weight:700;">฿${U.money(todayTotal)}</td>
+              <td style="font-size:12px;color:#6b7280;">${todayOrders.length} ออเดอร์ จาก ${[...new Set(todayOrders.map(o=>o.customerName))].length} ลูกค้า</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>` : '<div class="empty-state" style="padding:20px"><i class="fa-solid fa-moon"></i><p>ยังไม่มีออเดอร์วันนี้</p></div>'}
+    </div>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
+      <div class="icon-wrap" style="background:#d1fae5;color:#059669;"><i class="fa-solid fa-baht-sign"></i></div>
+      <div><div class="label">ยอดรับเงินเดือนนี้</div><div class="value" style="font-size:20px;">฿${U.money(monthIncome)}</div></div>
+    </div></div>
+    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
+      <div class="icon-wrap" style="background:#dbeafe;color:#2563eb;"><i class="fa-solid fa-list-check"></i></div>
+      <div><div class="label">ออเดอร์ทั้งหมด</div><div class="value">${orders.length}</div></div>
+    </div></div>
+    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
+      <div class="icon-wrap" style="background:#fef3c7;color:#d97706;"><i class="fa-solid fa-calculator"></i></div>
+      <div><div class="label">มูลค่าเฉลี่ยต่อออเดอร์</div><div class="value" style="font-size:20px;">฿${U.money(avgOrder)}</div></div>
+    </div></div>
+    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
+      <div class="icon-wrap" style="background:#ede9fe;color:#7c3aed;"><i class="fa-solid fa-users"></i></div>
+      <div><div class="label">ลูกค้าทั้งหมด</div><div class="value">${customers.length}</div></div>
+    </div></div>
+  </div>
+
+  <!-- กำไร / ขาดทุน เดือนนี้ -->
+  <div class="card-box mb-4" style="border-left:4px solid ${monthProfit>=0?'#10b981':'#ef4444'};">
+    <div class="card-head" style="background:${monthProfit>=0?'#f0fdf4':'#fff5f5'};">
+      <h2 style="color:${monthProfit>=0?'#059669':'#dc2626'};"><i class="fa-solid fa-scale-balanced me-2"></i>กำไร / ขาดทุน</h2>
+      <div style="font-size:11px;color:#6b7280;">เดือนนี้</div>
+    </div>
+    <div class="p-3">
+      <div class="row g-3 text-center">
+        <div class="col-sm-4">
+          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">รายรับเดือนนี้</div>
+          <div style="font-size:22px;font-weight:700;color:#10b981;">฿${U.money(monthIncome)}</div>
+          <div style="font-size:11px;color:#9ca3af;">จากใบเสร็จ</div>
+        </div>
+        <div class="col-sm-4">
+          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">รายจ่ายเดือนนี้</div>
+          <div style="font-size:22px;font-weight:700;color:#dc2626;">฿${U.money(monthExpenseTotal)}</div>
+          <div style="font-size:11px;color:#9ca3af;">ค่าใช้จ่ายโรงงาน</div>
+        </div>
+        <div class="col-sm-4" style="border-top:${monthProfit>=0?'2px solid #10b981':'2px solid #dc2626'};padding-top:12px;margin-top:4px;">
+          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">${monthProfit>=0?'กำไร':'ขาดทุน'}เดือนนี้</div>
+          <div style="font-size:26px;font-weight:700;color:${monthProfit>=0?'#059669':'#dc2626'};">${monthProfit>=0?'+':''}฿${U.money(Math.abs(monthProfit))}</div>
+          <div style="font-size:11px;color:#9ca3af;">รายรับ − รายจ่าย</div>
+        </div>
+      </div>
+      ${allIncomeTotal||allExpenseTotal ? `
+      <hr style="border-color:#f1f3f5;margin:16px 0 12px;">
+      <div style="font-size:12px;color:#6b7280;text-align:center;">
+        ตลอดทุกเวลา — รายรับรวม <strong style="color:#10b981;">฿${U.money(allIncomeTotal)}</strong>
+        &nbsp;|&nbsp; รายจ่ายรวม <strong style="color:#dc2626;">฿${U.money(allExpenseTotal)}</strong>
+        &nbsp;|&nbsp; ${allProfit>=0?'กำไร':'ขาดทุน'}รวม <strong style="color:${allProfit>=0?'#059669':'#dc2626'};">${allProfit>=0?'+':''}฿${U.money(Math.abs(allProfit))}</strong>
+      </div>` : ''}
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-xl-7"><div class="card-box"><div class="card-head"><h2>ยอดรับเงิน 6 เดือนล่าสุด</h2></div>
+      <div class="p-3"><canvas id="revenueChart" height="200"></canvas></div>
+    </div></div>
+    <div class="col-xl-5"><div class="card-box"><div class="card-head"><h2>สินค้าขายดี 5 อันดับ</h2></div>
+      <div class="p-3">
+        ${topProds.length?`<canvas id="topProdChart" height="200"></canvas>`:'<div class="empty-state" style="padding:30px"><p>ยังไม่มีข้อมูล</p></div>'}
+      </div>
+    </div></div>
+    <div class="col-12"><div class="card-box"><div class="card-head"><h2>จำนวนออเดอร์รายเดือน</h2></div>
+      <div class="p-3"><canvas id="orderChart" height="100"></canvas></div>
+    </div></div>
+  </div>`;
+
+  const font={family:'Sarabun',size:12};
+  new Chart(document.getElementById('revenueChart'),{type:'bar',data:{labels:months.map(m=>m.label),datasets:[{label:'รายรับ',data:monthRevenue,backgroundColor:'#2563eb88',borderColor:'#2563eb',borderWidth:2,borderRadius:6},{label:'รายจ่าย',data:monthExpenses6,backgroundColor:'#ef444488',borderColor:'#ef4444',borderWidth:2,borderRadius:6}]},options:{responsive:true,plugins:{legend:{labels:{font}}},scales:{y:{ticks:{font,callback:v=>'฿'+v.toLocaleString()}},x:{ticks:{font}}}}});
+  new Chart(document.getElementById('orderChart'),{type:'line',data:{labels:months.map(m=>m.label),datasets:[{label:'ออเดอร์',data:monthOrderCt,borderColor:'#10b981',backgroundColor:'#10b98122',tension:.4,fill:true,pointRadius:5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{font,stepSize:1}},x:{ticks:{font}}}}});
+  if (topProds.length) new Chart(document.getElementById('topProdChart'),{type:'bar',data:{labels:topProds.map(([n])=>n.length>16?n.slice(0,16)+'…':n),datasets:[{data:topProds.map(([,v])=>v),backgroundColor:['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444'],borderRadius:6}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{font,stepSize:1}},y:{ticks:{font}}}}});
+}
+
+// ═══════════════════════════════════════
+//  SETTINGS
+// ═══════════════════════════════════════
+async function renderSettings(el) {
+  const [orders, customers, products, invoices] = await Promise.all([
+    DB.getOrders(), DB.getCustomers(), DB.getProducts(), DB.getInvoices()
+  ]);
+  const lastBackup = await DB.getSetting('lastBackup');
+
+  el.innerHTML=`
+  <div class="row g-3 justify-content-center">
+
+    <!-- ข้อมูลร้าน -->
+    <div class="col-lg-6">
+      <div class="card-box">
+        <div class="card-head"><h2><i class="fa-solid fa-store me-2 text-primary"></i>ข้อมูลร้าน</h2></div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12"><label class="form-label">ชื่อร้าน / บริษัท <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="st_name" value="${U.esc(CFG.businessName)}"></div>
+            <div class="col-sm-6"><label class="form-label">เบอร์โทรศัพท์</label>
+              <input type="text" class="form-control" id="st_phone" value="${U.esc(CFG.businessPhone)}"></div>
+            <div class="col-sm-6"><label class="form-label">เลขผู้เสียภาษี</label>
+              <input type="text" class="form-control" id="st_taxId" value="${U.esc(CFG.businessTaxId)}"></div>
+            <div class="col-12"><label class="form-label">ที่อยู่ร้าน (แสดงบนใบเสร็จ)</label>
+              <textarea class="form-control" id="st_addr" rows="3">${U.esc(CFG.businessAddress)}</textarea></div>
+          </div>
+          <div class="mt-4">
+            <button class="btn btn-primary" onclick="saveSettings()">
+              <i class="fa-solid fa-floppy-disk me-1"></i>บันทึกการตั้งค่า
+            </button>
+
+    </div><!-- /col -->
+  </div><!-- /row form -->
+
+    <!-- สถิติ & Backup -->
+    <div class="col-lg-6">
+      <div class="card-box">
+        <div class="card-head"><h2><i class="fa-solid fa-chart-pie me-2 text-primary"></i>สถิติระบบ</h2></div>
+        <div class="modal-body">
+          <div class="row g-3 text-center">
+            <div class="col-6"><div style="font-size:32px;font-weight:700;color:#2563eb;">${orders.length}</div><div style="font-size:12px;color:#6b7280;">ออเดอร์ทั้งหมด</div></div>
+            <div class="col-6"><div style="font-size:32px;font-weight:700;color:#10b981;">${customers.length}</div><div style="font-size:12px;color:#6b7280;">ลูกค้าทั้งหมด</div></div>
+            <div class="col-6"><div style="font-size:32px;font-weight:700;color:#f59e0b;">${products.length}</div><div style="font-size:12px;color:#6b7280;">สินค้าทั้งหมด</div></div>
+            <div class="col-6"><div style="font-size:32px;font-weight:700;color:#8b5cf6;">${invoices.length}</div><div style="font-size:12px;color:#6b7280;">ใบเสร็จทั้งหมด</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Backup / Restore -->
+    <div class="col-lg-6">
+      <div class="card-box">
+        <div class="card-head"><h2><i class="fa-solid fa-database me-2 text-success"></i>สำรอง / กู้คืนข้อมูล</h2></div>
+        <div class="modal-body">
+
+          ${lastBackup ?
+              `<div style="font-size:11px;color:#10b981;margin-bottom:10px;text-align:center;">
+              <i class="fa-solid fa-clock me-1"></i>สำรองล่าสุด: ${U.datetime(lastBackup)}</div>` :
+              `<div style="font-size:11px;color:#ef4444;margin-bottom:10px;text-align:center;">
+              <i class="fa-solid fa-triangle-exclamation me-1"></i>ยังไม่เคยสำรองข้อมูล</div>`}
+
+          <div style="margin-bottom:16px;">
+            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📥 สำรองข้อมูล (Backup)</div>
+            <p style="font-size:13px;color:#6b7280;margin-bottom:10px;">
+              ดาวน์โหลดไฟล์ข้อมูลทั้งหมดไว้ในเครื่อง ควรทำสำรองทุกวันหรือทุกสัปดาห์
+            </p>
+            <button class="btn btn-success w-100" onclick="backupData()">
+              <i class="fa-solid fa-download me-2"></i>ดาวน์โหลดไฟล์สำรองข้อมูล (.json)
+            </button>
+          </div>
+
+          <hr style="border-color:#f1f3f5;">
+
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📤 กู้คืนข้อมูล (Restore)</div>
+            <p style="font-size:13px;color:#6b7280;margin-bottom:10px;">
+              นำไฟล์ backup ที่ดาวน์โหลดไว้กลับเข้าระบบ
+              <span style="color:#ef4444;font-weight:600;">⚠️ ข้อมูลปัจจุบันจะถูกแทนที่ทั้งหมด</span>
+            </p>
+            <label class="btn btn-outline-danger w-100" style="cursor:pointer;">
+              <i class="fa-solid fa-upload me-2"></i>เลือกไฟล์ backup เพื่อกู้คืน
+              <input type="file" accept=".json" style="display:none;" onchange="restoreData(this)">
+            </label>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>`;
+}
+
+async function saveSettings() {
+  const name=document.getElementById('st_name')?.value.trim();
+  if (!name){U.toast('กรุณากรอกชื่อร้าน','error');return;}
+  CFG.businessName=name; CFG.businessPhone=document.getElementById('st_phone')?.value.trim()||'';
+  CFG.businessTaxId=document.getElementById('st_taxId')?.value.trim()||'';
+  CFG.businessAddress=document.getElementById('st_addr')?.value.trim()||'';
+  await Promise.all(['businessName','businessPhone','businessTaxId','businessAddress'].map(k=>DB.setSetting(k,CFG[k])));
+  document.getElementById('sidebarBizName').textContent=CFG.businessName;
+  U.toast('บันทึกการตั้งค่าแล้ว ✓');
+}
+
+// ── BACKUP ──
+async function backupData() {
+  try {
+    const [customers, products, orders, invoices, expenses] = await Promise.all([
+      DB.getCustomers(), DB.getProducts(), DB.getOrders(), DB.getInvoices(), DB.getExpenses()
+    ]);
+    const backup = {
+      version: 2,
+      exportedAt: Date.now(),
+      exportedBy: CFG.businessName,
+      data: { customers, products, orders, invoices, expenses }
+    };
+    const json = JSON.stringify(backup, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const now  = new Date();
+    const pad  = n => String(n).padStart(2,'0');
+    const fname= `backup_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
+    const a = document.createElement('a');
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    await DB.setSetting('lastBackup', Date.now());
+    U.toast(`✅ สำรองข้อมูลแล้ว — ${fname}`);
+    setTimeout(() => navigate('settings'), 800);
+  } catch(e) {
+    U.toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
+  }
+}
+
+// ── RESTORE ──
+async function restoreData(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const backup = JSON.parse(e.target.result);
+      if (!backup?.data) { U.toast('ไฟล์ไม่ถูกต้อง ไม่พบข้อมูล', 'error'); return; }
+
+      const { customers=[], products=[], orders=[], invoices=[], expenses=[] } = backup.data;
+      const exportDate = backup.exportedAt ? U.datetime(backup.exportedAt) : 'ไม่ทราบ';
+
+      const body = `
+        <div style="background:#fef3c7;border-radius:10px;padding:14px 18px;margin-bottom:16px;border-left:4px solid #f59e0b;">
+          <strong style="color:#92400e;">⚠️ คำเตือน:</strong>
+          <span style="color:#78350f;font-size:13px;"> ข้อมูลปัจจุบันในระบบจะถูกลบทั้งหมด และแทนที่ด้วยข้อมูลจากไฟล์นี้</span>
+        </div>
+        <div style="font-size:13px;color:#6b7280;margin-bottom:14px;">
+          ไฟล์: <strong style="color:#374151;">${U.esc(file.name)}</strong><br>
+          สำรองเมื่อ: <strong style="color:#374151;">${exportDate}</strong><br>
+          โดย: <strong style="color:#374151;">${U.esc(backup.exportedBy||'-')}</strong>
+        </div>
+        <div style="background:#f8f9fa;border-radius:10px;padding:14px 18px;">
+          <div style="font-size:12px;font-weight:600;color:#6b7280;margin-bottom:10px;">ข้อมูลในไฟล์ที่จะนำเข้า</div>
+          <div class="row g-2 text-center">
+            <div class="col"><div style="font-size:20px;font-weight:700;color:#2563eb;">${orders.length}</div><div style="font-size:11px;color:#6b7280;">ออเดอร์</div></div>
+            <div class="col"><div style="font-size:20px;font-weight:700;color:#10b981;">${customers.length}</div><div style="font-size:11px;color:#6b7280;">ลูกค้า</div></div>
+            <div class="col"><div style="font-size:20px;font-weight:700;color:#f59e0b;">${products.length}</div><div style="font-size:11px;color:#6b7280;">สินค้า</div></div>
+            <div class="col"><div style="font-size:20px;font-weight:700;color:#8b5cf6;">${invoices.length}</div><div style="font-size:11px;color:#6b7280;">ใบเสร็จ</div></div>
+            <div class="col"><div style="font-size:20px;font-weight:700;color:#dc2626;">${expenses.length}</div><div style="font-size:11px;color:#6b7280;">รายจ่าย</div></div>
+          </div>
+        </div>`;
+
+      showModal('restoreConfirmModal', 'ยืนยันการกู้คืนข้อมูล', body,
+        `<button class="btn btn-danger" onclick="confirmRestore()">
+           <i class="fa-solid fa-rotate-left me-1"></i>ยืนยัน กู้คืนข้อมูล
+         </button>
+         <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`);
+
+      window._pendingRestore = backup.data;
+
+    } catch(err) {
+      U.toast('อ่านไฟล์ไม่ได้: ' + err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+async function confirmRestore() {
+  const data = window._pendingRestore;
+  if (!data) { U.toast('ไม่พบข้อมูลสำหรับกู้คืน', 'error'); return; }
+
+  try {
+    closeModal('restoreConfirmModal');
+    U.toast('กำลังกู้คืนข้อมูล...');
+
+    const stores = ['customers','products','orders','invoices','expenses'];
+    for (const store of stores) {
+      const all = await DB._all(store);
+      for (const item of all) await DB._del(store, item.id);
+    }
+
+    for (const cust of (data.customers||[])) {
+      const { id, ...rest } = cust;
+      await DB._add('customers', { ...rest, id });
+    }
+    for (const prod of (data.products||[])) { await DB._put('products', prod); }
+    for (const order of (data.orders||[])) { await DB._put('orders', order); }
+    for (const inv of (data.invoices||[])) { await DB._put('invoices', inv); }
+    for (const exp of (data.expenses||[])) { await DB._put('expenses', exp); }
+
+    await DB.setSetting('lastBackup', Date.now());
+    window._pendingRestore = null;
+    U.toast('✅ กู้คืนข้อมูลสำเร็จแล้ว!');
+    setTimeout(() => navigate('dashboard'), 800);
+  } catch(err) {
+    U.toast('เกิดข้อผิดพลาดระหว่างกู้คืน: ' + err.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════
+//  EXPENSES PAGE
+// ═══════════════════════════════════════
+async function renderExpenses(el) {
+  const expenses = await DB.getExpenses();
+  expenses.sort((a,b) => b.date - a.date);
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const thisMonthExp = expenses.filter(e => e.date >= monthStart).reduce((s,e) => s+(e.amount||0), 0);
+  const totalAll     = expenses.reduce((s,e) => s+(e.amount||0), 0);
+
+  const byCat = {};
+  expenses.forEach(e => { const c=e.category||'อื่นๆ'; byCat[c]=(byCat[c]||0)+(e.amount||0); });
+  const catEntries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+
+  el.innerHTML = `
+  <div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+      <div class="stat-card d-flex align-items-center gap-3">
+        <div class="icon-wrap" style="background:#fee2e2;color:#dc2626;"><i class="fa-solid fa-money-bill-wave"></i></div>
+        <div><div class="label">รายจ่ายเดือนนี้</div><div class="value" style="color:#dc2626;">฿${U.money(thisMonthExp)}</div></div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="stat-card d-flex align-items-center gap-3">
+        <div class="icon-wrap" style="background:#fef3c7;color:#d97706;"><i class="fa-solid fa-list"></i></div>
+        <div><div class="label">รายการทั้งหมด</div><div class="value">${expenses.length} รายการ</div></div>
+      </div>
+    </div>
+    <div class="col-sm-6 col-xl-3">
+      <div class="stat-card d-flex align-items-center gap-3">
+        <div class="icon-wrap" style="background:#fce7f3;color:#be185d;"><i class="fa-solid fa-sigma"></i></div>
+        <div><div class="label">รายจ่ายรวมทั้งหมด</div><div class="value" style="color:#be185d;">฿${U.money(totalAll)}</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-xl-8">
+      <div class="card-box">
+        <div class="card-head">
+          <h2><i class="fa-solid fa-receipt me-2 text-danger"></i>รายจ่ายโรงงาน</h2>
+          <button class="btn btn-danger btn-sm" onclick="showExpenseModal()">
+            <i class="fa-solid fa-plus me-1"></i>เพิ่มรายจ่าย
+          </button>
+        </div>
+        <div class="table-scroll">
+          <table class="table-clean">
+            <thead>
+              <tr>
+                <th>วันที่</th>
+                <th>หมวดหมู่</th>
+                <th>รายละเอียด</th>
+                <th style="text-align:right;">จำนวนเงิน</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${expenses.length ? expenses.map(exp => `
+              <tr>
+                <td style="white-space:nowrap;font-size:13px;">${new Date(exp.date).toLocaleDateString('th-TH')}</td>
+                <td><span style="display:inline-block;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;font-size:11px;font-weight:600;">${U.esc(exp.category||'อื่นๆ')}</span></td>
+                <td style="font-size:13px;">${U.esc(exp.note||'-')}</td>
+                <td style="text-align:right;font-weight:600;color:#dc2626;">฿${U.money(exp.amount||0)}</td>
+                <td style="text-align:right;white-space:nowrap;">
+                  <button class="btn btn-sm" style="background:#f3f4f6;color:#374151;border:none;margin-right:4px;" onclick="showExpenseModal(${exp.id})">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                  </button>
+                  <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:none;" onclick="deleteExpense(${exp.id})">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </td>
+              </tr>`).join('') : emptyRow(5,'ยังไม่มีรายจ่าย','fa-receipt')}
+            </tbody>
+            ${expenses.length ? `
+            <tfoot>
+              <tr style="background:#fff5f5;">
+                <td colspan="3" style="font-weight:700;color:#dc2626;">รวมทั้งหมด</td>
+                <td style="text-align:right;font-weight:700;color:#dc2626;font-size:16px;">฿${U.money(totalAll)}</td>
+                <td></td>
+              </tr>
+            </tfoot>` : ''}
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="card-box">
+        <div class="card-head"><h2><i class="fa-solid fa-chart-pie me-2 text-danger"></i>แยกตามหมวดหมู่</h2></div>
+        <div class="p-3">
+          ${catEntries.length ? catEntries.map(([cat,amt])=>`
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
+              <span style="font-weight:600;">${U.esc(cat)}</span>
+              <span style="color:#dc2626;font-weight:600;">฿${U.money(amt)}</span>
+            </div>
+            <div style="height:6px;background:#f3f4f6;border-radius:3px;">
+              <div style="height:6px;background:#dc2626;border-radius:3px;width:${totalAll?Math.round(amt/totalAll*100):0}%;"></div>
+            </div>
+            <div style="font-size:11px;color:#9ca3af;text-align:right;">${totalAll?Math.round(amt/totalAll*100):0}%</div>
+          </div>`).join('') : '<div class="empty-state" style="padding:20px"><i class="fa-solid fa-chart-pie"></i><p>ยังไม่มีข้อมูล</p></div>'}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+async function showExpenseModal(id) {
+  const CATS = ['วัตถุดิบ','ค่าแรง','ค่าไฟ/น้ำ','ค่าเช่า','ขนส่ง','ซ่อมแซม','อื่นๆ'];
+  const exp = id ? await DB.getExpense(id) : null;
+  const today = new Date().toISOString().slice(0,10);
+
+  const body = `
+    <div class="row g-3">
+      <div class="col-sm-6">
+        <label class="form-label">วันที่ <span class="text-danger">*</span></label>
+        <input type="date" class="form-control" id="exp_date" value="${exp ? new Date(exp.date).toISOString().slice(0,10) : today}">
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label">หมวดหมู่</label>
+        <select class="form-select" id="exp_cat">
+          ${CATS.map(c=>`<option value="${c}" ${exp?.category===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="col-12">
+        <label class="form-label">รายละเอียด</label>
+        <input type="text" class="form-control" id="exp_note" placeholder="เช่น ซื้อไม้สัก 100 แผ่น" value="${U.esc(exp?.note||'')}">
+      </div>
+      <div class="col-12">
+        <label class="form-label">จำนวนเงิน (บาท) <span class="text-danger">*</span></label>
+        <input type="number" class="form-control" id="exp_amount" placeholder="0" min="0" step="1" value="${exp?.amount||''}">
+      </div>
+    </div>`;
+
+  window._editExpenseId = id || null;
+  showModal('expenseModal', id ? 'แก้ไขรายจ่าย' : 'เพิ่มรายจ่าย', body,
+    `<button class="btn btn-danger" onclick="saveExpense()"><i class="fa-solid fa-save me-1"></i>บันทึก</button>
+     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`);
+  setTimeout(()=>document.getElementById('exp_amount')?.focus(),300);
+}
+
+async function saveExpense() {
+  const dateVal   = document.getElementById('exp_date')?.value;
+  const amountStr = document.getElementById('exp_amount')?.value;
+  const amount    = parseFloat(amountStr);
+  if (!dateVal)                              { U.toast('กรุณาเลือกวันที่','error'); return; }
+  if (!amountStr||amount<=0||isNaN(amount))  { U.toast('กรุณากรอกจำนวนเงินที่ถูกต้อง','error'); return; }
+
+  const data = {
+    date:     new Date(dateVal).getTime(),
+    category: document.getElementById('exp_cat')?.value  || 'อื่นๆ',
+    note:     document.getElementById('exp_note')?.value.trim() || '',
+    amount
+  };
+
+  if (window._editExpenseId) {
+    await DB.putExpense({ ...data, id: window._editExpenseId });
+    U.toast('แก้ไขรายจ่ายแล้ว ✓');
+  } else {
+    await DB.addExpense(data);
+    U.toast('เพิ่มรายจ่ายแล้ว ✓');
+  }
+  closeModal('expenseModal');
+  navigate('expenses');
+}
+
+async function deleteExpense(id) {
+  if (!confirm('ลบรายจ่ายนี้?')) return;
+  await DB.delExpense(id);
+  U.toast('ลบรายจ่ายแล้ว');
+  navigate('expenses');
+}
+
+// ═══════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════
+function emptyRow(cols,msg,icon='fa-inbox') {
+  return `<tr><td colspan="${cols}"><div class="empty-state" style="padding:30px"><i class="fa-solid ${icon}"></i><p>${msg}</p></div></td></tr>`;
+}
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    await DB.init();
+    await DB.loadSettings();
+    document.getElementById('sidebarBizName').textContent = CFG.businessName;
+    navigate('dashboard');
+  } catch(e) {
+    console.error(e);
+    document.getElementById('page-content').innerHTML=`<div class="empty-state"><i class="fa-solid fa-triangle-exclamation text-danger" style="font-size:40px;"></i><p style="color:#dc2626;">เกิดข้อผิดพลาด: ${e.message}</p></div>`;
+  }
+});
+</script>
+</body>
+</html>
