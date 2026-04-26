@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -40,14 +40,14 @@ body { background: #f0f2f5; margin: 0; }
 #sidebar .nav-section { font-size: 10px; color: #506070; padding: 14px 20px 4px; text-transform: uppercase; letter-spacing: 1px; }
 
 /* ── Main ── */
-#main { margin-left: 240px; min-height: 100vh; }
+#main { margin-left: 240px; min-height: 100vh; max-width: calc(100vw - 240px); overflow-x: hidden; }
 #topbar {
   background: #fff; border-bottom: 1px solid #e5e7eb;
   padding: 14px 28px; display: flex; align-items: center; justify-content: space-between;
   position: sticky; top: 0; z-index: 50;
 }
 #topbar h1 { font-size: 20px; font-weight: 700; margin: 0; color: #1a2332; }
-#page-content { padding: 28px; }
+#page-content { padding: 28px; box-sizing: border-box; }
 
 /* ── Cards ── */
 .stat-card {
@@ -138,7 +138,7 @@ body { background: #f0f2f5; margin: 0; }
 .today-item:last-child { border-bottom: none; }
 
 /* ── Scrollable ── */
-.table-scroll { overflow-x: auto; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; display: block; width: 100%; }
 
 /* ── Print ── */
 @media print {
@@ -193,7 +193,7 @@ body { background: #f0f2f5; margin: 0; }
   #sidebar .brand .biz-name, #sidebar .brand .biz-sub, #sidebar .nav-link span, #sidebar .nav-section { display: none; }
   #sidebar .nav-link { padding: 12px 0; justify-content: center; border-radius: 0; }
   #sidebar .nav-link i { width: auto; font-size: 18px; }
-  #main { margin-left: 54px; }
+  #main { margin-left: 54px; max-width: calc(100vw - 54px); }
   #topbar { padding: 12px 14px; }
   #topbar h1 { font-size: 16px; }
   #page-content { padding: 10px 10px; }
@@ -212,6 +212,12 @@ body { background: #f0f2f5; margin: 0; }
   .stat-card { padding: 12px 14px; }
   .stat-card .value { font-size: 22px; }
   .topbar-actions-btn { font-size: 12px !important; padding: 5px 10px !important; }
+  /* iPhone safe area */
+  #sidebar { padding-top: env(safe-area-inset-top, 0); }
+  #topbar { padding-top: max(12px, env(safe-area-inset-top, 0)); }
+  #page-content { padding-bottom: max(10px, env(safe-area-inset-bottom, 0)); }
+  /* order form table บนมือถือ */
+  .order-items-table th, .order-items-table td { font-size: 12px; padding: 4px 4px; }
 }
 </style>
 </head>
@@ -800,12 +806,12 @@ async function showCreateOrderModal(editId) {
     </div>
     <div class="col-12">
       <label class="form-label">รายการสินค้า <span style="font-size:12px;color:#9ca3af;font-weight:400;">(เลือกสี + สีเส้น + หมายเหตุพิเศษได้)</span></label>
-      <table class="items-table w-100">
+      <div class="table-scroll"><table class="items-table order-items-table w-100">
         <thead><tr><th style="width:40%">สินค้า / สี / เส้น</th><th style="width:12%">จำนวน</th><th style="width:18%">ราคา/ชิ้น</th><th style="width:16%">รวม</th><th style="width:14%"></th></tr></thead>
         <tbody id="orderItemsBody">
           ${initItems.map((item,i)=>orderItemRow(i,products,item,edit?.customerId)).join('')}
         </tbody>
-      </table>
+      </table></div>
       <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addOrderItemRow()"><i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้า</button>
     </div>
     <div class="col-sm-6">
