@@ -925,9 +925,9 @@ function printTodayOrders() {
     const itemRows = Object.entries(c.items).map(([name,qty])=>{
       const boxes = Array.from({length:qty},()=>'<span class="pen-box"></span>').join('');
       return `<tr>
-        <td class="name-col">${name}</td>
-        <td class="qty-col">${qty} ชิ้น</td>
-        <td class="box-col">${boxes}</td>
+        <td>${name}</td>
+        <td class="c-qty">${qty} ชิ้น</td>
+        <td class="c-box">${boxes}</td>
       </tr>`;
     }).join('');
     return `
@@ -937,10 +937,11 @@ function printTodayOrders() {
         <span class="cust-count">${custPieces} ชิ้น</span>
       </div>
       <table>
+        <colgroup><col class="c-name"><col class="c-qty"><col class="c-box"></colgroup>
         <thead><tr>
-          <th class="name-col">สินค้า</th>
-          <th class="qty-col">จำนวน</th>
-          <th class="box-col">เช็ค</th>
+          <th>สินค้า</th>
+          <th class="c-qty">จำนวน</th>
+          <th class="c-box">เช็ค</th>
         </tr></thead>
         <tbody>${itemRows}</tbody>
       </table>
@@ -954,39 +955,49 @@ function printTodayOrders() {
     *{box-sizing:border-box;}
     body{font-family:'Sarabun',sans-serif;padding:22px 24px;color:#111;font-size:15px;}
     h1{font-size:20px;font-weight:700;margin:0 0 4px;}
-    .sub{font-size:13px;color:#555;margin-bottom:10px;}
+    .sub{font-size:13px;color:#555;margin-bottom:14px;}
     .grand-total{
       background:#1e3a8a;color:#fff;border-radius:10px;
-      padding:14px 20px;margin-bottom:20px;
+      padding:16px 20px;margin-bottom:20px;
       display:flex;align-items:center;justify-content:space-between;
     }
-    .grand-total .label{font-size:14px;opacity:.85;}
-    .grand-total .num{font-size:28px;font-weight:800;letter-spacing:1px;}
-    .grand-total .sub2{font-size:13px;opacity:.8;margin-top:2px;}
+    .grand-total .label{font-size:13px;opacity:.8;margin-bottom:2px;}
+    .grand-total .num{font-size:32px;font-weight:800;letter-spacing:1px;line-height:1.1;}
+    .grand-total .sub2{font-size:12px;opacity:.75;margin-top:4px;}
     .cust-block{border:2px solid #dbeafe;border-radius:10px;margin-bottom:16px;overflow:hidden;break-inside:avoid;}
     .cust-head{
-      background:#eff6ff;padding:10px 14px;
+      background:#eff6ff;padding:10px 16px;
       display:flex;align-items:center;justify-content:space-between;
-      border-bottom:1px solid #dbeafe;
+      border-bottom:2px solid #dbeafe;
     }
     .cust-name{font-size:16px;font-weight:700;color:#1e3a8a;}
-    .cust-count{font-size:13px;color:#3b82f6;font-weight:600;background:#dbeafe;padding:2px 10px;border-radius:20px;}
-    table{width:100%;border-collapse:collapse;}
-    th{text-align:left;background:#f8fafc;padding:7px 10px;font-size:13px;color:#475569;font-weight:600;}
-    td{padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:14px;}
-    tbody tr:last-child td{border-bottom:none;}
-    .qty-col{width:70px;font-weight:600;color:#1e40af;}
-    .box-col{width:auto;white-space:nowrap;padding-right:6px;}
-    .pen-box{
-      display:inline-block;width:20px;height:20px;
-      border:2px solid #374151;border-radius:3px;
-      margin:0 3px 2px 0;vertical-align:middle;
+    .cust-count{font-size:12px;color:#3b82f6;font-weight:700;background:#dbeafe;padding:3px 12px;border-radius:20px;}
+    table{width:100%;border-collapse:collapse;table-layout:fixed;}
+    col.c-name{width:auto;}
+    col.c-qty{width:80px;}
+    col.c-box{width:160px;}
+    th{
+      text-align:left;background:#f1f5f9;padding:8px 12px;
+      font-size:12px;color:#64748b;font-weight:700;
+      letter-spacing:.4px;text-transform:uppercase;
     }
-    .no-print{margin-top:20px;}
+    th.c-qty,td.c-qty{text-align:center;}
+    th.c-box,td.c-box{text-align:left;padding-left:14px;}
+    td{padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:14px;vertical-align:middle;}
+    tbody tr:last-child td{border-bottom:none;}
+    td.c-qty{font-weight:700;color:#1e40af;font-size:15px;}
+    td.c-box{white-space:nowrap;}
+    .pen-box{
+      display:inline-block;width:21px;height:21px;
+      border:2px solid #374151;border-radius:3px;
+      margin-right:4px;vertical-align:middle;
+      flex-shrink:0;
+    }
+    .no-print{margin-top:24px;}
     @media print{
       .no-print{display:none!important;}
       body{padding:10px 14px;}
-      .grand-total{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+      .grand-total,.cust-head{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
       .cust-block{page-break-inside:avoid;}
     }
   </style></head><body>
