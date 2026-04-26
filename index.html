@@ -255,6 +255,8 @@ const FIREBASE_CONFIG = {
 
 const DB = {
   _fs: null,
+  _cache: {},         // { col: { ts, data } }
+  _CACHE_TTL: 90000,  // 90 วินาที
 
   async init() {
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
@@ -263,31 +265,51 @@ const DB = {
 
   // ── Generic CRUD ──
   async _all(col) {
+    const now = Date.now();
+    const c = this._cache[col];
+    if (c && now - c.ts < this._CACHE_TTL) return c.data;
     const snap = await this._fs.collection(col).get();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    this._cache[col] = { ts: now, data };
+    return data;
   },
+  _bust(col) { delete this._cache[col]; },
   async _get(col, id) {
+    // ดึงจาก cache ก่อน ไม่ต้องยิง Firestore แยก
+    const c = this._cache[col];
+    if (c) { const found = c.data.find(r => String(r.id) === String(id)); if (found) return found; }
     const snap = await this._fs.collection(col).doc(String(id)).get();
     return snap.exists ? { id: snap.id, ...snap.data() } : null;
   },
   async _add(col, d) {
     const { id: _id, ...rest } = d;
     const data = { ...rest, createdAt: rest.createdAt || Date.now() };
+    let newId;
     if (_id) {
       // restore: preserve original ID
       await this._fs.collection(col).doc(String(_id)).set(data);
-      return String(_id);
+      newId = String(_id);
+    } else {
+      const ref = await this._fs.collection(col).add(data);
+      newId = ref.id;
     }
-    const ref = await this._fs.collection(col).add(data);
-    return ref.id;
+    // อัพเดท cache ทันที แทนที่จะล้างทิ้ง
+    const c = this._cache[col];
+    if (c) c.data.push({ id: newId, ...data });
+    return newId;
   },
   async _put(col, d) {
     const { id, ...rest } = d;
     await this._fs.collection(col).doc(String(id)).set(rest, { merge: true });
+    // อัพเดท cache record ตรง ๆ
+    const c = this._cache[col];
+    if (c) { const i = c.data.findIndex(r => String(r.id) === String(id)); if (i >= 0) c.data[i] = { id, ...rest }; }
     return id;
   },
   async _del(col, id) {
     await this._fs.collection(col).doc(String(id)).delete();
+    const c = this._cache[col];
+    if (c) c.data = c.data.filter(r => String(r.id) !== String(id));
   },
 
   // ── Settings ──
@@ -299,8 +321,11 @@ const DB = {
     await this._fs.collection('settings').doc(key).set({ value });
   },
   async loadSettings() {
+    // ดึงทั้ง collection ครั้งเดียว แทน 4 queries แยก
+    const snap = await this._fs.collection('settings').get();
+    const map = {}; snap.docs.forEach(d => { map[d.id] = d.data().value; });
     for (const k of ['businessName','businessAddress','businessPhone','businessTaxId']) {
-      const v = await this.getSetting(k); if (v !== null) CFG[k] = v;
+      if (map[k] !== undefined) CFG[k] = map[k];
     }
   },
 
@@ -397,12 +422,22 @@ const U = {
 // ═══════════════════════════════════════
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน' };
 
+const SKELETON_CARDS = `<div class="row g-3 mb-4">${[0,1,2,3].map(()=>`
+  <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3" style="opacity:.4;">
+    <div style="width:48px;height:48px;border-radius:12px;background:#e5e7eb;"></div>
+    <div style="flex:1;"><div style="height:12px;background:#e5e7eb;border-radius:4px;margin-bottom:8px;width:60%;"></div>
+    <div style="height:22px;background:#d1d5db;border-radius:4px;width:40%;"></div></div>
+  </div></div>`).join('')}</div>
+  <div style="height:180px;background:#f3f4f6;border-radius:12px;opacity:.4;"></div>`;
+
 function navigate(page) {
   document.querySelectorAll('#sidebar .nav-link').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   document.getElementById('pageTitle').textContent=PAGE_TITLES[page]||page;
   document.getElementById('topbarActions').innerHTML='';
   const el=document.getElementById('page-content');
-  el.innerHTML='<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>กำลังโหลด...</p></div>';
+  // Dashboard แสดง skeleton ทันที, หน้าอื่นแสดง spinner
+  el.innerHTML = page==='dashboard' ? SKELETON_CARDS
+    : '<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>กำลังโหลด...</p></div>';
   ({dashboard:renderDashboard,orders:renderOrders,invoices:renderInvoices,customers:renderCustomers,products:renderProducts,reports:renderReports,expenses:renderExpenses,settings:renderSettings}[page]||((el)=>{el.innerHTML='<div class="empty-state"><p>ไม่พบหน้านี้</p></div>';}))(el);
 }
 
@@ -430,10 +465,14 @@ function closeModal(id) { const el=document.getElementById(id); if(el){try{boots
 //  DASHBOARD
 // ═══════════════════════════════════════
 async function renderDashboard(el) {
-  const [orders, invoices, customers] = await Promise.all([DB.getOrders(), DB.getInvoices(), DB.getCustomers()]);
   const now = new Date(); now.setHours(0,0,0,0);
+  const todayTs    = now.getTime();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  const todayOrders  = orders.filter(o=>U.isToday(o.createdAt));
+
+  // ดึงเฉพาะที่ต้องการ: orders วันนี้ + invoices เดือนนี้ + customers (เล็ก)
+  // orders/invoices ทั้งหมดยังต้องการสำหรับ "count" cards — ใช้ cache ทำให้ไม่ช้า
+  const [orders, invoices, customers] = await Promise.all([DB.getOrders(), DB.getInvoices(), DB.getCustomers()]);
+  const todayOrders  = orders.filter(o=>o.createdAt >= todayTs);
   const monthIncome  = invoices.filter(i=>i.createdAt>=monthStart).reduce((a,i)=>a+U.invTotal(i).total,0);
 
   // รวมสินค้าวันนี้ทั้งหมด
