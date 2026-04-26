@@ -922,12 +922,14 @@ function printTodayOrders() {
 
   const rows = d.custTodayList.map(c=>{
     const custPieces = Object.values(c.items).reduce((a,v)=>a+v,0);
-    const itemRows = Object.entries(c.items).map(([name,qty])=>`
-      <tr>
-        <td class="check-col"><div class="pen-box"></div></td>
+    const itemRows = Object.entries(c.items).map(([name,qty])=>{
+      const boxes = Array.from({length:qty},()=>'<span class="pen-box"></span>').join('');
+      return `<tr>
         <td class="name-col">${name}</td>
         <td class="qty-col">${qty} ชิ้น</td>
-      </tr>`).join('');
+        <td class="box-col">${boxes}</td>
+      </tr>`;
+    }).join('');
     return `
     <div class="cust-block">
       <div class="cust-head">
@@ -936,9 +938,9 @@ function printTodayOrders() {
       </div>
       <table>
         <thead><tr>
-          <th class="check-col">✓</th>
           <th class="name-col">สินค้า</th>
           <th class="qty-col">จำนวน</th>
+          <th class="box-col">เช็ค</th>
         </tr></thead>
         <tbody>${itemRows}</tbody>
       </table>
@@ -973,9 +975,13 @@ function printTodayOrders() {
     th{text-align:left;background:#f8fafc;padding:7px 10px;font-size:13px;color:#475569;font-weight:600;}
     td{padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:14px;}
     tbody tr:last-child td{border-bottom:none;}
-    .check-col{width:40px;text-align:center;}
-    .qty-col{width:80px;font-weight:600;color:#1e40af;}
-    .pen-box{width:22px;height:22px;border:2px solid #374151;border-radius:3px;display:inline-block;}
+    .qty-col{width:70px;font-weight:600;color:#1e40af;}
+    .box-col{width:auto;white-space:nowrap;padding-right:6px;}
+    .pen-box{
+      display:inline-block;width:20px;height:20px;
+      border:2px solid #374151;border-radius:3px;
+      margin:0 3px 2px 0;vertical-align:middle;
+    }
     .no-print{margin-top:20px;}
     @media print{
       .no-print{display:none!important;}
