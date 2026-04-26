@@ -91,7 +91,7 @@ body { background: #f0f2f5; margin: 0; }
 .modal-header { border-bottom: 1px solid #f1f3f5; padding: 18px 24px; }
 .modal-footer { border-top: 1px solid #f1f3f5; padding: 14px 24px; }
 .modal-title  { font-size: 17px; font-weight: 700; }
-.modal-body   { padding: 24px; }
+.modal-body   { padding: 24px; overflow-x: hidden; }
 .modal-content { border-radius: 14px; border: none; }
 
 /* ── Buttons ── */
@@ -206,7 +206,7 @@ body { background: #f0f2f5; margin: 0; }
   .btn { font-size: 13px; padding: 6px 10px; }
   .btn-sm { font-size: 12px; padding: 4px 8px; }
   .modal-dialog { margin: 0.4rem; max-width: calc(100vw - 0.8rem) !important; }
-  .modal-body { padding: 14px 16px; }
+  .modal-body { padding: 14px 16px; overflow-x: hidden; }
   .modal-header, .modal-footer { padding: 12px 16px; }
   .today-card, .cust-today-card { padding: 16px 14px; }
   .stat-card { padding: 12px 14px; }
@@ -216,8 +216,15 @@ body { background: #f0f2f5; margin: 0; }
   #sidebar { padding-top: env(safe-area-inset-top, 0); }
   #topbar { padding-top: max(12px, env(safe-area-inset-top, 0)); }
   #page-content { padding-bottom: max(10px, env(safe-area-inset-bottom, 0)); }
-  /* order form table บนมือถือ */
+  /* order form table บนมือถือ — ซ่อน col ราคา+รวม ดูยอดจากด้านล่างแทน */
+  .order-items-table th:nth-child(3),
+  .order-items-table td:nth-child(3),
+  .order-items-table th:nth-child(4),
+  .order-items-table td:nth-child(4) { display: none; }
   .order-items-table th, .order-items-table td { font-size: 12px; padding: 4px 4px; }
+  .order-items-table th:nth-child(1), .order-items-table td:nth-child(1) { width: 75%; }
+  .order-items-table th:nth-child(2), .order-items-table td:nth-child(2) { width: 15%; }
+  .order-items-table th:nth-child(5), .order-items-table td:nth-child(5) { width: 10%; }
 }
 </style>
 </head>
