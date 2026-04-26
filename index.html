@@ -226,15 +226,20 @@ body { background: #f0f2f5; margin: 0; }
 
 /* ── PWA Standalone (iPhone) safe-area ── */
 @media (display-mode: standalone) {
-  body { padding-top: env(safe-area-inset-top, 44px); }
+  /* sidebar: position:fixed — padding-top ดัน content ลงมา bg ยังเต็มหน้าจอ */
   #sidebar {
-    top: env(safe-area-inset-top, 44px);
-    height: calc(100vh - env(safe-area-inset-top, 44px));
+    top: 0;
+    padding-top: env(safe-area-inset-top, 44px);
+    height: 100vh;
   }
-  #topbar { padding-top: 12px; }
+  /* topbar: position:sticky — padding-top ดัน content ลงมา bg ยังคลุม status bar */
+  #topbar {
+    padding-top: calc(env(safe-area-inset-top, 44px) + 10px) !important;
+  }
+  /* modal เปิดมาใต้ status bar */
   .modal { padding-top: env(safe-area-inset-top, 44px) !important; }
-  .modal-dialog { margin-top: 0.4rem; }
-  #page-content { padding-bottom: max(10px, env(safe-area-inset-bottom, 20px)); }
+  /* home bar ด้านล่าง */
+  #page-content { padding-bottom: max(14px, env(safe-area-inset-bottom, 20px)); }
 }
 </style>
 </head>
