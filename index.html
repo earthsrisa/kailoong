@@ -212,10 +212,7 @@ body { background: #f0f2f5; margin: 0; }
   .stat-card { padding: 12px 14px; }
   .stat-card .value { font-size: 22px; }
   .topbar-actions-btn { font-size: 12px !important; padding: 5px 10px !important; }
-  /* iPhone safe area */
-  #sidebar { padding-top: env(safe-area-inset-top, 0); }
-  #topbar { padding-top: max(12px, env(safe-area-inset-top, 0)); }
-  #page-content { padding-bottom: max(10px, env(safe-area-inset-bottom, 0)); }
+
   /* order form table บนมือถือ — ซ่อน col ราคา+รวม ดูยอดจากด้านล่างแทน */
   .order-items-table th:nth-child(3),
   .order-items-table td:nth-child(3),
@@ -225,6 +222,19 @@ body { background: #f0f2f5; margin: 0; }
   .order-items-table th:nth-child(1), .order-items-table td:nth-child(1) { width: 75%; }
   .order-items-table th:nth-child(2), .order-items-table td:nth-child(2) { width: 15%; }
   .order-items-table th:nth-child(5), .order-items-table td:nth-child(5) { width: 10%; }
+}
+
+/* ── PWA Standalone (iPhone) safe-area ── */
+@media (display-mode: standalone) {
+  body { padding-top: env(safe-area-inset-top, 44px); }
+  #sidebar {
+    top: env(safe-area-inset-top, 44px);
+    height: calc(100vh - env(safe-area-inset-top, 44px));
+  }
+  #topbar { padding-top: 12px; }
+  .modal { padding-top: env(safe-area-inset-top, 44px) !important; }
+  .modal-dialog { margin-top: 0.4rem; }
+  #page-content { padding-bottom: max(10px, env(safe-area-inset-bottom, 20px)); }
 }
 </style>
 </head>
