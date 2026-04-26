@@ -422,8 +422,8 @@ const U = {
 // ═══════════════════════════════════════
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน' };
 
-const SKELETON_CARDS = `<div class="row g-3 mb-4">${[0,1,2,3].map(()=>`
-  <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3" style="opacity:.4;">
+const SKELETON_CARDS = `<div class="row g-3 mb-4">${[0,1].map(()=>`
+  <div class="col-sm-6 col-xl-6"><div class="stat-card d-flex align-items-center gap-3" style="opacity:.4;">
     <div style="width:48px;height:48px;border-radius:12px;background:#e5e7eb;"></div>
     <div style="flex:1;"><div style="height:12px;background:#e5e7eb;border-radius:4px;margin-bottom:8px;width:60%;"></div>
     <div style="height:22px;background:#d1d5db;border-radius:4px;width:40%;"></div></div>
@@ -496,19 +496,11 @@ async function renderDashboard(el) {
 
   el.innerHTML=`
   <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
-      <div class="icon-wrap" style="background:#dbeafe;color:#2563eb;"><i class="fa-solid fa-cart-plus"></i></div>
-      <div><div class="label">ออเดอร์วันนี้</div><div class="value">${todayOrders.length}</div><div class="sub">รายการ</div></div>
-    </div></div>
-    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
-      <div class="icon-wrap" style="background:#d1fae5;color:#059669;"><i class="fa-solid fa-baht-sign"></i></div>
-      <div><div class="label">ยอดรับเงินเดือนนี้</div><div class="value" style="font-size:20px;">฿${U.money(monthIncome)}</div><div class="sub">จากใบเสร็จ</div></div>
-    </div></div>
-    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
+    <div class="col-sm-6 col-xl-6"><div class="stat-card d-flex align-items-center gap-3">
       <div class="icon-wrap" style="background:#ede9fe;color:#7c3aed;"><i class="fa-solid fa-users"></i></div>
       <div><div class="label">ลูกค้าทั้งหมด</div><div class="value">${customers.length}</div><div class="sub">ราย</div></div>
     </div></div>
-    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
+    <div class="col-sm-6 col-xl-6"><div class="stat-card d-flex align-items-center gap-3">
       <div class="icon-wrap" style="background:#fef3c7;color:#d97706;"><i class="fa-solid fa-file-invoice"></i></div>
       <div><div class="label">ออเดอร์ทั้งหมด</div><div class="value">${orders.length}</div><div class="sub">รายการ</div></div>
     </div></div>
@@ -522,7 +514,11 @@ async function renderDashboard(el) {
         ${Object.keys(todayItems).length ? Object.entries(todayItems).map(([name,qty])=>`
           <div class="today-item"><span>${U.esc(name)}</span><strong>${qty} ชิ้น</strong></div>`).join('')
           : '<div style="opacity:.6;font-size:13px;text-align:center;padding:12px 0;">ยังไม่มีออเดอร์วันนี้</div>'}
-        ${Object.keys(todayItems).length ? `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;font-size:13px;opacity:.8;">รวม ${Object.values(todayItems).reduce((a,v)=>a+v,0)} ชิ้น</div>` : ''}
+        ${Object.keys(todayItems).length ? `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;">
+          <span style="font-size:13px;opacity:.75;">รวม</span>
+          <span style="font-size:32px;font-weight:700;margin:0 6px;">${Object.values(todayItems).reduce((a,v)=>a+v,0)}</span>
+          <span style="font-size:13px;opacity:.75;">ชิ้น</span>
+        </div>` : ''}
       </div>
     </div>
 
