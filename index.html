@@ -924,7 +924,7 @@ function printTodayOrders() {
     const custPieces = Object.values(c.items).reduce((a,v)=>a+v,0);
     const itemRows = Object.entries(c.items).map(([name,qty])=>`
       <tr>
-        <td class="check-col"><input type="checkbox" class="chk"></td>
+        <td class="check-col"><div class="pen-box"></div></td>
         <td class="name-col">${name}</td>
         <td class="qty-col">${qty} ชิ้น</td>
       </tr>`).join('');
@@ -975,7 +975,7 @@ function printTodayOrders() {
     tbody tr:last-child td{border-bottom:none;}
     .check-col{width:40px;text-align:center;}
     .qty-col{width:80px;font-weight:600;color:#1e40af;}
-    .chk{width:18px;height:18px;cursor:pointer;accent-color:#2563eb;}
+    .pen-box{width:22px;height:22px;border:2px solid #374151;border-radius:3px;display:inline-block;}
     .no-print{margin-top:20px;}
     @media print{
       .no-print{display:none!important;}
@@ -2232,43 +2232,6 @@ async function saveExpense() {
     U.toast('แก้ไขรายจ่ายแล้ว ✓');
   } else {
     await DB.addExpense(data);
-    U.toast('เพิ่มรายจ่ายแล้ว ✓');
-  }
-  closeModal('expenseModal');
-  navigate('expenses');
-}
-
-async function deleteExpense(id) {
-  if (!confirm('ลบรายจ่ายนี้?')) return;
-  await DB.delExpense(id);
-  U.toast('ลบรายจ่ายแล้ว');
-  navigate('expenses');
-}
-
-// ═══════════════════════════════════════
-//  HELPERS
-// ═══════════════════════════════════════
-function emptyRow(cols,msg,icon='fa-inbox') {
-  return `<tr><td colspan="${cols}"><div class="empty-state" style="padding:30px"><i class="fa-solid ${icon}"></i><p>${msg}</p></div></td></tr>`;
-}
-
-// ═══════════════════════════════════════
-//  INIT
-// ═══════════════════════════════════════
-window.addEventListener('DOMContentLoaded', async () => {
-  try {
-    await DB.init();
-    await DB.loadSettings();
-    document.getElementById('sidebarBizName').textContent = CFG.businessName;
-    navigate('dashboard');
-  } catch(e) {
-    console.error(e);
-    document.getElementById('page-content').innerHTML=`<div class="empty-state"><i class="fa-solid fa-triangle-exclamation text-danger" style="font-size:40px;"></i><p style="color:#dc2626;">เกิดข้อผิดพลาด: ${e.message}</p></div>`;
-  }
-});
-</script>
-</body>
-</html>ddExpense(data);
     U.toast('เพิ่มรายจ่ายแล้ว ✓');
   }
   closeModal('expenseModal');
