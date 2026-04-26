@@ -188,10 +188,30 @@ body { background: #f0f2f5; margin: 0; }
 
 /* ── Mobile ── */
 @media (max-width: 768px) {
-  #sidebar { width: 58px; }
+  #sidebar { width: 54px; }
+  #sidebar .brand { padding: 14px 0; display: flex; justify-content: center; }
   #sidebar .brand .biz-name, #sidebar .brand .biz-sub, #sidebar .nav-link span, #sidebar .nav-section { display: none; }
-  #main { margin-left: 58px; }
-  #page-content { padding: 14px; }
+  #sidebar .nav-link { padding: 12px 0; justify-content: center; border-radius: 0; }
+  #sidebar .nav-link i { width: auto; font-size: 18px; }
+  #main { margin-left: 54px; }
+  #topbar { padding: 12px 14px; }
+  #topbar h1 { font-size: 16px; }
+  #page-content { padding: 10px 10px; }
+  .card-box { padding: 14px 12px; }
+  .card-head { flex-wrap: wrap; gap: 8px; }
+  .card-head h2 { font-size: 14px; }
+  .table-clean th { padding: 9px 10px; font-size: 12px; }
+  .table-clean td { padding: 10px 10px; font-size: 13px; }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .btn { font-size: 13px; padding: 6px 10px; }
+  .btn-sm { font-size: 12px; padding: 4px 8px; }
+  .modal-dialog { margin: 0.4rem; max-width: calc(100vw - 0.8rem) !important; }
+  .modal-body { padding: 14px 16px; }
+  .modal-header, .modal-footer { padding: 12px 16px; }
+  .today-card, .cust-today-card { padding: 16px 14px; }
+  .stat-card { padding: 12px 14px; }
+  .stat-card .value { font-size: 22px; }
+  .topbar-actions-btn { font-size: 12px !important; padding: 5px 10px !important; }
 }
 </style>
 </head>
