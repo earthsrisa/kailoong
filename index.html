@@ -447,7 +447,7 @@ async function renderDashboard(el) {
   todayOrders.forEach(o=>{
     if (!custTodayMap[o.customerId]) custTodayMap[o.customerId]={name:o.customerName,items:{},total:0};
     (o.items||[]).forEach(i=>{
-      const key=i.productName+(i.color?' ('+i.color+')':'')+(i.trimColor?' เส้น'+i.trimColor:'');
+      const key=i.productName+(i.color?' ('+i.color+')':'')+(i.trimColor?' เส้น'+i.trimColor:'')+(i.style&&i.style!=='ธรรมดา'?' ✝'+i.style:'');
       custTodayMap[o.customerId].items[key]=(custTodayMap[o.customerId].items[key]||0)+i.qty;
     });
     custTodayMap[o.customerId].total+=U.orderTotal(o);
@@ -535,7 +535,7 @@ async function renderDashboard(el) {
             <td style="white-space:nowrap;font-size:13px;">${U.datetime(o.createdAt)}</td>
             <td><strong>${U.esc(o.customerName||'-')}</strong></td>
             <td style="max-width:240px;font-size:12px;color:#6b7280;">
-              ${(o.items||[]).map(i=>U.esc(i.productName+(i.color?' '+i.color:'')+(i.trimColor?' เส้น'+i.trimColor:''))+' ×'+i.qty).join(' · ')||'-'}
+              ${(o.items||[]).map(i=>U.esc(i.productName+(i.color?' '+i.color:'')+(i.trimColor?' เส้น'+i.trimColor:'')+(i.style&&i.style!=='ธรรมดา'?' ✝'+i.style:''))+' ×'+i.qty).join(' · ')||'-'}
             </td>
             <td style="font-weight:600;">฿${U.money(U.orderTotal(o))}</td>
             <td><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
@@ -593,7 +593,9 @@ function renderOrderRows(list) {
     <td><strong>${U.esc(o.customerName||'-')}</strong></td>
     <td style="max-width:260px;">
       ${(o.items||[]).map(i=>{
-        const label=U.esc(i.productName)+(i.color?` <span style="background:${i.color==='แดง'?'#fee2e2':'#f1f5f9'};border-radius:3px;padding:1px 5px;font-size:11px;">${U.esc(i.color)}</span>`:'')+(i.trimColor?` <span style="background:#fef9c3;border-radius:3px;padding:1px 5px;font-size:11px;">เส้น${U.esc(i.trimColor)}</span>`:'')+(i.specialNote?` <em style="color:#9ca3af;font-size:11px;">${U.esc(i.specialNote)}</em>`:'');
+        const trimBg=i.trimColor==='ทอง'?'#fef3c7':i.trimColor==='เงิน'?'#f1f5f9':'#f8fafc';
+        const trimTx=i.trimColor==='ทอง'?'#92400e':i.trimColor==='เงิน'?'#475569':'#6b7280';
+        const label=U.esc(i.productName)+(i.color?` <span style="background:${i.color==='แดง'?'#fee2e2':i.color==='ดำ'?'#374151':i.color==='น้ำตาล'?'#fef3c7':'#f1f5f9'};color:${i.color==='ดำ'?'#fff':'inherit'};border-radius:3px;padding:1px 5px;font-size:11px;">${U.esc(i.color)}</span>`:'')+(i.trimColor?` <span style="background:${trimBg};color:${trimTx};border-radius:3px;padding:1px 5px;font-size:11px;">${i.trimColor==='ทอง'?'🟡':'🔘'}เส้น${U.esc(i.trimColor)}</span>`:'')+(i.style&&i.style!=='ธรรมดา'?` <span style="background:#dbeafe;color:#1e40af;border-radius:3px;padding:1px 6px;font-size:11px;font-weight:600;">✝ ${U.esc(i.style)}</span>`:' ')+(i.specialNote?` <em style="color:#9ca3af;font-size:11px;">${U.esc(i.specialNote)}</em>`:'');
         return `<span style="display:inline-block;background:#f1f5f9;border-radius:4px;padding:2px 8px;font-size:12px;margin:2px 2px 2px 0;">${label} ×${i.qty}</span>`;
       }).join('')||'-'}
     </td>
@@ -790,33 +792,54 @@ async function showEditOrderModal(id) { await showCreateOrderModal(id); }
 
 function orderItemRow(i, products, item={}, custId) {
   const opts=(products||[]).map(p=>`<option value="${p.id}" data-price="${p.price}" data-name="${U.esc(p.name)}" ${item.productId==p.id?'selected':''}>${U.esc(p.name)}</option>`).join('');
-  const colorVal   = item.color||'ขาว';
-  const trimVal    = item.trimColor||'ทอง';
-  const specialVal = U.esc(item.specialNote||'');
-  return `<tr id="oirow_${i}" style="vertical-align:top;">
-    <td style="min-width:140px;">
-      <select class="form-select form-select-sm" onchange="onOrderProdChange(this,${i})" id="oiprod_${i}">
-        <option value="">-- เลือกสินค้า --</option>${opts}
+  const colorVal = item.color||'ขาว';
+  const trimVal  = item.trimColor||'ทอง';
+  const styleVal = item.style||'ธรรมดา';
+  const specialVal=U.esc(item.specialNote||'');
+  const colorOpts=[
+    {v:'ขาว',    label:'⬜ ขาว'},
+    {v:'แดง',    label:'🟥 แดง'},
+    {v:'น้ำตาล', label:'🟫 น้ำตาล'},
+    {v:'ดำ',     label:'⬛ ดำ'},
+  ].map(c=>`<option value="${c.v}" ${colorVal===c.v?'selected':''}>${c.label}</option>`).join('');
+  const trimOpts=[
+    {v:'ทอง',  label:'🟡 เส้นทอง'},
+    {v:'เงิน', label:'🔘 เส้นเงิน'},
+    {v:'ซีด',  label:'🩶 เส้นซีด'},
+    {v:'ขาว',  label:'⬜ เส้นขาว'},
+  ].map(t=>`<option value="${t.v}" ${trimVal===t.v?'selected':''}>${t.label}</option>`).join('');
+  const styleOpts=[
+    {v:'ธรรมดา',label:'🪷 ธรรมดา'},
+    {v:'คริสต์', label:'✝ แต่งคริสต์'},
+  ].map(s=>`<option value="${s.v}" ${styleVal===s.v?'selected':''}>${s.label}</option>`).join('');
+  const SS='font-size:15px;font-weight:600;border:2px solid #d1d5db;border-radius:8px;padding:7px 10px;width:100%;background:#fff;cursor:pointer;';
+  return `<tr id="oirow_${i}" style="vertical-align:top;border-bottom:2px solid #e5e7eb;">
+    <td style="min-width:220px;padding:8px 6px;">
+      <select style="${SS}border-color:#2563eb!important;" onchange="onOrderProdChange(this,${i})" id="oiprod_${i}">
+        <option value="">🔍 -- เลือกสินค้า --</option>${opts}
       </select>
-      <div style="display:flex;gap:4px;margin-top:5px;">
-        <select class="form-select form-select-sm" id="oicolor_${i}" style="flex:1;" title="สีโลง">
-          <option value="ขาว" ${colorVal==='ขาว'?'selected':''}>⬜ ขาว</option>
-          <option value="แดง" ${colorVal==='แดง'?'selected':''}>🟥 แดง</option>
-        </select>
-        <select class="form-select form-select-sm" id="oitrim_${i}" style="flex:1;" title="สีเส้น">
-          <option value="ทอง"  ${trimVal==='ทอง'?'selected':''}>เส้นทอง</option>
-          <option value="เงิน" ${trimVal==='เงิน'?'selected':''}>เส้นเงิน</option>
-          <option value="ซีด"  ${trimVal==='ซีด'?'selected':''}>เส้นซีด</option>
-          <option value="ขาว"  ${trimVal==='ขาว'?'selected':''}>เส้นขาว</option>
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">🎨 สีโลง</div>
+          <select id="oicolor_${i}" style="${SS}font-size:14px;">${colorOpts}</select>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">✨ สีเส้น</div>
+          <select id="oitrim_${i}" style="${SS}font-size:14px;">${trimOpts}</select>
+        </div>
       </div>
-      <input type="text" class="form-control form-control-sm mt-1" id="oisp_${i}" value="${specialVal}" placeholder="หมายเหตุพิเศษ / ประเภทโลง...">
+      <div style="margin-top:6px;">
+        <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">⚙️ แบบตกแต่ง</div>
+        <select id="oistyle_${i}" style="${SS}font-size:14px;">${styleOpts}</select>
+      </div>
+      <input type="text" class="form-control mt-1" id="oisp_${i}" value="${specialVal}" style="font-size:13px;border-radius:8px;border:2px solid #d1d5db;" placeholder="📝 หมายเหตุพิเศษ...">
     </td>
-    <td style="min-width:60px;"><input type="number" class="form-control form-control-sm" id="oiqty_${i}" value="${item.qty||1}" min="1" oninput="calcOrderTotal()"></td>
-    <td style="min-width:90px;"><input type="number" class="form-control form-control-sm" id="oiprice_${i}" value="${item.price||0}" min="0" oninput="calcOrderTotal()"></td>
-    <td style="min-width:80px;"><span id="oitotal_${i}" style="font-size:13px;font-weight:600;">฿${U.money((item.qty||1)*(item.price||0))}</span></td>
-    <td><button type="button" class="btn btn-sm btn-outline-danger btn-icon" onclick="document.getElementById('oirow_${i}').remove();calcOrderTotal()"><i class="fa-solid fa-trash"></i></button></td>
+    <td style="min-width:65px;padding:8px 4px;"><input type="number" class="form-control" id="oiqty_${i}" value="${item.qty||1}" min="1" oninput="calcOrderTotal()" style="font-size:18px;font-weight:700;text-align:center;border-radius:8px;border:2px solid #d1d5db;padding:8px 4px;"></td>
+    <td style="min-width:100px;padding:8px 4px;"><input type="number" class="form-control" id="oiprice_${i}" value="${item.price||0}" min="0" oninput="calcOrderTotal()" style="font-size:16px;border-radius:8px;border:2px solid #d1d5db;padding:8px;"></td>
+    <td style="min-width:80px;padding:8px 4px;"><span id="oitotal_${i}" style="font-size:16px;font-weight:700;color:#1a2332;">฿${U.money((item.qty||1)*(item.price||0))}</span></td>
+    <td style="padding:8px 4px;"><button type="button" class="btn btn-outline-danger" style="width:36px;height:36px;padding:0;border-radius:8px;" onclick="document.getElementById('oirow_${i}').remove();calcOrderTotal()"><i class="fa-solid fa-trash"></i></button></td>
   </tr>`;
+}
 }
 
 function addOrderItemRow() {
@@ -877,8 +900,9 @@ async function saveOrder() {
     const price=parseFloat(document.getElementById(`oiprice_${i}`)?.value||0);
     const color      = document.getElementById(`oicolor_${i}`)?.value||'ขาว';
     const trimColor  = document.getElementById(`oitrim_${i}`)?.value||'ทอง';
+    const style      = document.getElementById(`oistyle_${i}`)?.value||'ธรรมดา';
     const specialNote= document.getElementById(`oisp_${i}`)?.value.trim()||'';
-    items.push({productId:prodId,productName:opt.dataset.name||opt.text,qty,price,color,trimColor,specialNote});
+    items.push({productId:prodId,productName:opt.dataset.name||opt.text,qty,price,color,trimColor,style,specialNote});
     anyItem=true;
   });
   if (!anyItem){U.toast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','error');return;}
@@ -1343,7 +1367,7 @@ function pullOrdersToReceipt() {
   // รวมรายการทั้งหมดจากทุกออเดอร์
   const merged = {};
   orders.forEach(o=>(o.items||[]).forEach(i=>{
-    const key = i.productName+'|'+i.price+'|'+(i.color||'')+'|'+(i.trimColor||'')+'|'+(i.specialNote||'');
+    const key = i.productName+'|'+i.price+'|'+(i.color||'')+'|'+(i.trimColor||'')+'|'+(i.style||'')+'|'+(i.specialNote||'');
     if (merged[key]) { merged[key].qty+=i.qty; }
     else { merged[key]={name:itemLabel(i),qty:i.qty,price:i.price}; }
   }));
@@ -1359,6 +1383,7 @@ function itemLabel(i) {
   let label=i.productName||'';
   if (i.color)      label+=' '+i.color;
   if (i.trimColor)  label+=' เส้น'+i.trimColor;
+  if (i.style && i.style!=='ธรรมดา') label+=' ✝'+i.style;
   if (i.specialNote) label+=' ('+i.specialNote+')';
   return label;
 }
