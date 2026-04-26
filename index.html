@@ -670,7 +670,7 @@ function appendAddItemRow() {
 
 async function onAddItemProdChange(sel,i,custId) {
   const opt=sel.options[sel.selectedIndex];
-  const prodId=parseInt(sel.value);
+  const prodId=sel.value;
   if (!prodId) return;
   const defaultPrice=parseFloat(opt.dataset.price||0);
   const price=await DB.getEffectivePrice(custId,prodId,defaultPrice);
@@ -700,7 +700,7 @@ async function saveAddItems(orderId) {
     const m=row.id?.match(/airow_(\d+)/); if(!m)return;
     const i=m[1];
     const sel=document.getElementById(`aiprod_${i}`);
-    const prodId=parseInt(sel?.value||0); if(!prodId)return;
+    const prodId=sel?.value; if(!prodId)return;
     const opt=sel.options[sel.selectedIndex];
     const qty=parseFloat(document.getElementById(`aiqty_${i}`)?.value||1);
     const price=parseFloat(document.getElementById(`aiprice_${i}`)?.value||0);
@@ -825,7 +825,7 @@ function addOrderItemRow() {
 }
 
 function onOrderCustChange(sel) {
-  window._orderCustId=parseInt(sel.value)||null;
+  window._orderCustId=sel.value||null;
   // re-apply prices for all selected products
   document.querySelectorAll('#orderItemsBody tr').forEach(row=>{
     const m=row.id?.match(/oirow_(\d+)/); if(!m)return;
@@ -836,7 +836,7 @@ function onOrderCustChange(sel) {
 
 async function onOrderProdChange(sel,i) {
   const opt=sel.options[sel.selectedIndex];
-  const prodId=parseInt(sel.value); if(!prodId)return;
+  const prodId=sel.value; if(!prodId)return;
   const defaultPrice=parseFloat(opt.dataset.price||0);
   let price=defaultPrice;
   if (window._orderCustId) price=await DB.getEffectivePrice(window._orderCustId,prodId,defaultPrice);
@@ -862,7 +862,7 @@ function calcOrderTotal() {
 }
 
 async function saveOrder() {
-  const custId=parseInt(document.getElementById('of_cust')?.value||0);
+  const custId=document.getElementById('of_cust')?.value||'';
   if (!custId){U.toast('กรุณาเลือกลูกค้า','error');return;}
   const cust=await DB.getCustomer(custId);
 
@@ -871,7 +871,7 @@ async function saveOrder() {
     const m=row.id?.match(/oirow_(\d+)/); if(!m)return;
     const i=m[1];
     const sel=document.getElementById(`oiprod_${i}`);
-    const prodId=parseInt(sel?.value||0); if(!prodId)return;
+    const prodId=sel?.value; if(!prodId)return;
     const opt=sel.options[sel.selectedIndex];
     const qty=parseFloat(document.getElementById(`oiqty_${i}`)?.value||1);
     const price=parseFloat(document.getElementById(`oiprice_${i}`)?.value||0);
@@ -883,7 +883,7 @@ async function saveOrder() {
   });
   if (!anyItem){U.toast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','error');return;}
 
-  const editId=parseInt(document.getElementById('of_editId')?.value||0);
+  const editId=document.getElementById('of_editId')?.value||'';
   const dateStr=document.getElementById('of_date')?.value;
   const createdAt=dateStr?new Date(dateStr).setHours(new Date().getHours(),new Date().getMinutes(),0,0):Date.now();
 
@@ -985,7 +985,7 @@ async function showCustomerModal(id) {
 async function saveCustomer() {
   const name=document.getElementById('cf_name')?.value.trim();
   if (!name){U.toast('กรุณากรอกชื่อ','error');return;}
-  const id=parseInt(document.getElementById('cf_id')?.value||0);
+  const id=document.getElementById('cf_id')?.value||'';
   const data={name,phone:document.getElementById('cf_phone')?.value.trim()||'',taxId:document.getElementById('cf_taxId')?.value.trim()||'',address:document.getElementById('cf_address')?.value.trim()||'',notes:document.getElementById('cf_notes')?.value.trim()||''};
   if (id){const old=await DB.getCustomer(id);await DB.putCustomer({...old,...data});U.toast('แก้ไขข้อมูลลูกค้าแล้ว ✓');}
   else{await DB.addCustomer(data);U.toast('เพิ่มลูกค้าแล้ว ✓');}
@@ -1109,7 +1109,7 @@ async function showProductModal(id) {
 async function saveProduct() {
   const name=document.getElementById('pf_name')?.value.trim();
   if (!name){U.toast('กรุณากรอกชื่อสินค้า','error');return;}
-  const id=parseInt(document.getElementById('pf_id')?.value||0);
+  const id=document.getElementById('pf_id')?.value||'';
   const data={code:document.getElementById('pf_code')?.value.trim()||'',name,category:document.getElementById('pf_cat')?.value.trim()||'',unit:document.getElementById('pf_unit')?.value.trim()||'โลง',price:parseFloat(document.getElementById('pf_price')?.value||0)};
   if (id){const old=await DB.getProduct(id);await DB.putProduct({...old,...data});U.toast('แก้ไขสินค้าแล้ว ✓');}
   else{await DB.addProduct(data);U.toast('เพิ่มสินค้าแล้ว ✓');}
@@ -1307,7 +1307,7 @@ function addRcItemRow() {
 }
 
 function onRcCustChange(sel) {
-  window._rcCustId=parseInt(sel.value)||null;
+  window._rcCustId=sel.value||null;
   const cust=(window._rcCustList||[]).find(c=>c.id===window._rcCustId);
   const addrEl=document.getElementById('rc_addr');
   if (addrEl&&cust?.address) addrEl.value=cust.address;
@@ -1365,7 +1365,7 @@ function itemLabel(i) {
 
 async function onRcProdSelect(sel,i) {
   const opt=sel.options[sel.selectedIndex];
-  const prodId=parseInt(sel.value); if(!prodId)return;
+  const prodId=sel.value; if(!prodId)return;
   const defaultPrice=parseFloat(opt.dataset.price||0);
   let price=defaultPrice;
   if (window._rcCustId) price=await DB.getEffectivePrice(window._rcCustId,prodId,defaultPrice);
@@ -1395,7 +1395,7 @@ function calcRcTotal() {
 }
 
 async function saveReceipt(andPrint=false) {
-  const custId=parseInt(document.getElementById('rc_cust')?.value||0);
+  const custId=document.getElementById('rc_cust')?.value||'';
   if (!custId){U.toast('กรุณาเลือกลูกค้า','error');return;}
   const cust=(window._rcCustList||[]).find(c=>c.id===custId)||{};
 
@@ -1410,7 +1410,7 @@ async function saveReceipt(andPrint=false) {
   });
   if (!items.length){U.toast('กรุณาเพิ่มรายการสินค้า','error');return;}
 
-  const editId=parseInt(document.getElementById('rc_editId')?.value||0);
+  const editId=document.getElementById('rc_editId')?.value||'';
   const data={
     type:'receipt',
     customerId:custId, customerName:cust.name||'',
