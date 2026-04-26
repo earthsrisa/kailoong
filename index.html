@@ -387,8 +387,8 @@ const DB = {
 // ═══════════════════════════════════════
 const U = {
   money(n)  { return Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); },
-  date(ts)  { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric'}); },
-  datetime(ts) { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); },
+  date(ts)  { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric'}); },
+  datetime(ts) { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); },
   dateInput(ts) { if(!ts)return''; return new Date(ts).toISOString().split('T')[0]; },
   esc(s)    { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); },
   orderTotal(o) {
@@ -486,12 +486,13 @@ async function renderDashboard(el) {
   todayOrders.forEach(o=>{
     if (!custTodayMap[o.customerId]) custTodayMap[o.customerId]={name:o.customerName,items:{},total:0};
     (o.items||[]).forEach(i=>{
-      const key=i.productName+(i.color?' ('+i.color+')':'')+(i.trimColor?' เส้น'+i.trimColor:'')+(i.style&&i.style!=='ธรรมดา'?' ✝'+i.style:'');
+      const isChrist=i.style==='คริสต์'; const key=i.productName+(i.color?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''));
       custTodayMap[o.customerId].items[key]=(custTodayMap[o.customerId].items[key]||0)+i.qty;
     });
     custTodayMap[o.customerId].total+=U.orderTotal(o);
   });
   const custTodayList=Object.values(custTodayMap);
+  window._dashTodayData={custTodayList,todayOrders,dateLabel:new Date().toLocaleDateString('th-TH-u-ca-buddhist',{weekday:'long',day:'numeric',month:'long',year:'numeric'})};
 
   el.innerHTML=`
   <div class="row g-3 mb-4">
@@ -530,7 +531,10 @@ async function renderDashboard(el) {
       <div class="card-box" style="height:100%;">
         <div class="card-head">
           <h2><i class="fa-solid fa-users me-2 text-primary"></i>ใครสั่งอะไรบ้างวันนี้ — แยกรายลูกค้า</h2>
-          <button class="btn btn-primary btn-sm" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="printTodayOrders()"><i class="fa-solid fa-print me-1"></i>พิมพ์รายการวันนี้</button>
+            <button class="btn btn-primary btn-sm" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>
+          </div>
         </div>
         ${custTodayList.length ? `
         <div class="table-scroll">
@@ -574,7 +578,7 @@ async function renderDashboard(el) {
             <td style="white-space:nowrap;font-size:13px;">${U.datetime(o.createdAt)}</td>
             <td><strong>${U.esc(o.customerName||'-')}</strong></td>
             <td style="max-width:240px;font-size:12px;color:#6b7280;">
-              ${(o.items||[]).map(i=>U.esc(i.productName+(i.color?' '+i.color:'')+(i.trimColor?' เส้น'+i.trimColor:'')+(i.style&&i.style!=='ธรรมดา'?' ✝'+i.style:''))+' ×'+i.qty).join(' · ')||'-'}
+              ${(o.items||[]).map(i=>{const xc=i.style==='คริสต์';return U.esc(i.productName+(i.color?' '+i.color:'')+(xc?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:'')))+' ×'+i.qty;}).join(' · ')||'-'}
             </td>
             <td style="font-weight:600;">฿${U.money(U.orderTotal(o))}</td>
             <td><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
@@ -836,15 +840,13 @@ function orderItemRow(i, products, item={}, custId) {
   const styleVal = item.style||'ธรรมดา';
   const specialVal=U.esc(item.specialNote||'');
   const colorOpts=[
-    {v:'ขาว',    label:'⬜ ขาว'},
-    {v:'แดง',    label:'🟥 แดง'},
-    {v:'น้ำตาล', label:'🟫 น้ำตาล'},
-    {v:'ดำ',     label:'⬛ ดำ'},
+    {v:'ขาว', label:'⬜ ขาว'},
+    {v:'แดง', label:'🟥 แดง'},
   ].map(c=>`<option value="${c.v}" ${colorVal===c.v?'selected':''}>${c.label}</option>`).join('');
   const trimOpts=[
     {v:'ทอง',  label:'🟡 เส้นทอง'},
     {v:'เงิน', label:'🔘 เส้นเงิน'},
-    {v:'ซีด',  label:'🩶 เส้นซีด'},
+    {v:'ซีด',  label:'🥉 เส้นซีด'},
     {v:'ขาว',  label:'⬜ เส้นขาว'},
   ].map(t=>`<option value="${t.v}" ${trimVal===t.v?'selected':''}>${t.label}</option>`).join('');
   const styleOpts=[
@@ -864,16 +866,22 @@ function orderItemRow(i, products, item={}, custId) {
         </div>
         <div>
           <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">✨ สีเส้น</div>
-          <select id="oitrim_${i}" style="${SS}font-size:14px;">${trimOpts}</select>
+          <select id="oitrim_${i}" style="${SS}font-size:14px;${styleVal==='คริสต์'?'opacity:0.4;cursor:not-allowed;':''}" ${styleVal==='คริสต์'?'disabled':''} >${trimOpts}</select>
         </div>
       </div>
       <div style="margin-top:6px;">
         <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">⚙️ แบบตกแต่ง</div>
-        <select id="oistyle_${i}" style="${SS}font-size:14px;">${styleOpts}</select>
+        <select id="oistyle_${i}" style="${SS}font-size:14px;" onchange="onOrderStyleChange(this,${i})">${styleOpts}</select>
       </div>
       <input type="text" class="form-control mt-1" id="oisp_${i}" value="${specialVal}" style="font-size:13px;border-radius:8px;border:2px solid #d1d5db;" placeholder="📝 หมายเหตุพิเศษ...">
     </td>
-    <td style="min-width:65px;padding:8px 4px;"><input type="number" class="form-control" id="oiqty_${i}" value="${item.qty||1}" min="1" oninput="calcOrderTotal()" style="font-size:18px;font-weight:700;text-align:center;border-radius:8px;border:2px solid #d1d5db;padding:8px 4px;"></td>
+    <td style="min-width:100px;padding:8px 4px;">
+      <div style="display:flex;align-items:center;gap:3px;">
+        <button type="button" onclick="adjQty(${i},-1)" style="width:34px;height:38px;border-radius:8px;border:2px solid #d1d5db;background:#f3f4f6;font-size:20px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:1;">−</button>
+        <input type="number" class="form-control" id="oiqty_${i}" value="${item.qty||1}" min="1" oninput="calcOrderTotal()" style="font-size:17px;font-weight:700;text-align:center;border-radius:8px;border:2px solid #d1d5db;padding:4px 2px;width:46px;min-width:0;">
+        <button type="button" onclick="adjQty(${i},1)" style="width:34px;height:38px;border-radius:8px;border:2px solid #d1d5db;background:#f3f4f6;font-size:20px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:1;">+</button>
+      </div>
+    </td>
     <td style="min-width:100px;padding:8px 4px;"><input type="number" class="form-control" id="oiprice_${i}" value="${item.price||0}" min="0" oninput="calcOrderTotal()" style="font-size:16px;border-radius:8px;border:2px solid #d1d5db;padding:8px;"></td>
     <td style="min-width:80px;padding:8px 4px;"><span id="oitotal_${i}" style="font-size:16px;font-weight:700;color:#1a2332;">฿${U.money((item.qty||1)*(item.price||0))}</span></td>
     <td style="padding:8px 4px;"><button type="button" class="btn btn-outline-danger" style="width:36px;height:36px;padding:0;border-radius:8px;" onclick="document.getElementById('oirow_${i}').remove();calcOrderTotal()"><i class="fa-solid fa-trash"></i></button></td>
@@ -883,6 +891,67 @@ function orderItemRow(i, products, item={}, custId) {
 function addOrderItemRow() {
   const i=window._orderItemIdx++;
   document.getElementById('orderItemsBody').insertAdjacentHTML('beforeend',orderItemRow(i,window._orderProds||[]));
+}
+
+// ── ปุ่ม +/- จำนวน ──
+function adjQty(i, delta) {
+  const inp = document.getElementById(`oiqty_${i}`);
+  if (!inp) return;
+  inp.value = Math.max(1, (parseInt(inp.value)||1) + delta);
+  calcOrderTotal();
+}
+
+// ── เมื่อเลือกแบบตกแต่ง: คริสต์ → ปิดสีเส้น ──
+function onOrderStyleChange(sel, i) {
+  const trimSel = document.getElementById(`oitrim_${i}`);
+  if (!trimSel) return;
+  const isChrist = sel.value === 'คริสต์';
+  trimSel.disabled = isChrist;
+  trimSel.style.opacity = isChrist ? '0.4' : '1';
+  trimSel.style.cursor  = isChrist ? 'not-allowed' : 'pointer';
+}
+
+// ── พิมพ์รายการออเดอร์วันนี้ ──
+function printTodayOrders() {
+  const d = window._dashTodayData;
+  if (!d || !d.custTodayList || !d.custTodayList.length) {
+    U.toast('ยังไม่มีออเดอร์วันนี้','error'); return;
+  }
+  const rows = d.custTodayList.map(c=>`
+    <div class="cust-block">
+      <h3>${c.name}</h3>
+      <table>
+        <thead><tr><th>สินค้า</th><th>จำนวน</th></tr></thead>
+        <tbody>
+          ${Object.entries(c.items).map(([name,qty])=>`<tr><td>${name}</td><td>${qty} ชิ้น</td></tr>`).join('')}
+        </tbody>
+        <tfoot><tr><td>ยอดรวม</td><td>฿${c.total.toLocaleString('th-TH',{minimumFractionDigits:2})}</td></tr></tfoot>
+      </table>
+    </div>`).join('');
+  const totalPieces = d.custTodayList.reduce((a,c)=>a+Object.values(c.items).reduce((x,v)=>x+v,0),0);
+  const win = window.open('','_blank','width=700,height=900');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>รายการออเดอร์วันนี้</title>
+  <style>
+    body{font-family:sans-serif;padding:20px;color:#111;}
+    h1{font-size:18px;margin:0 0 4px;}
+    .sub{font-size:13px;color:#666;margin-bottom:18px;}
+    .cust-block{border:1px solid #ddd;border-radius:8px;padding:14px 16px;margin-bottom:16px;break-inside:avoid;}
+    .cust-block h3{margin:0 0 10px;font-size:16px;color:#1e3a8a;border-bottom:1px solid #e5e7eb;padding-bottom:6px;}
+    table{width:100%;border-collapse:collapse;font-size:14px;}
+    th{text-align:left;background:#f3f4f6;padding:5px 8px;}
+    td{padding:5px 8px;border-bottom:1px solid #f1f5f9;}
+    tfoot td{font-weight:700;color:#059669;border-top:2px solid #d1fae5;border-bottom:none;}
+    .summary{background:#eff6ff;border-radius:8px;padding:10px 14px;margin-bottom:16px;font-size:14px;}
+    @media print{button{display:none}}
+  </style></head><body>
+  <h1>📋 รายการออเดอร์วันนี้</h1>
+  <div class="sub">${d.dateLabel} — รวม ${d.custTodayList.length} ลูกค้า ${totalPieces} ชิ้น</div>
+  <div class="summary">สรุปรวม: ${d.custTodayList.map(c=>c.name).join(', ')}</div>
+  ${rows}
+  <br><button onclick="window.print()" style="padding:10px 24px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;">🖨️ พิมพ์</button>
+  </body></html>`);
+  win.document.close();
 }
 
 function onOrderCustChange(sel) {
@@ -1420,8 +1489,8 @@ function pullOrdersToReceipt() {
 function itemLabel(i) {
   let label=i.productName||'';
   if (i.color)      label+=' '+i.color;
-  if (i.trimColor)  label+=' เส้น'+i.trimColor;
-  if (i.style && i.style!=='ธรรมดา') label+=' ✝'+i.style;
+  if (i.style==='คริสต์') label+=' ✝คริสต์';
+  else if (i.trimColor)  label+=' เส้น'+i.trimColor;
   if (i.specialNote) label+=' ('+i.specialNote+')';
   return label;
 }
@@ -1601,7 +1670,7 @@ async function renderReports(el) {
   // ── 6 เดือน ──
   const months=Array.from({length:6},(_,k)=>{
     const d=new Date(now.getFullYear(),now.getMonth()-5+k,1);
-    return {year:d.getFullYear(),month:d.getMonth(),label:d.toLocaleDateString('th-TH',{month:'short',year:'2-digit'})};
+    return {year:d.getFullYear(),month:d.getMonth(),label:d.toLocaleDateString('th-TH-u-ca-buddhist',{month:'short',year:'2-digit'})};
   });
   const monthRevenue=months.map(m=>invoices.filter(r=>{const d=new Date(r.createdAt);return d.getFullYear()===m.year&&d.getMonth()===m.month;}).reduce((a,r)=>a+U.invTotal(r).total,0));
   const monthOrderCt=months.map(m=>orders.filter(o=>{const d=new Date(o.createdAt);return d.getFullYear()===m.year&&d.getMonth()===m.month;}).length);
@@ -2011,7 +2080,7 @@ async function renderExpenses(el) {
             <tbody>
               ${expenses.length ? expenses.map(exp => `
               <tr>
-                <td style="white-space:nowrap;font-size:13px;">${new Date(exp.date).toLocaleDateString('th-TH')}</td>
+                <td style="white-space:nowrap;font-size:13px;">${new Date(exp.date).toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric'})}</td>
                 <td><span style="display:inline-block;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;font-size:11px;font-weight:600;">${U.esc(exp.category||'อื่นๆ')}</span></td>
                 <td style="font-size:13px;">${U.esc(exp.note||'-')}</td>
                 <td style="text-align:right;font-weight:600;color:#dc2626;">฿${U.money(exp.amount||0)}</td>
