@@ -1318,7 +1318,7 @@ async function showCustomerPriceModal(custId) {
     </table>`;
 
   showModal('custPriceModal',`ราคาพิเศษ — ${U.esc(cust.name)}`,body,
-    `<button class="btn btn-primary" onclick="saveCustomerPrices(${custId})"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึกราคา</button>
+    `<button class="btn btn-primary" onclick="saveCustomerPrices('${custId}')"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึกราคา</button>
      <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,'modal-lg');
   window._custPriceProducts=products;
 }
