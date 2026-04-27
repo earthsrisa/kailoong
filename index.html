@@ -892,30 +892,34 @@ function orderItemRow(i, products, item={}, custId) {
 
   // หา spec จากชื่อสินค้า
   const pName = item.productName||'';
-  const spec  = COFFIN_SPEC[pName] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
-  const hasColor = spec.colors.length > 0;
-  const hasExtra = !!spec.extra;
-
-  // สีโลง options
-  const colorVal = item.color || (hasColor ? spec.colors[0] : '-');
-  const colorOpts = hasColor
-    ? spec.colors.map(c=>`<option value="${c}" ${colorVal===c?'selected':''}>${c==='ขาว'?'⬜':'🟥'} ${c}</option>`).join('')
-    : '<option value="-">-</option>';
-
-  // สีเส้น options
-  const lineVal = item.trimColor || spec.lines[0] || 'ทอง';
+  const spec  = pName ? (COFFIN_SPEC[pName] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']}) : null;
+  const hasColor = spec ? spec.colors.length > 0 : false;
+  const hasExtra = spec ? !!spec.extra : false;
   const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷'};
-  const lineOpts = spec.lines.map(l=>`<option value="${l}" ${lineVal===l?'selected':''}>${lineIcons[l]||''} ${l}</option>`).join('');
 
-  // extra options (กลาง)
-  const extraVal = item.extra||'';
-  const extraHtml = hasExtra ? `<div style="margin-top:6px;">
-      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">📐 ขนาด</div>
-      <select id="oiextra_${i}" style="${SS}font-size:14px;">
-        <option value="">-- ไม่ระบุ --</option>
-        ${spec.extra.map(e=>`<option value="${e}" ${extraVal===e?'selected':''}>${e}</option>`).join('')}
-      </select>
-    </div>` : `<div id="oiextra_wrap_${i}" style="display:none;"></div>`;
+  // สร้าง spec HTML เฉพาะเมื่อมีสินค้าที่เลือก (edit mode)
+  let specInnerHtml = '';
+  if (spec) {
+    const colorVal = item.color || (hasColor ? spec.colors[0] : '-');
+    const colorOpts = hasColor
+      ? spec.colors.map(c=>`<option value="${c}" ${colorVal===c?'selected':''}>${c==='ขาว'?'⬜':'🟥'} ${c}</option>`).join('')
+      : '<option value="-">-</option>';
+    const lineVal = item.trimColor || spec.lines[0] || 'ทอง';
+    const lineOpts = spec.lines.map(l=>`<option value="${l}" ${lineVal===l?'selected':''}>${lineIcons[l]||''} ${l}</option>`).join('');
+    const extraVal = item.extra||'';
+    const extraHtml = hasExtra ? `<div style="margin-top:6px;">
+        <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">📐 ขนาด</div>
+        <select id="oiextra_${i}" style="${SS}font-size:14px;">
+          <option value="">-- ไม่ระบุ --</option>
+          ${spec.extra.map(e=>`<option value="${e}" ${extraVal===e?'selected':''}>${e}</option>`).join('')}
+        </select></div>` : '';
+    specInnerHtml = `<div style="display:grid;grid-template-columns:${hasColor?'1fr 1fr':'1fr'};gap:6px;margin-top:7px;">
+      ${hasColor?`<div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">🎨 สีโลง</div>
+        <select id="oicolor_${i}" style="${SS}font-size:14px;">${colorOpts}</select></div>`:''}
+      <div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">✨ สีเส้น</div>
+        <select id="oitrim_${i}" style="${SS}font-size:14px;" onchange="updateItemPrice(${i})">${lineOpts}</select></div>
+    </div>${extraHtml}`;
+  }
 
   const specialVal=U.esc(item.specialNote||'');
   return `<tr id="oirow_${i}" style="vertical-align:top;border-bottom:2px solid #e5e7eb;">
@@ -924,17 +928,7 @@ function orderItemRow(i, products, item={}, custId) {
         <option value="">🔍 -- เลือกสินค้า --</option>${opts}
       </select>
       <div id="oispec_${i}">
-        <div style="display:grid;grid-template-columns:${hasColor?'1fr 1fr':'1fr'};gap:6px;margin-top:7px;">
-          ${hasColor?`<div>
-            <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">🎨 สีโลง</div>
-            <select id="oicolor_${i}" style="${SS}font-size:14px;">${colorOpts}</select>
-          </div>`:''}
-          <div>
-            <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">✨ สีเส้น</div>
-            <select id="oitrim_${i}" style="${SS}font-size:14px;" onchange="updateItemPrice(${i})">${lineOpts}</select>
-          </div>
-        </div>
-        ${extraHtml}
+        ${specInnerHtml || '<div style="color:#9ca3af;font-size:12px;margin-top:8px;padding:6px 0;">← เลือกสินค้าก่อน จะแสดงตัวเลือกสี</div>'}
       </div>
       <input type="text" class="form-control mt-1" id="oisp_${i}" value="${specialVal}" style="font-size:13px;border-radius:8px;border:2px solid #d1d5db;" placeholder="📝 หมายเหตุพิเศษ...">
     </td>
