@@ -297,6 +297,7 @@ body { background: #f0f2f5; margin: 0; }
 // ═══════════════════════════════════════
 const CFG = {
   businessName: 'ร้านขายส่งโลงศพ',
+  sellerName: '',
   businessAddress: '', businessPhone: '', businessTaxId: '',
 };
 
@@ -400,7 +401,7 @@ const DB = {
     // ดึงทั้ง collection ครั้งเดียว แทน 4 queries แยก
     const snap = await this._fs.collection('settings').get();
     const map = {}; snap.docs.forEach(d => { map[d.id] = d.data().value; });
-    for (const k of ['businessName','businessAddress','businessPhone','businessTaxId']) {
+    for (const k of ['businessName','sellerName','businessAddress','businessPhone','businessTaxId']) {
       if (map[k] !== undefined) CFG[k] = map[k];
     }
   },
@@ -1821,6 +1822,7 @@ function printReceiptData(inv) {
     <div class="inv-header">
       <div class="inv-company">
         <h1>${U.esc(CFG.businessName)}</h1>
+        ${CFG.sellerName?`<p style="font-size:13px;color:#555;">ผู้ขาย: ${U.esc(CFG.sellerName)}</p>`:''}
         ${CFG.businessAddress?`<p>${U.esc(CFG.businessAddress)}</p>`:''}
         ${CFG.businessPhone?`<p>โทร: ${U.esc(CFG.businessPhone)}</p>`:''}
         ${CFG.businessTaxId?`<p>เลขผู้เสียภาษี: ${U.esc(CFG.businessTaxId)}</p>`:''}
@@ -2058,6 +2060,8 @@ async function renderSettings(el) {
           <div class="row g-3">
             <div class="col-12"><label class="form-label">ชื่อร้าน / บริษัท <span class="text-danger">*</span></label>
               <input type="text" class="form-control" id="st_name" value="${U.esc(CFG.businessName)}"></div>
+            <div class="col-12"><label class="form-label">ชื่อคนขาย / เจ้าของ</label>
+              <input type="text" class="form-control" id="st_seller" value="${U.esc(CFG.sellerName)}" placeholder="เช่น พัชรี, คุณสมชาย"></div>
             <div class="col-sm-6"><label class="form-label">เบอร์โทรศัพท์</label>
               <input type="text" class="form-control" id="st_phone" value="${U.esc(CFG.businessPhone)}"></div>
             <div class="col-sm-6"><label class="form-label">เลขผู้เสียภาษี</label>
@@ -2134,10 +2138,12 @@ async function renderSettings(el) {
 async function saveSettings() {
   const name=document.getElementById('st_name')?.value.trim();
   if (!name){U.toast('กรุณากรอกชื่อร้าน','error');return;}
-  CFG.businessName=name; CFG.businessPhone=document.getElementById('st_phone')?.value.trim()||'';
+  CFG.businessName=name;
+  CFG.sellerName=document.getElementById('st_seller')?.value.trim()||'';
+  CFG.businessPhone=document.getElementById('st_phone')?.value.trim()||'';
   CFG.businessTaxId=document.getElementById('st_taxId')?.value.trim()||'';
   CFG.businessAddress=document.getElementById('st_addr')?.value.trim()||'';
-  await Promise.all(['businessName','businessPhone','businessTaxId','businessAddress'].map(k=>DB.setSetting(k,CFG[k])));
+  await Promise.all(['businessName','sellerName','businessPhone','businessTaxId','businessAddress'].map(k=>DB.setSetting(k,CFG[k])));
   document.getElementById('sidebarBizName').textContent=CFG.businessName;
   U.toast('บันทึกการตั้งค่าแล้ว ✓');
 }
