@@ -1028,77 +1028,84 @@ function printTodayOrders() {
     </div>`;
   }).join('');
 
-  const win = window.open('','_blank','width=720,height=950');
+  const win = window.open('','_blank','width=820,height=1050');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
   <title>รายการออเดอร์วันนี้</title>
   <style>
     *{box-sizing:border-box;}
-    body{font-family:'Sarabun',sans-serif;padding:22px 24px;color:#111;font-size:15px;}
-    h1{font-size:20px;font-weight:700;margin:0 0 4px;}
-    .sub{font-size:13px;color:#555;margin-bottom:14px;}
+    body{font-family:'Sarabun',sans-serif;padding:14px 16px;color:#111;font-size:13px;margin:0;}
+    h1{font-size:17px;font-weight:700;margin:0 0 2px;}
+    .sub{font-size:11px;color:#555;margin-bottom:10px;}
     .grand-total{
-      background:#1e3a8a;color:#fff;border-radius:10px;
-      padding:16px 20px;margin-bottom:20px;
+      background:#1e3a8a;color:#fff;border-radius:8px;
+      padding:10px 16px;margin-bottom:12px;
       display:flex;align-items:center;justify-content:space-between;
     }
-    .grand-total .label{font-size:13px;opacity:.8;margin-bottom:2px;}
-    .grand-total .num{font-size:32px;font-weight:800;letter-spacing:1px;line-height:1.1;}
-    .grand-total .sub2{font-size:12px;opacity:.75;margin-top:4px;}
-    .cust-block{border:2px solid #dbeafe;border-radius:10px;margin-bottom:16px;overflow:hidden;break-inside:avoid;}
+    .grand-total .label{font-size:11px;opacity:.8;margin-bottom:1px;}
+    .grand-total .num{font-size:26px;font-weight:800;letter-spacing:1px;line-height:1.1;}
+    .grand-total .sub2{font-size:10px;opacity:.75;margin-top:2px;}
+    .grid-wrap{columns:2;column-gap:10px;}
+    .cust-block{border:1.5px solid #dbeafe;border-radius:8px;margin-bottom:8px;overflow:hidden;break-inside:avoid;-webkit-column-break-inside:avoid;}
     .cust-head{
-      background:#eff6ff;padding:10px 16px;
+      background:#eff6ff;padding:6px 10px;
       display:flex;align-items:center;justify-content:space-between;
-      border-bottom:2px solid #dbeafe;
+      border-bottom:1.5px solid #dbeafe;
     }
-    .cust-name{font-size:16px;font-weight:700;color:#1e3a8a;}
-    .cust-count{font-size:12px;color:#3b82f6;font-weight:700;background:#dbeafe;padding:3px 12px;border-radius:20px;}
+    .cust-name{font-size:13px;font-weight:700;color:#1e3a8a;}
+    .cust-count{font-size:10px;color:#3b82f6;font-weight:700;background:#dbeafe;padding:2px 8px;border-radius:20px;}
     table{width:100%;border-collapse:collapse;table-layout:fixed;}
     col.c-name{width:auto;}
-    col.c-qty{width:80px;}
-    col.c-box{width:160px;}
+    col.c-qty{width:60px;}
+    col.c-box{width:110px;}
     th{
-      text-align:left;background:#f1f5f9;padding:8px 12px;
-      font-size:12px;color:#64748b;font-weight:700;
-      letter-spacing:.4px;text-transform:uppercase;
+      text-align:left;background:#f1f5f9;padding:4px 8px;
+      font-size:10px;color:#64748b;font-weight:700;
+      letter-spacing:.3px;
     }
     th.c-qty,td.c-qty{text-align:center;}
-    th.c-box,td.c-box{text-align:left;padding-left:14px;}
-    td{padding:10px 12px;border-bottom:1px solid #f1f5f9;font-size:14px;vertical-align:middle;}
+    th.c-box,td.c-box{text-align:left;padding-left:8px;}
+    td{padding:5px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;vertical-align:middle;}
     tbody tr:last-child td{border-bottom:none;}
-    td.c-qty{font-weight:700;color:#1e40af;font-size:15px;}
+    td.c-qty{font-weight:700;color:#1e40af;font-size:13px;}
     td.c-box{white-space:nowrap;}
     .pen-box{
-      display:inline-block;width:21px;height:21px;
-      border:2px solid #374151;border-radius:3px;
-      margin-right:4px;vertical-align:middle;
-      flex-shrink:0;
+      display:inline-block;width:16px;height:16px;
+      border:1.5px solid #374151;border-radius:2px;
+      margin-right:3px;vertical-align:middle;
     }
-    .no-print{margin-top:24px;}
+    .no-print{margin-top:16px;}
     @media print{
+      @page{size:A4 portrait;margin:6mm;}
       .no-print{display:none!important;}
-      body{padding:10px 14px;}
       .grand-total,.cust-head{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-      .cust-block{page-break-inside:avoid;}
     }
   </style></head><body>
   <h1>📋 รายการออเดอร์วันนี้</h1>
   <div class="sub">${d.dateLabel}</div>
-
   <div class="grand-total">
     <div>
       <div class="label">สรุปยอดรวมทั้งหมด</div>
       <div class="num">${totalPieces} ชิ้น</div>
       <div class="sub2">${totalCusts} ลูกค้า — ${d.custTodayList.map(c=>c.name).join(' · ')}</div>
     </div>
-    <div style="font-size:40px;opacity:.3;">📦</div>
+    <div style="font-size:32px;opacity:.3;">📦</div>
   </div>
-
-  ${rows}
-
+  <div class="grid-wrap">${rows}</div>
   <div class="no-print">
-    <button onclick="window.print()" style="padding:11px 28px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">🖨️ พิมพ์</button>
+    <button onclick="window.print()" style="padding:10px 26px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ พิมพ์</button>
   </div>
-  </body></html>`);
+  <script>
+    window.addEventListener('load', function() {
+      var body = document.body;
+      var A4_H = 1056; // A4 portrait at 96dpi ≈ 1056px (297mm)
+      var h = body.scrollHeight;
+      if (h > A4_H) {
+        var scale = A4_H / h;
+        body.style.zoom = scale;
+      }
+    });
+  <\/script>
+  </body></html>\`);
   win.document.close();
 }
 
