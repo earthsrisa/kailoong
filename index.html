@@ -1845,7 +1845,8 @@ function printReceiptData(inv) {
       </div>
       <div class="inv-party">
         <h3>ผู้ขาย</h3>
-        <p><strong>${U.esc(CFG.businessName)}</strong></p>
+        <p><strong>${U.esc(CFG.sellerName || CFG.businessName)}</strong></p>
+        ${CFG.sellerName && CFG.businessName!==CFG.sellerName?`<p style="font-size:12px;color:#6b7280;">${U.esc(CFG.businessName)}</p>`:''}
         ${CFG.businessAddress?`<p style="font-size:12px;white-space:pre-line;">${U.esc(CFG.businessAddress)}</p>`:''}
         ${CFG.businessPhone?`<p>โทร: ${U.esc(CFG.businessPhone)}</p>`:''}
       </div>
