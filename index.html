@@ -422,7 +422,17 @@ const DB = {
   },
   async getEffectivePrice(customerId, productId, defaultPrice, trimColor='') {
     const c = await this.getCustomer(customerId);
-    if (c?.customPrices?.[productId] !== undefined) return c.customPrices[productId];
+    const cp = c?.customPrices?.[productId];
+    if (cp !== undefined) {
+      if (typeof cp === 'object' && cp !== null) {
+        // nested format: {trimColor: price}
+        if (trimColor && cp[trimColor] !== undefined) return cp[trimColor];
+        // if no trimColor match, fall through to priceMap
+      } else {
+        // old flat format: single price
+        return cp;
+      }
+    }
     if (trimColor) {
       const p = await this.getProduct(productId);
       if (p?.priceMap?.[trimColor] != null) return p.priceMap[trimColor];
@@ -1298,14 +1308,40 @@ async function showCustomerPriceModal(custId) {
   const [cust, products] = await Promise.all([DB.getCustomer(custId), DB.getProducts()]);
   if (!cust||!products.length){U.toast('กรุณาเพิ่มสินค้าก่อน','error');return;}
 
-  const rows=products.map(p=>`
-    <tr>
-      <td><strong>${U.esc(p.name)}</strong> ${p.code?`<code style="font-size:11px;color:#9ca3af;">${U.esc(p.code)}</code>`:''}${p.category?`<div style="font-size:11px;color:#9ca3af;">${U.esc(p.category)}</div>`:''}</td>
-      <td style="text-align:center;color:#6b7280;">฿${U.money(p.price)}</td>
-      <td><input type="number" class="form-control form-control-sm" id="cp_${p.id}" min="0"
-        value="${cust.customPrices?.[p.id]!==undefined?cust.customPrices[p.id]:''}"
-        placeholder="ราคาปกติ ${U.money(p.price)}"></td>
-    </tr>`).join('');
+  const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷'};
+
+  const rows = products.map(p => {
+    const spec = COFFIN_SPEC[p.name];
+    const lines = spec?.lines || Object.keys(p.priceMap||{});
+    const cpObj = cust.customPrices?.[p.id];
+
+    if (!lines.length) {
+      // no trim lines — single price input
+      const val = (typeof cpObj === 'number') ? cpObj : '';
+      return `<tr style="background:#f8fafc;">
+        <td colspan="2"><strong>${U.esc(p.name)}</strong></td>
+        <td><input type="number" class="form-control form-control-sm" id="cp_${p.id}__"
+          min="0" value="${val}" placeholder="ราคาปกติ ${U.money(p.price)}"></td>
+      </tr>`;
+    }
+
+    const subRows = lines.map(l => {
+      const defPrice = p.priceMap?.[l] ?? p.price;
+      const val = (typeof cpObj === 'object' && cpObj?.[l] !== undefined) ? cpObj[l] : '';
+      return `<tr>
+        <td style="padding-left:28px;color:#374151;font-size:13px;">${lineIcons[l]||''} เส้น${l}</td>
+        <td style="text-align:center;color:#6b7280;font-size:13px;">฿${U.money(defPrice)}</td>
+        <td><input type="number" class="form-control form-control-sm" id="cp_${p.id}_${l}"
+          min="0" value="${val}" placeholder="ราคาปกติ ${U.money(defPrice)}"></td>
+      </tr>`;
+    }).join('');
+
+    return `<tr style="background:#eff6ff;">
+        <td colspan="3" style="padding:8px 12px;font-weight:700;color:#1e3a8a;font-size:14px;">
+          📦 ${U.esc(p.name)}
+        </td>
+      </tr>${subRows}`;
+  }).join('');
 
   const body=`
     <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">
@@ -1313,7 +1349,7 @@ async function showCustomerPriceModal(custId) {
       ปล่อยว่างไว้ = ใช้ราคาปกติของสินค้า
     </p>
     <table class="table-clean">
-      <thead><tr><th>สินค้า</th><th style="text-align:center;">ราคาปกติ</th><th>ราคาของร้านนี้</th></tr></thead>
+      <thead><tr><th>สีเส้น</th><th style="text-align:center;">ราคาปกติ</th><th>ราคาของร้านนี้</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
 
@@ -1327,8 +1363,22 @@ async function saveCustomerPrices(custId) {
   const cust=await DB.getCustomer(custId);
   const customPrices={};
   (window._custPriceProducts||[]).forEach(p=>{
-    const val=document.getElementById(`cp_${p.id}`)?.value.trim();
-    if (val!=='') customPrices[p.id]=parseFloat(val);
+    const spec = COFFIN_SPEC[p.name];
+    const lines = spec?.lines || Object.keys(p.priceMap||{});
+    if (!lines.length) {
+      // single price
+      const el = document.getElementById(`cp_${p.id}__`);
+      const val = el?.value.trim();
+      if (val!=='') customPrices[p.id]=parseFloat(val);
+    } else {
+      const pricePerLine={};
+      lines.forEach(l=>{
+        const el=document.getElementById(`cp_${p.id}_${l}`);
+        const val=el?.value.trim();
+        if (val!=='') pricePerLine[l]=parseFloat(val);
+      });
+      if (Object.keys(pricePerLine).length) customPrices[p.id]=pricePerLine;
+    }
   });
   await DB.putCustomer({...cust,customPrices});
   U.toast('บันทึกราคาพิเศษแล้ว ✓');
