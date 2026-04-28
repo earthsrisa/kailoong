@@ -246,9 +246,11 @@ body { background: #f0f2f5; margin: 0; }
     padding-top: env(safe-area-inset-top, 44px);
     height: 100vh;
   }
-  /* topbar: position:sticky */
+  /* topbar: position:sticky — ใช้ flex-end เพื่อให้ content อยู่ใต้ safe-area เสมอ */
   #topbar {
-    padding-top: calc(env(safe-area-inset-top, 44px) + 10px) !important;
+    padding-top: env(safe-area-inset-top, 44px) !important;
+    padding-bottom: 14px !important;
+    align-items: flex-end !important;
   }
   /* modal: ใช้ z-index สูงกว่า topbar และเว้น safe-area */
   .modal {
