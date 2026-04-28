@@ -128,6 +128,7 @@ body { background: #f0f2f5; margin: 0; }
 .price-custom { background: #dbeafe; color: #1e40af; font-size: 11px; padding: 2px 7px; border-radius: 20px; font-weight: 600; }
 .badge-paid { background:#dcfce7; color:#166534; font-size:11px; padding:2px 8px; border-radius:20px; font-weight:600; }
 .badge-unpaid { background:#fef3c7; color:#92400e; font-size:11px; padding:2px 8px; border-radius:20px; font-weight:600; white-space:nowrap; }
+.badge-partial { background:#fff3cd; color:#856404; font-size:11px; padding:2px 8px; border-radius:20px; font-weight:600; white-space:nowrap; }
 .badge-outstanding { background:#fee2e2; color:#991b1b; font-size:11px; padding:2px 8px; border-radius:20px; font-weight:600; }
 
 /* ── Today highlight ── */
@@ -1198,8 +1199,9 @@ async function renderCustomers(el) {
   const [customers,invoices]=await Promise.all([DB.getCustomers(),DB.getInvoices()]);
   customers.sort((a,b)=>a.name.localeCompare(b.name,'th'));
   const outstanding={};
-  invoices.filter(i=>!i.isPaid).forEach(i=>{
-    if(i.customerId) outstanding[i.customerId]=(outstanding[i.customerId]||0)+U.invTotal(i).total;
+  invoices.forEach(i=>{
+    const remaining=Math.max(0,U.invTotal(i).total-invPaid(i));
+    if(remaining>0&&i.customerId) outstanding[i.customerId]=(outstanding[i.customerId]||0)+remaining;
   });
   window._custOutstanding=outstanding;
   el.innerHTML=`
@@ -1431,14 +1433,14 @@ async function renderInvoices(el) {
     `<button class="btn btn-primary" onclick="showCreateReceiptModal()"><i class="fa-solid fa-plus me-1"></i>ออกใบเสร็จรับเงิน</button>
      <button class="btn btn-outline-success" onclick="exportExcel()"><i class="fa-solid fa-file-excel me-1"></i>Export Excel</button>`;
   const invoices=(await DB.getInvoices()).sort((a,b)=>b.createdAt-a.createdAt);
-  const unpaidInvs=invoices.filter(i=>!i.isPaid);
-  const unpaidTotal=unpaidInvs.reduce((a,i)=>a+U.invTotal(i).total,0);
+  const unpaidInvs=invoices.filter(i=>{ const p=invPaid(i); return p<U.invTotal(i).total; });
+  const unpaidTotal=unpaidInvs.reduce((a,i)=>a+Math.max(0,U.invTotal(i).total-invPaid(i)),0);
   const unpaidBar=unpaidInvs.length?`
     <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:12px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
       <div style="display:flex;align-items:center;gap:10px;">
         <i class="fa-solid fa-triangle-exclamation" style="color:#ea580c;font-size:18px;"></i>
         <div><div style="font-weight:700;color:#9a3412;font-size:14px;">ยอดค้างชำระทั้งหมด</div>
-        <div style="font-size:12px;color:#c2410c;">${unpaidInvs.length} ใบ ยังไม่ได้รับเงิน</div></div>
+        <div style="font-size:12px;color:#c2410c;">${unpaidInvs.length} ใบ ยังไม่ครบ</div></div>
       </div>
       <div style="font-size:22px;font-weight:800;color:#dc2626;">฿${U.money(unpaidTotal)}</div>
     </div>`:'';
@@ -1461,14 +1463,25 @@ async function renderInvoices(el) {
   window._invData=invoices;
 }
 
+function invPaid(inv) {
+  if (inv.paidAmount!=null) return inv.paidAmount;
+  if (inv.isPaid) return U.invTotal(inv).total;
+  return 0;
+}
 function invRow(inv) {
   const t=U.invTotal(inv);
-  const paid=inv.isPaid;
-  const statusBadge=paid
-    ?`<span class="badge-paid"><i class="fa-solid fa-check me-1"></i>ชำระแล้ว</span>`
-    :`<span class="badge-unpaid"><i class="fa-solid fa-clock me-1"></i>ค้างชำระ</span>`;
-  const payBtn=paid?'':
-    `<button class="btn btn-sm btn-outline-success btn-icon" onclick="markInvoicePaid('${inv.id}')" title="บันทึกชำระเงิน"><i class="fa-solid fa-money-bill-wave"></i></button>`;
+  const paid=invPaid(inv);
+  const remaining=Math.max(0,t.total-paid);
+  let statusBadge, payBtn='';
+  if (paid>=t.total && t.total>0) {
+    statusBadge=`<span class="badge-paid"><i class="fa-solid fa-check me-1"></i>ชำระแล้ว</span>`;
+  } else if (paid>0) {
+    statusBadge=`<span class="badge-partial">⚡ บางส่วน<br><span style="font-size:10px;">ค้าง ฿${U.money(remaining)}</span></span>`;
+    payBtn=`<button class="btn btn-sm btn-outline-success btn-icon" onclick="showPaymentModal('${inv.id}')" title="บันทึกชำระเงิน"><i class="fa-solid fa-money-bill-wave"></i></button>`;
+  } else {
+    statusBadge=`<span class="badge-unpaid"><i class="fa-solid fa-clock me-1"></i>ค้างชำระ</span>`;
+    payBtn=`<button class="btn btn-sm btn-outline-success btn-icon" onclick="showPaymentModal('${inv.id}')" title="บันทึกชำระเงิน"><i class="fa-solid fa-money-bill-wave"></i></button>`;
+  }
   return `<tr>
     <td><strong>${U.esc(inv.invoiceNo)}</strong></td>
     <td>${U.esc(inv.customerName||'-')}</td>
@@ -1842,12 +1855,49 @@ async function deleteInvoice(id) {
   await DB.delInvoice(id);U.toast('ลบใบเสร็จแล้ว');navigate('invoices');
 }
 
-async function markInvoicePaid(id) {
-  if (!confirm('บันทึกว่าได้รับชำระเงินใบเสร็จนี้แล้ว?')) return;
+async function showPaymentModal(id) {
   const inv=await DB.getInvoice(id);
-  if (!inv) return;
-  await DB.putInvoice({...inv, isPaid:true, paidAt:Date.now()});
-  U.toast('บันทึกชำระเงินแล้ว ✓');
+  if(!inv) return;
+  const t=U.invTotal(inv);
+  const alreadyPaid=invPaid(inv);
+  const remaining=Math.max(0,t.total-alreadyPaid);
+  const body=`
+    <div style="background:#f8fafc;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="color:#6b7280;font-size:13px;">ยอดรวมทั้งหมด</span>
+        <strong>฿${U.money(t.total)}</strong>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+        <span style="color:#6b7280;font-size:13px;">ชำระมาแล้ว</span>
+        <span style="color:#16a34a;font-weight:600;">฿${U.money(alreadyPaid)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;border-top:1.5px dashed #e5e7eb;padding-top:8px;">
+        <span style="color:#dc2626;font-size:13px;font-weight:700;">ยังค้างอยู่</span>
+        <strong style="color:#dc2626;font-size:16px;">฿${U.money(remaining)}</strong>
+      </div>
+    </div>
+    <label class="form-label fw-semibold">จำนวนที่ชำระครั้งนี้ (บาท)</label>
+    <div style="display:flex;gap:8px;">
+      <input type="number" class="form-control" id="payAmt" min="0" max="${remaining}" value="${remaining}" placeholder="0" style="font-size:18px;font-weight:700;">
+      <button type="button" class="btn btn-outline-secondary" style="white-space:nowrap;" onclick="document.getElementById('payAmt').value=${remaining}">ครบทั้งหมด</button>
+    </div>
+    <div style="font-size:12px;color:#9ca3af;margin-top:6px;">กรอกน้อยกว่ายอดค้างเพื่อบันทึกชำระบางส่วน</div>`;
+  showModal('paymentModal','💰 บันทึกการชำระเงิน — '+U.esc(inv.invoiceNo),body,
+    `<button class="btn btn-success" onclick="savePayment('${id}',${t.total})"><i class="fa-solid fa-check me-1"></i>บันทึกชำระ</button>
+     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`);
+  window._payInv=inv;
+}
+
+async function savePayment(id, total) {
+  const amt=parseFloat(document.getElementById('payAmt')?.value)||0;
+  if(amt<=0){U.toast('กรอกจำนวนเงินด้วยครับ','error');return;}
+  const inv=await DB.getInvoice(id);
+  if(!inv) return;
+  const newPaid=Math.min(total,(invPaid(inv)||0)+amt);
+  const fullyPaid=newPaid>=total;
+  await DB.putInvoice({...inv, paidAmount:newPaid, isPaid:fullyPaid, paidAt:fullyPaid?Date.now():(inv.paidAt||null)});
+  U.toast(fullyPaid?'ชำระครบแล้ว ✓':'บันทึกชำระบางส่วนแล้ว ✓');
+  closeModal('paymentModal');
   navigate('invoices');
 }
 
@@ -1860,11 +1910,13 @@ async function exportExcel() {
     return {'เลขที่ใบเสร็จ':inv.invoiceNo||'','ลูกค้า':inv.customerName||'','วันที่':U.date(inv.createdAt),
       'รายการสินค้า':(inv.items||[]).map(i=>i.name+' x'+i.qty).join(', '),
       'ยอดก่อนส่วนลด':t.subtotal,'ส่วนลด':t.discount,'ยอดสุทธิ':t.total,
-      'สถานะ':inv.isPaid?'ชำระแล้ว':'ค้างชำระ','วันที่ชำระ':inv.paidAt?U.date(inv.paidAt):''};
+      'ชำระแล้ว (บาท)':invPaid(inv),'ยังค้าง (บาท)':Math.max(0,t.total-invPaid(inv)),
+      'สถานะ':invPaid(inv)>=t.total&&t.total>0?'ชำระแล้ว':invPaid(inv)>0?'ชำระบางส่วน':'ค้างชำระ','วันที่ชำระ':inv.paidAt?U.date(inv.paidAt):''};
   });
   const outstanding={},outCount={};
-  invoices.filter(i=>!i.isPaid).forEach(i=>{
-    if(i.customerId){outstanding[i.customerId]=(outstanding[i.customerId]||0)+U.invTotal(i).total;
+  invoices.forEach(i=>{
+    const rem=Math.max(0,U.invTotal(i).total-invPaid(i));
+    if(rem>0&&i.customerId){outstanding[i.customerId]=(outstanding[i.customerId]||0)+rem;
       outCount[i.customerId]=(outCount[i.customerId]||0)+1;}
   });
   const custSheet=customers.filter(c=>outstanding[c.id]>0)
