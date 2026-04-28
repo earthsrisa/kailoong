@@ -237,45 +237,34 @@ body { background: #f0f2f5; margin: 0; }
 }
 
 /* ── PWA Standalone (iPhone) safe-area ── */
+/* ใช้ JS เพิ่ม class pwa-ios แทน @media display-mode เพราะ reliable กว่าบน iOS */
 #pwa-safe-top { display: none; }
-@media (display-mode: standalone) {
-  /* ป้องกัน elastic bounce */
-  html, body { overscroll-behavior: none; -webkit-overflow-scrolling: auto; }
-
-  /* safe-area filler: div แยกต่างหากปิดทับ status bar
-     topbar จึงไม่ต้องมี padding-top พิเศษ ทำให้ align ถูกต้องเสมอ */
-  #pwa-safe-top {
-    display: block;
-    height: env(safe-area-inset-top, 44px);
-    background: #fff;
-    border-bottom: none;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    flex-shrink: 0;
-  }
-  /* topbar อยู่ใต้ filler — sticky ที่ตำแหน่ง safe-area */
-  #topbar {
-    top: env(safe-area-inset-top, 44px) !important;
-    padding-top: 14px !important;
-    align-items: center !important;
-  }
-  /* sidebar */
-  #sidebar {
-    top: 0;
-    padding-top: env(safe-area-inset-top, 44px);
-    height: 100vh;
-  }
-  /* modal */
-  .modal {
-    padding-top: env(safe-area-inset-top, 44px) !important;
-    z-index: 1060 !important;
-  }
-  .modal-backdrop { z-index: 1055 !important; }
-  body.modal-open { overflow: hidden !important; position: fixed !important; width: 100% !important; }
-  /* home bar */
-  #page-content { padding-bottom: max(14px, env(safe-area-inset-bottom, 20px)); }
+html.pwa-ios body { overscroll-behavior: none; -webkit-overflow-scrolling: auto; }
+html.pwa-ios #pwa-safe-top {
+  display: block;
+  height: env(safe-area-inset-top, 44px);
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
+html.pwa-ios #topbar {
+  top: env(safe-area-inset-top, 44px) !important;
+  padding-top: 14px !important;
+  align-items: center !important;
+}
+html.pwa-ios #sidebar {
+  top: 0;
+  padding-top: env(safe-area-inset-top, 44px);
+  height: 100vh;
+}
+html.pwa-ios .modal {
+  padding-top: env(safe-area-inset-top, 44px) !important;
+  z-index: 1060 !important;
+}
+html.pwa-ios .modal-backdrop { z-index: 1055 !important; }
+html.pwa-ios body.modal-open { overflow: hidden !important; position: fixed !important; width: 100% !important; }
+html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-bottom, 20px)); }
 </style>
 </head>
 <body>
@@ -552,6 +541,11 @@ const SKELETON_CARDS = `
     <div class="col-xl-4"><div style="height:220px;background:#e5e7eb;border-radius:14px;opacity:.4;"></div></div>
     <div class="col-xl-8"><div style="height:220px;background:#e5e7eb;border-radius:14px;opacity:.4;"></div></div>
   </div>`
+// ── iOS PWA detection ──
+if (window.navigator.standalone === true) {
+  document.documentElement.classList.add('pwa-ios');
+}
+
 function navigate(page) {
   window._currentPage = page;
   document.querySelectorAll('#sidebar .nav-link').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
@@ -1244,12 +1238,7 @@ async function renderCustomers(el) {
     `<button class="btn btn-primary" onclick="showCustomerModal()"><i class="fa-solid fa-plus me-1"></i>เพิ่มลูกค้า</button>`;
   const [customers,invoices]=await Promise.all([DB.getCustomers(),DB.getInvoices()]);
   customers.sort((a,b)=>a.name.localeCompare(b.name,'th'));
-  const outstanding={};
-  invoices.forEach(i=>{
-    const remaining=Math.max(0,U.invTotal(i).total-invPaid(i));
-    if(remaining>0&&i.customerId) outstanding[i.customerId]=(outstanding[i.customerId]||0)+remaining;
-  });
-  window._custOutstanding=outstanding;
+
   el.innerHTML=`
   <div class="card-box">
     <div class="card-head">
@@ -1261,7 +1250,7 @@ async function renderCustomers(el) {
     </div>
     <div class="table-scroll">
       <table class="table-clean">
-        <thead><tr><th>#</th><th>ชื่อลูกค้า / ร้านค้า</th><th>เบอร์โทร</th><th>ที่อยู่</th><th>ค้างชำระ</th><th>ราคาพิเศษ</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>ชื่อลูกค้า / ร้านค้า</th><th>เบอร์โทร</th><th>ที่อยู่</th><th>ราคาพิเศษ</th><th></th></tr></thead>
         <tbody id="custTbody">${customers.map((c,i)=>custRow(c,i)).join('')||emptyRow(7,'ยังไม่มีลูกค้า','fa-users-slash')}</tbody>
       </table>
     </div>
@@ -1271,16 +1260,11 @@ async function renderCustomers(el) {
 
 function custRow(c,i) {
   const customCount=Object.keys(c.customPrices||{}).length;
-  const owed=(window._custOutstanding||{})[c.id]||0;
-  const owedCell=owed>0
-    ?`<span class="badge-outstanding"><i class="fa-solid fa-triangle-exclamation me-1"></i>฿${U.money(owed)}</span>`
-    :`<span style="color:#9ca3af;font-size:12px;">-</span>`;
   return `<tr>
     <td style="color:#9ca3af;font-size:12px;">${i+1}</td>
     <td><strong>${U.esc(c.name)}</strong></td>
     <td>${U.esc(c.phone||'-')}</td>
     <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#6b7280;">${U.esc(c.address||'-')}</td>
-    <td>${owedCell}</td>
     <td>${customCount?`<span class="price-custom"><i class="fa-solid fa-tag me-1"></i>${customCount} สินค้า</span>`:
          `<span style="color:#9ca3af;font-size:12px;">ราคาปกติ</span>`}</td>
     <td class="d-flex gap-1">
@@ -1526,17 +1510,7 @@ async function renderInvoices(el) {
     `<button class="btn btn-primary" onclick="showCreateReceiptModal()"><i class="fa-solid fa-plus me-1"></i>ออกใบเสร็จรับเงิน</button>
      <button class="btn btn-outline-success" onclick="exportExcel()"><i class="fa-solid fa-file-excel me-1"></i>Export Excel</button>`;
   const invoices=(await DB.getInvoices()).sort((a,b)=>b.createdAt-a.createdAt);
-  const unpaidInvs=invoices.filter(i=>{ const p=invPaid(i); return p<U.invTotal(i).total; });
-  const unpaidTotal=unpaidInvs.reduce((a,i)=>a+Math.max(0,U.invTotal(i).total-invPaid(i)),0);
-  const unpaidBar=unpaidInvs.length?`
-    <div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:10px;padding:12px 18px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-      <div style="display:flex;align-items:center;gap:10px;">
-        <i class="fa-solid fa-triangle-exclamation" style="color:#ea580c;font-size:18px;"></i>
-        <div><div style="font-weight:700;color:#9a3412;font-size:14px;">ยอดค้างชำระทั้งหมด</div>
-        <div style="font-size:12px;color:#c2410c;">${unpaidInvs.length} ใบ ยังไม่ครบ</div></div>
-      </div>
-      <div style="font-size:22px;font-weight:800;color:#dc2626;">฿${U.money(unpaidTotal)}</div>
-    </div>`:'';
+
   el.innerHTML=`
   <div class="card-box">
     <div class="card-head">
@@ -1563,18 +1537,13 @@ function invPaid(inv) {
 }
 function invRow(inv) {
   const t=U.invTotal(inv);
-  const paid=invPaid(inv);
-  const remaining=Math.max(0,t.total-paid);
-  let statusBadge, payBtn='';
-  if (paid>=t.total && t.total>0) {
-    statusBadge=`<span class="badge-paid"><i class="fa-solid fa-check me-1"></i>ชำระแล้ว</span>`;
-  } else if (paid>0) {
-    statusBadge=`<span class="badge-partial">⚡ บางส่วน<br><span style="font-size:10px;">ค้าง ฿${U.money(remaining)}</span></span>`;
-    payBtn=`<button class="btn btn-sm btn-outline-success btn-icon" onclick="showPaymentModal('${inv.id}')" title="บันทึกชำระเงิน"><i class="fa-solid fa-money-bill-wave"></i></button>`;
-  } else {
-    statusBadge=`<span class="badge-unpaid"><i class="fa-solid fa-clock me-1"></i>ค้างชำระ</span>`;
-    payBtn=`<button class="btn btn-sm btn-outline-success btn-icon" onclick="showPaymentModal('${inv.id}')" title="บันทึกชำระเงิน"><i class="fa-solid fa-money-bill-wave"></i></button>`;
-  }
+  const isPaid=inv.isPaid||false;
+  const statusBadge=isPaid
+    ?`<span class="badge-paid"><i class="fa-solid fa-check me-1"></i>ชำระแล้ว</span>`
+    :`<span class="badge-unpaid"><i class="fa-solid fa-clock me-1"></i>ค้างชำระ</span>`;
+  const payBtn=isPaid
+    ?`<button class="btn btn-sm btn-outline-secondary btn-icon" onclick="toggleInvPaid('${inv.id}',false)" title="ยกเลิกชำระ"><i class="fa-solid fa-rotate-left"></i></button>`
+    :`<button class="btn btn-sm btn-outline-success btn-icon" onclick="toggleInvPaid('${inv.id}',true)" title="บันทึกชำระแล้ว"><i class="fa-solid fa-check"></i></button>`;
   return `<tr>
     <td><strong>${U.esc(inv.invoiceNo)}</strong></td>
     <td>${U.esc(inv.customerName||'-')}</td>
@@ -2004,49 +1973,10 @@ async function deleteInvoice(id) {
   await DB.delInvoice(id);U.toast('ลบใบเสร็จแล้ว');navigate('invoices');
 }
 
-async function showPaymentModal(id) {
-  const inv=await DB.getInvoice(id);
-  if(!inv) return;
-  const t=U.invTotal(inv);
-  const alreadyPaid=invPaid(inv);
-  const remaining=Math.max(0,t.total-alreadyPaid);
-  const body=`
-    <div style="background:#f8fafc;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-        <span style="color:#6b7280;font-size:13px;">ยอดรวมทั้งหมด</span>
-        <strong>฿${U.money(t.total)}</strong>
-      </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-        <span style="color:#6b7280;font-size:13px;">ชำระมาแล้ว</span>
-        <span style="color:#16a34a;font-weight:600;">฿${U.money(alreadyPaid)}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;border-top:1.5px dashed #e5e7eb;padding-top:8px;">
-        <span style="color:#dc2626;font-size:13px;font-weight:700;">ยังค้างอยู่</span>
-        <strong style="color:#dc2626;font-size:16px;">฿${U.money(remaining)}</strong>
-      </div>
-    </div>
-    <label class="form-label fw-semibold">จำนวนที่ชำระครั้งนี้ (บาท)</label>
-    <div style="display:flex;gap:8px;">
-      <input type="number" class="form-control" id="payAmt" min="0" max="${remaining}" value="${remaining}" placeholder="0" style="font-size:18px;font-weight:700;">
-      <button type="button" class="btn btn-outline-secondary" style="white-space:nowrap;" onclick="document.getElementById('payAmt').value=${remaining}">ครบทั้งหมด</button>
-    </div>
-    <div style="font-size:12px;color:#9ca3af;margin-top:6px;">กรอกน้อยกว่ายอดค้างเพื่อบันทึกชำระบางส่วน</div>`;
-  showModal('paymentModal','💰 บันทึกการชำระเงิน — '+U.esc(inv.invoiceNo),body,
-    `<button class="btn btn-success" onclick="savePayment('${id}',${t.total})"><i class="fa-solid fa-check me-1"></i>บันทึกชำระ</button>
-     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`);
-  window._payInv=inv;
-}
-
-async function savePayment(id, total) {
-  const amt=parseFloat(document.getElementById('payAmt')?.value)||0;
-  if(amt<=0){U.toast('กรอกจำนวนเงินด้วยครับ','error');return;}
-  const inv=await DB.getInvoice(id);
-  if(!inv) return;
-  const newPaid=Math.min(total,(invPaid(inv)||0)+amt);
-  const fullyPaid=newPaid>=total;
-  await DB.putInvoice({...inv, paidAmount:newPaid, isPaid:fullyPaid, paidAt:fullyPaid?Date.now():(inv.paidAt||null)});
-  U.toast(fullyPaid?'ชำระครบแล้ว ✓':'บันทึกชำระบางส่วนแล้ว ✓');
-  closeModal('paymentModal');
+async function toggleInvPaid(id, paid) {
+  const inv=await DB.getInvoice(id); if(!inv)return;
+  await DB.putInvoice({...inv, isPaid:paid, paidAt:paid?Date.now():null, paidAmount:null});
+  U.toast(paid?'บันทึกชำระแล้ว ✓':'ยกเลิกสถานะชำระแล้ว');
   navigate('invoices');
 }
 
