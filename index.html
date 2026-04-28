@@ -1838,85 +1838,132 @@ async function printReceiptById(id) { const inv=await DB.getInvoice(id); if(inv)
 
 function printReceiptData(inv) {
   const t=U.invTotal(inv);
-  const rows=(inv.items||[]).map((item,i)=>`
+  const rows=(inv.items||[]).map((item,idx)=>`
     <tr>
-      <td style="text-align:center;">${i+1}</td>
+      <td style="text-align:center;">${idx+1}</td>
       <td>${U.esc(item.name)}</td>
       <td style="text-align:center;">${item.qty}</td>
       <td style="text-align:right;">฿${U.money(item.price)}</td>
       <td style="text-align:right;">฿${U.money(item.qty*item.price)}</td>
     </tr>`).join('');
 
-  document.getElementById('print-area').innerHTML=`
-  <div class="inv-page">
-    <div class="inv-header">
-      <div class="inv-company">
-        <h1>${U.esc(CFG.businessName)}</h1>
-        ${CFG.sellerName?`<p style="font-size:13px;color:#555;">ผู้ขาย: ${U.esc(CFG.sellerName)}</p>`:''}
-        ${CFG.businessAddress?`<p>${U.esc(CFG.businessAddress)}</p>`:''}
-        ${CFG.businessPhone?`<p>โทร: ${U.esc(CFG.businessPhone)}</p>`:''}
-        ${CFG.businessTaxId?`<p>เลขผู้เสียภาษี: ${U.esc(CFG.businessTaxId)}</p>`:''}
-      </div>
-      <div class="inv-doc-info">
-        <div class="doc-type">ใบเสร็จรับเงิน</div>
-        <table>
-          <tr><td>เลขที่</td><td>${U.esc(inv.invoiceNo)}</td></tr>
-          <tr><td>วันที่</td><td>${U.date(inv.createdAt)}</td></tr>
-        </table>
-      </div>
+  const discRow = t.disc ? `<tr><td>ส่วนลด</td><td style="text-align:right;">-฿${U.money(t.disc)}</td></tr>` : '';
+  const taxRow  = t.tax  ? `<tr><td>ภาษีมูลค่าเพิ่ม ${inv.taxRate}%</td><td style="text-align:right;">฿${U.money(t.tax)}</td></tr>` : '';
+  const notesBlock = inv.notes ? `<div class="inv-notes"><strong>หมายเหตุ:</strong> ${U.esc(inv.notes)}</div>` : '';
+  const sellerExtra = CFG.sellerName && CFG.businessName !== CFG.sellerName
+    ? `<p style="font-size:11px;color:#6b7280;">${U.esc(CFG.businessName)}</p>` : '';
+
+  const win = window.open('','_blank','width=600,height=850');
+  win.document.write(`<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<title>ใบเสร็จรับเงิน ${U.esc(inv.invoiceNo)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12mm;}
+@media print{@page{size:A5 portrait;margin:8mm 10mm;}body{padding:0;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}.no-print{display:none!important;}}
+.inv-page{font-family:'Sarabun',sans-serif;color:#000;background:#fff;max-width:100%;}
+.inv-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:2px solid #000;margin-bottom:10px;}
+.inv-company h1{font-size:17px;font-weight:800;color:#000;margin:0 0 2px;}
+.inv-company p{font-size:10px;color:#333;margin:1px 0;}
+.inv-doc-info{text-align:right;}
+.inv-doc-info .doc-type{font-size:18px;font-weight:800;color:#000;margin-bottom:3px;}
+.inv-doc-info table{margin-left:auto;font-size:10px;}
+.inv-doc-info td{padding:1px 4px;color:#000;}
+.inv-doc-info td:first-child{color:#555;padding-right:6px;}
+.inv-doc-info td:last-child{font-weight:700;}
+.inv-parties{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.inv-party{background:#fff;border:1px solid #ccc;border-radius:4px;padding:6px 10px;}
+.inv-party h3{font-size:8px;text-transform:uppercase;color:#555;margin:0 0 3px;letter-spacing:1px;border-bottom:1px solid #ddd;padding-bottom:2px;}
+.inv-party p{font-size:11px;margin:1px 0;color:#000;}
+.inv-items table{width:100%;border-collapse:collapse;margin-bottom:10px;}
+.inv-items th{background:#fff;color:#000;font-size:10px;font-weight:700;padding:5px 8px;border-top:2px solid #000;border-bottom:1px solid #000;}
+.inv-items td{padding:4px 8px;border-bottom:1px solid #ddd;font-size:11px;color:#000;background:#fff;}
+.inv-totals{display:flex;justify-content:flex-end;margin-bottom:10px;}
+.inv-totals table{font-size:11px;min-width:200px;border-top:1px solid #ccc;}
+.inv-totals td{padding:2px 6px;color:#000;}
+.grand-row td{font-size:14px;font-weight:800;border-top:2px solid #000;padding-top:5px;}
+.inv-notes{font-size:10px;color:#333;border:1px solid #ccc;padding:6px 10px;border-radius:4px;margin-bottom:10px;}
+.inv-sig{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:18px;}
+.inv-sig-box{text-align:center;}
+.sig-line{border-top:1px solid #000;margin-top:30px;padding-top:4px;font-size:10px;color:#333;}
+.no-print{margin-top:14px;text-align:center;}
+</style></head><body>
+<div class="inv-page">
+  <div class="inv-header">
+    <div class="inv-company">
+      <h1>${U.esc(CFG.businessName)}</h1>
+      ${CFG.sellerName?`<p>ผู้ขาย: ${U.esc(CFG.sellerName)}</p>`:''}
+      ${CFG.businessAddress?`<p>${U.esc(CFG.businessAddress)}</p>`:''}
+      ${CFG.businessPhone?`<p>โทร: ${U.esc(CFG.businessPhone)}</p>`:''}
+      ${CFG.businessTaxId?`<p>เลขผู้เสียภาษี: ${U.esc(CFG.businessTaxId)}</p>`:''}
     </div>
-    <div class="inv-parties">
-      <div class="inv-party">
-        <h3>ลูกค้า / ผู้ซื้อ</h3>
-        <p><strong>${U.esc(inv.customerName||'-')}</strong></p>
-        ${inv.customerAddress?`<p style="font-size:12px;white-space:pre-line;">${U.esc(inv.customerAddress)}</p>`:''}
-        ${inv.customerPhone?`<p>โทร: ${U.esc(inv.customerPhone)}</p>`:''}
-        ${inv.customerTaxId?`<p>เลขผู้เสียภาษี: ${U.esc(inv.customerTaxId)}</p>`:''}
-      </div>
-      <div class="inv-party">
-        <h3>ผู้ขาย</h3>
-        <p><strong>${U.esc(CFG.sellerName||CFG.businessName)}</strong></p>
-        ${CFG.sellerName&&CFG.businessName!==CFG.sellerName?`<p style="font-size:12px;color:#6b7280;">${U.esc(CFG.businessName)}</p>`:''}
-        ${CFG.businessAddress?`<p style="font-size:12px;white-space:pre-line;">${U.esc(CFG.businessAddress)}</p>`:''}
-        ${CFG.businessPhone?`<p>โทร: ${U.esc(CFG.businessPhone)}</p>`:''}
-      </div>
-    </div>
-    <div class="inv-items">
+    <div class="inv-doc-info">
+      <div class="doc-type">ใบเสร็จรับเงิน</div>
       <table>
-        <thead><tr>
-          <th style="width:5%;text-align:center;">#</th>
-          <th>รายการสินค้า</th>
-          <th style="width:10%;text-align:center;">จำนวน</th>
-          <th style="width:15%;text-align:right;">ราคา/หน่วย</th>
-          <th style="width:15%;text-align:right;">จำนวนเงิน</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
+        <tr><td>เลขที่</td><td>${U.esc(inv.invoiceNo)}</td></tr>
+        <tr><td>วันที่</td><td>${U.date(inv.createdAt)}</td></tr>
       </table>
     </div>
-    <div class="inv-totals">
-      <table>
-        <tr><td>รวมก่อนส่วนลด</td><td style="text-align:right;">฿${U.money(t.sub)}</td></tr>
-        ${t.disc?`<tr><td>ส่วนลด</td><td style="text-align:right;">-฿${U.money(t.disc)}</td></tr>`:''}
-        ${t.tax?`<tr><td>ภาษีมูลค่าเพิ่ม ${inv.taxRate}%</td><td style="text-align:right;">฿${U.money(t.tax)}</td></tr>`:''}
-        <tr class="grand-row"><td><strong>รวมทั้งสิ้น</strong></td><td style="text-align:right;"><strong>฿${U.money(t.total)}</strong></td></tr>
-      </table>
+  </div>
+  <div class="inv-parties">
+    <div class="inv-party">
+      <h3>ลูกค้า / ผู้ซื้อ</h3>
+      <p><strong>${U.esc(inv.customerName||'-')}</strong></p>
+      ${inv.customerAddress?`<p style="font-size:10px;white-space:pre-line;">${U.esc(inv.customerAddress)}</p>`:''}
+      ${inv.customerPhone?`<p>โทร: ${U.esc(inv.customerPhone)}</p>`:''}
+      ${inv.customerTaxId?`<p>เลขผู้เสียภาษี: ${U.esc(inv.customerTaxId)}</p>`:''}
     </div>
-    ${inv.notes?`<div class="inv-notes"><strong>หมายเหตุ:</strong> ${U.esc(inv.notes)}</div>`:''}
-    <div class="inv-sig">
-      <div class="inv-sig-box"><div class="sig-line">ผู้รับสินค้า / ลูกค้า</div></div>
-      <div class="inv-sig-box"><div class="sig-line">ผู้ส่งสินค้า / ผู้ขาย</div></div>
+    <div class="inv-party">
+      <h3>ผู้ขาย</h3>
+      <p><strong>${U.esc(CFG.sellerName||CFG.businessName)}</strong></p>
+      ${sellerExtra}
+      ${CFG.businessAddress?`<p style="font-size:10px;white-space:pre-line;">${U.esc(CFG.businessAddress)}</p>`:''}
+      ${CFG.businessPhone?`<p>โทร: ${U.esc(CFG.businessPhone)}</p>`:''}
     </div>
-  </div>`;
-  // Auto-scale to fit one page (A5 ~730px usable height)
-  const _pageEl = document.querySelector('#print-area .inv-page');
-  if (_pageEl) {
-    _pageEl.style.zoom = '';
-    const _h = _pageEl.scrollHeight;
-    const _maxH = 730;
-    if (_h > _maxH) _pageEl.style.zoom = String(_maxH / _h);
-    window.addEventListener('afterprint', function(){ _pageEl.style.zoom = ''; }, { once: true });
-  }
-  window.print();
+  </div>
+  <div class="inv-items">
+    <table>
+      <thead><tr>
+        <th style="width:5%;text-align:center;">#</th>
+        <th>รายการสินค้า</th>
+        <th style="width:10%;text-align:center;">จำนวน</th>
+        <th style="width:15%;text-align:right;">ราคา/หน่วย</th>
+        <th style="width:15%;text-align:right;">จำนวนเงิน</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>
+  <div class="inv-totals">
+    <table>
+      <tr><td>รวมก่อนส่วนลด</td><td style="text-align:right;">฿${U.money(t.sub)}</td></tr>
+      ${discRow}${taxRow}
+      <tr class="grand-row"><td><strong>รวมทั้งสิ้น</strong></td><td style="text-align:right;"><strong>฿${U.money(t.total)}</strong></td></tr>
+    </table>
+  </div>
+  ${notesBlock}
+  <div class="inv-sig">
+    <div class="inv-sig-box"><div class="sig-line">ผู้รับสินค้า / ลูกค้า</div></div>
+    <div class="inv-sig-box"><div class="sig-line">ผู้ส่งสินค้า / ผู้ขาย</div></div>
+  </div>
+</div>
+<div class="no-print">
+  <button onclick="window.print()" style="padding:9px 24px;background:#1e3a8a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ พิมพ์</button>
+</div>
+<script>
+window.addEventListener('load',function(){
+  var el=document.querySelector('.inv-page');
+  var b=document.body;
+  if(!el)return;
+  // A5 portrait: usable height = 210mm - 16mm margins = 194mm ≈ 734px at 96dpi
+  var maxH=734;
+  var h=el.scrollHeight;
+  if(h>maxH){ var z=maxH/h; b.style.zoom=z; }
+});
+<\/script>
+</body></html>`);
+  win.document.close();
 }
 
 async function deleteInvoice(id) {
