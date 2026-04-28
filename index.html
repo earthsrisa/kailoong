@@ -237,30 +237,43 @@ body { background: #f0f2f5; margin: 0; }
 }
 
 /* ── PWA Standalone (iPhone) safe-area ── */
+#pwa-safe-top { display: none; }
 @media (display-mode: standalone) {
-  /* ป้องกัน elastic bounce ที่ทำให้ modal เลื่อน/กดกากบาทไม่ได้ */
+  /* ป้องกัน elastic bounce */
   html, body { overscroll-behavior: none; -webkit-overflow-scrolling: auto; }
-  /* sidebar: position:fixed */
+
+  /* safe-area filler: div แยกต่างหากปิดทับ status bar
+     topbar จึงไม่ต้องมี padding-top พิเศษ ทำให้ align ถูกต้องเสมอ */
+  #pwa-safe-top {
+    display: block;
+    height: env(safe-area-inset-top, 44px);
+    background: #fff;
+    border-bottom: none;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-shrink: 0;
+  }
+  /* topbar อยู่ใต้ filler — sticky ที่ตำแหน่ง safe-area */
+  #topbar {
+    top: env(safe-area-inset-top, 44px) !important;
+    padding-top: 14px !important;
+    align-items: center !important;
+  }
+  /* sidebar */
   #sidebar {
     top: 0;
     padding-top: env(safe-area-inset-top, 44px);
     height: 100vh;
   }
-  /* topbar: position:sticky — ใช้ flex-end เพื่อให้ content อยู่ใต้ safe-area เสมอ */
-  #topbar {
-    padding-top: env(safe-area-inset-top, 44px) !important;
-    padding-bottom: 14px !important;
-    align-items: flex-end !important;
-  }
-  /* modal: ใช้ z-index สูงกว่า topbar และเว้น safe-area */
+  /* modal */
   .modal {
     padding-top: env(safe-area-inset-top, 44px) !important;
     z-index: 1060 !important;
   }
   .modal-backdrop { z-index: 1055 !important; }
-  /* ตอน modal เปิด ล็อค body ไม่ให้เลื่อน */
   body.modal-open { overflow: hidden !important; position: fixed !important; width: 100% !important; }
-  /* home bar ด้านล่าง */
+  /* home bar */
   #page-content { padding-bottom: max(14px, env(safe-area-inset-bottom, 20px)); }
 }
 </style>
@@ -296,6 +309,7 @@ body { background: #f0f2f5; margin: 0; }
 
 <!-- MAIN -->
 <div id="main">
+  <div id="pwa-safe-top"></div>
   <div id="topbar">
     <h1 id="pageTitle">Dashboard</h1>
     <div style="display:flex;align-items:center;gap:8px;">
