@@ -981,8 +981,21 @@ function updateItemSpec(i, prodName) {
   if (!wrap) return;
   wrap.innerHTML = `<div style="display:grid;grid-template-columns:${hasColor?'1fr 1fr':'1fr'};gap:6px;margin-top:7px;">
     ${hasColor?`<div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">🎨 สีโลง</div><select id="oicolor_${i}" style="${SS}font-size:14px;">${colorOpts}</select></div>`:''}
-    <div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">✨ สีเส้น</div><select id="oitrim_${i}" style="${SS}font-size:14px;">${lineOpts}</select></div>
+    <div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">✨ สีเส้น</div><select id="oitrim_${i}" style="${SS}font-size:14px;" onchange="updateItemPrice(${i})">${lineOpts}</select></div>
   </div>${extraHtml}`;
+}
+
+async function updateItemPrice(i) {
+  const prodSel = document.getElementById(`oiprod_${i}`);
+  if (!prodSel?.value) return;
+  const prodId = prodSel.value;
+  const trimColor = document.getElementById(`oitrim_${i}`)?.value || '';
+  const prod = (window._orderProds || []).find(p => p.id === prodId);
+  if (!prod) return;
+  let price = (trimColor && prod.priceMap?.[trimColor] != null) ? prod.priceMap[trimColor] : (prod.price || 0);
+  if (window._orderCustId) price = await DB.getEffectivePrice(window._orderCustId, prodId, price, trimColor);
+  const priceEl = document.getElementById(`oiprice_${i}`);
+  if (priceEl) { priceEl.value = price; calcOrderTotal(); }
 }
 
 function addOrderItemRow() {
@@ -1113,12 +1126,8 @@ async function onOrderProdChange(sel,i) {
   const prodId=sel.value; if(!prodId)return;
   const prodName=opt.dataset.name||opt.text||'';
   updateItemSpec(i, prodName);
-  const defaultPrice=parseFloat(opt.dataset.price||0);
-  let price=defaultPrice;
-  if (window._orderCustId) price=await DB.getEffectivePrice(window._orderCustId,prodId,defaultPrice);
-  const priceEl=document.getElementById(`oiprice_${i}`);
-  if (priceEl) priceEl.value=price;
-  calcOrderTotal();
+  // Use updateItemPrice to pick up priceMap + customer price
+  await updateItemPrice(i);
 }
 
 function calcOrderTotal() {
