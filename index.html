@@ -281,7 +281,10 @@ body { background: #f0f2f5; margin: 0; }
 <div id="main">
   <div id="topbar">
     <h1 id="pageTitle">Dashboard</h1>
-    <div id="topbarActions"></div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button id="refreshBtn" onclick="if(window._currentPage)navigate(window._currentPage)" title="รีเฟรช" style="background:none;border:1.5px solid #d1d5db;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7280;font-size:15px;transition:all .15s;" onmouseover="this.style.borderColor='#2563eb';this.style.color='#2563eb'" onmouseout="this.style.borderColor='#d1d5db';this.style.color='#6b7280'"><i class="fa-solid fa-rotate-right"></i></button>
+      <div id="topbarActions"></div>
+    </div>
   </div>
   <div id="page-content">
     <div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>กำลังโหลด...</p></div>
@@ -519,6 +522,7 @@ const SKELETON_CARDS = `
     <div class="col-xl-8"><div style="height:220px;background:#e5e7eb;border-radius:14px;opacity:.4;"></div></div>
   </div>`
 function navigate(page) {
+  window._currentPage = page;
   document.querySelectorAll('#sidebar .nav-link').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   document.getElementById('pageTitle').textContent=PAGE_TITLES[page]||page;
   document.getElementById('topbarActions').innerHTML='';
@@ -1903,6 +1907,15 @@ function printReceiptData(inv) {
       <div class="inv-sig-box"><div class="sig-line">ผู้ส่งสินค้า / ผู้ขาย</div></div>
     </div>
   </div>`;
+  // Auto-scale to fit one page (A5 ~730px usable height)
+  const _pageEl = document.querySelector('#print-area .inv-page');
+  if (_pageEl) {
+    _pageEl.style.zoom = '';
+    const _h = _pageEl.scrollHeight;
+    const _maxH = 730;
+    if (_h > _maxH) _pageEl.style.zoom = String(_maxH / _h);
+    window.addEventListener('afterprint', function(){ _pageEl.style.zoom = ''; }, { once: true });
+  }
   window.print();
 }
 
