@@ -349,9 +349,13 @@ const COFFIN_SPEC = {
   'กลาง':             {colors:['ขาว','แดง'], lines:['ทอง','เงิน','คริสต์'], extra:['หน้า 24 นิ้ว','หน้า 26 นิ้ว','หน้า 28 นิ้ว']},
   'มุกน้อย':          {colors:['ขาว','แดง'], lines:['เงิน','ทอง','ผ้าจีบ','ผ้าดอก']},
   'มุกใหญ่':          {colors:['ขาว','แดง'], lines:['เงิน','ทอง','ผ้าจีบ','ผ้าดอก']},
-  'สิงห์น้อย':        {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
-  'สิงห์น้อย 3 ชั้น': {colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
-  'สิงห์ใหญ่':        {colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
+  'สิงห์น้อย':                  {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
+  'สิงห์น้อย (ฝากระบาน)':       {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
+  'สิงห์น้อย 3 ชั้น':            {colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
+  'สิงห์น้อย 3 ชั้น (ฝากระบาน)':{colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
+  'สิงห์ใหญ่':                  {colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
+  'สิงห์ใหญ่ 3 ชั้น':            {colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
+  'สิงห์ใหญ่ 3 ชั้น (ฝากระบาน)':{colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
   'พิกุล':            {colors:[],            lines:['ทอง','เงิน']},
 };
 function todayLocal(){
@@ -1483,7 +1487,9 @@ function filterProdTable(val) {
 
 function buildPriceFields(prodName, existingPm) {
   const spec=COFFIN_SPEC[prodName];
-  const lines=spec?.lines||[];
+  // ถ้า COFFIN_SPEC ไม่มี ให้ดูจาก priceMap ที่มีอยู่แล้ว
+  const pmKeys = Object.keys(existingPm||{}).filter(k=>k!=='__default'&&existingPm[k]>0);
+  const lines = spec?.lines?.length ? spec.lines : (pmKeys.length ? pmKeys : []);
   if(!lines.length) return `<div class="col-sm-4"><label class="form-label">ราคาปกติ (฿)</label>
     <input type="number" class="form-control" id="pf_price" min="0" value="${existingPm?.__default||''}"></div>`;
   const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
