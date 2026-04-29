@@ -208,6 +208,7 @@ body { background: #f0f2f5; margin: 0; }
   .table-clean th { padding: 9px 10px; font-size: 12px; }
   .table-clean td { padding: 10px 10px; font-size: 13px; }
   .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .order-item-num { display:inline-block;background:#ede9fe;color:#5b21b6;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;margin-bottom:5px; }
   .btn { font-size: 13px; padding: 6px 10px; }
   .btn-sm { font-size: 12px; padding: 4px 8px; }
   .modal-dialog { margin: 0.4rem; max-width: calc(100vw - 0.8rem) !important; }
@@ -227,9 +228,7 @@ body { background: #f0f2f5; margin: 0; }
   .order-items-table th:nth-child(1), .order-items-table td:nth-child(1) { width: 75%; }
   .order-items-table th:nth-child(2), .order-items-table td:nth-child(2) { width: 15%; }
   .order-items-table th:nth-child(5), .order-items-table td:nth-child(5) { width: 10%; }
-  #orderItemsBody { counter-reset: item-num; }
-  #orderItemsBody tr.order-item-row { counter-increment: item-num; }
-  .order-item-num::before { content: "รายการที่ " counter(item-num); }
+
   /* ประวัติออเดอร์ — ซ่อน เลขออเดอร์ + หมายเหตุ บนมือถือ */
   .orders-history-table th:nth-child(2),
   .orders-history-table td:nth-child(2),
@@ -623,6 +622,7 @@ async function renderDashboard(el) {
   ).sort((a,b)=>a.createdAt-b.createdAt);
 
   const dateLabel=new Date().toLocaleDateString('th-TH-u-ca-buddhist',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  window._allOrdersCache = orders;
   window._dashTodayData={pendingOrders,custTodayList,todayOrders,dateLabel};
 
   el.innerHTML=`
@@ -645,16 +645,17 @@ async function renderDashboard(el) {
     <!-- รายการรอส่ง -->
     <div class="col-xl-8">
       <div class="cust-today-card" style="height:100%;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
           <h3 style="margin:0;font-size:15px;font-weight:700;opacity:.85;"><i class="fa-solid fa-truck me-2"></i>รายการรอส่ง
-            ${pendingOrders.length ? `<span style="background:rgba(255,255,255,.2);border-radius:20px;padding:1px 10px;font-size:12px;margin-left:6px;">${pendingOrders.length} รายการ</span>` : ''}
+            <span id="pendingCount" style="background:rgba(255,255,255,.2);border-radius:20px;padding:1px 10px;font-size:12px;margin-left:6px;">${pendingOrders.length} รายการ</span>
           </h3>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input type="date" id="pendingDatePicker" value="${new Date().toISOString().slice(0,10)}" onchange="filterPendingByDate(this.value)" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:12px;padding:4px 8px;cursor:pointer;">
             <button class="btn-card-outline" onclick="showPrintSelectModal()"><i class="fa-solid fa-print me-1"></i>พิมพ์รายการรอส่ง</button>
             <button class="btn-card-solid" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>
           </div>
         </div>
-        ${pendingOrders.length ? pendingOrders.map(o=>{
+        <div id="pendingList">${pendingOrders.length ? pendingOrders.map(o=>{
           const isDoneToday = o.isDelivered && o.deliveredAt;
           const itemLines = (o.items||[]).map(i=>{
             const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
@@ -675,7 +676,7 @@ async function renderDashboard(el) {
             ${itemLines.map(({key,qty})=>`<div style="display:flex;justify-content:space-between;font-size:12px;opacity:.85;padding:1px 8px;"><span>${U.esc(key)}</span><span style="font-weight:700;">${qty}</span></div>`).join('')}
           </div>`;
         }).join('')
-        : '<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;"><i class="fa-solid fa-circle-check me-2"></i>ส่งของครบแล้ว ไม่มีรายการค้างส่ง</div>'}
+        : '<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;"><i class="fa-solid fa-circle-check me-2"></i>ส่งของครบแล้ว ไม่มีรายการค้างส่ง</div>'}</div>
       </div>
     </div>
   </div>
@@ -948,6 +949,7 @@ async function showCreateOrderModal(editId) {
     'modal-lg');
 
   calcOrderTotal();
+  setTimeout(renumberOrderRows, 50);
 }
 
 async function showEditOrderModal(id) { await showCreateOrderModal(id); }
@@ -987,7 +989,7 @@ function orderItemRow(i, products, item={}, custId) {
   return `<tr id="oirow_${i}" class="order-item-row" style="vertical-align:top;border-bottom:3px solid #e5e7eb;">
     <td style="min-width:220px;padding:8px 6px;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
-        <span class="order-item-num" style="background:#ede9fe;color:#5b21b6;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;"></span>
+        <span class="order-item-num">รายการที่ ${i+1}</span>
       </div>
       <select style="${SS}border-color:#2563eb!important;" onchange="onOrderProdChange(this,${i})" id="oiprod_${i}">
         <option value="">🔍 -- เลือกสินค้า --</option>${opts}
@@ -1016,7 +1018,7 @@ function orderItemRow(i, products, item={}, custId) {
     </td>
     <td style="min-width:100px;padding:8px 4px;"><input type="number" class="form-control" id="oiprice_${i}" value="${item.price||0}" min="0" oninput="calcOrderTotal()" style="font-size:16px;border-radius:8px;border:2px solid #d1d5db;padding:8px;"></td>
     <td style="min-width:80px;padding:8px 4px;"><span id="oitotal_${i}" style="font-size:16px;font-weight:700;color:#1a2332;">฿${U.money((item.qty||1)*(item.price||0))}</span></td>
-    <td style="padding:8px 4px;"><button type="button" class="btn btn-outline-danger" style="width:36px;height:36px;padding:0;border-radius:8px;" onclick="document.getElementById('oirow_${i}').remove();calcOrderTotal()"><i class="fa-solid fa-trash"></i></button></td>
+    <td style="padding:8px 4px;"><button type="button" class="btn btn-outline-danger" style="width:36px;height:36px;padding:0;border-radius:8px;" onclick="document.getElementById('oirow_${i}').remove();calcOrderTotal();renumberOrderRows()"><i class="fa-solid fa-trash"></i></button></td>
   </tr>`;
 }
 
@@ -1069,9 +1071,15 @@ async function updateItemPrice(i) {
   if (priceEl) { priceEl.value = price; calcOrderTotal(); }
 }
 
+function renumberOrderRows() {
+  document.querySelectorAll('#orderItemsBody .order-item-num').forEach((el,idx)=>{
+    el.textContent='รายการที่ '+(idx+1);
+  });
+}
 function addOrderItemRow() {
   const i=window._orderItemIdx++;
   document.getElementById('orderItemsBody').insertAdjacentHTML('beforeend',orderItemRow(i,window._orderProds||[]));
+  renumberOrderRows();
 }
 
 // ── ปุ่ม +/- จำนวน ──
@@ -1090,6 +1098,67 @@ function onOrderStyleChange(sel, i) {
   trimSel.disabled = isChrist;
   trimSel.style.opacity = isChrist ? '0.4' : '1';
   trimSel.style.cursor  = isChrist ? 'not-allowed' : 'pointer';
+}
+
+// ── filter pending by date ──
+async function filterPendingByDate(dateStr) {
+  const d = window._dashTodayData;
+  if (!d) return;
+  const allOrders = window._allOrdersCache || [];
+  const selDate = new Date(dateStr); selDate.setHours(0,0,0,0);
+  const selTs = selDate.getTime();
+  const isToday = dateStr === new Date().toISOString().slice(0,10);
+
+  const filtered = allOrders.filter(o => {
+    const created = new Date(o.createdAt); created.setHours(0,0,0,0);
+    const createdTs = created.getTime();
+    const delivTs = o.deliveredAt ? (() => { const dd=new Date(o.deliveredAt);dd.setHours(0,0,0,0);return dd.getTime(); })() : null;
+    if (isToday) {
+      return !o.isDelivered || (delivTs !== null && delivTs >= selTs);
+    } else {
+      return createdTs === selTs;
+    }
+  }).sort((a,b)=>a.createdAt-b.createdAt);
+
+  d.pendingOrders = filtered;
+  const listEl = document.getElementById('pendingList');
+  const countEl = document.getElementById('pendingCount');
+  if (countEl) countEl.textContent = filtered.length + ' รายการ';
+  if (!listEl) return;
+
+  if (!filtered.length) {
+    const label = isToday ? 'ส่งของครบแล้ว ไม่มีรายการค้างส่ง' : 'ไม่มีออเดอร์ในวันที่นี้';
+    listEl.innerHTML = '<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;"><i class="fa-solid fa-circle-check me-2"></i>' + label + '</div>';
+    return;
+  }
+  listEl.innerHTML = filtered.map(o => {
+    const isDoneToday = o.isDelivered && o.deliveredAt;
+    const itemLines = (o.items||[]).map(i => {
+      const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
+      const key = i.productName
+        + (i.color&&i.color!=='-'?' ('+i.color+')':'')
+        + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
+        + (i.extra?' '+i.extra:'');
+      return {key, qty:i.qty};
+    });
+    const deliverBtn = !isDoneToday
+      ? `<button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(34,197,94,.25);border:1.5px solid rgba(134,239,172,.5);" onclick="markDelivered('${o.id}')"><i class="fa-solid fa-truck me-1"></i>จัดส่งแล้ว</button>`
+      : '';
+    const billBtn = `<button class="btn-card-outline" style="font-size:11px;padding:3px 10px;" onclick="showCreateReceiptModal(null,'${encodeURIComponent(o.customerName||'')}')"><i class="fa-solid fa-file-invoice me-1"></i>ออกบิล</button>`;
+    const doneTag = isDoneToday ? '<span style="font-size:11px;background:rgba(134,239,172,.25);border-radius:10px;padding:1px 8px;margin-left:5px;">✅ ส่งแล้ว</span>' : '';
+    const items = itemLines.map(({key,qty}) =>
+      `<div style="display:flex;justify-content:space-between;font-size:12px;opacity:.85;padding:1px 8px;"><span>${U.esc(key)}</span><span style="font-weight:700;">${qty}</span></div>`
+    ).join('');
+    return `<div style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;${isDoneToday?'opacity:.5;':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;">
+        <div>
+          <span style="font-size:15px;font-weight:700;">${U.esc(o.customerName||'-')}</span>
+          <span style="font-size:11px;opacity:.65;margin-left:7px;">${U.date(o.createdAt)}</span>
+          ${doneTag}
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0;">${deliverBtn}${billBtn}</div>
+      </div>${items}</div>`;
+  }).join('');
 }
 
 // ── พิมพ์รายการออเดอร์วันนี้ ──
