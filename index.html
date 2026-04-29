@@ -965,15 +965,15 @@ function orderItemRow(i, products, item={}, custId) {
       <select style="${SS}border-color:#2563eb!important;" onchange="onOrderProdChange(this,${i})" id="oiprod_${i}">
         <option value="">🔍 -- เลือกสินค้า --</option>${opts}
       </select>
-      <div id="oispec_${i}">
+      <div id="oispec_${i}" style="${pName?'':\'display:none;\'}">
         <div style="display:grid;grid-template-columns:${hasColor?'1fr 1fr':'1fr'};gap:6px;margin-top:7px;">
           ${hasColor?`<div>
             <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">🎨 สีโลง</div>
-            <select id="oicolor_${i}" style="${SS}font-size:14px;">${colorOpts}</select>
+            <select id="oicolor_${i}" style="${SS}font-size:14px;" onchange="updateItemPrice(${i})">${colorOpts}</select>
           </div>`:''}
           <div>
             <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">✨ สีเส้น</div>
-            <select id="oitrim_${i}" style="${SS}font-size:14px;">${lineOpts}</select>
+            <select id="oitrim_${i}" style="${SS}font-size:14px;" onchange="updateItemPrice(${i})">${lineOpts}</select>
           </div>
         </div>
         ${extraHtml}
@@ -1010,6 +1010,7 @@ function updateItemSpec(i, prodName) {
       </select></div>` : '';
   const wrap = document.getElementById(`oispec_${i}`);
   if (!wrap) return;
+  wrap.style.display = '';
   wrap.innerHTML = `<div style="display:grid;grid-template-columns:${hasColor?'1fr 1fr':'1fr'};gap:6px;margin-top:7px;">
     ${hasColor?`<div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">🎨 สีโลง</div><select id="oicolor_${i}" style="${SS}font-size:14px;">${colorOpts}</select></div>`:''}
     <div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">✨ สีเส้น</div><select id="oitrim_${i}" style="${SS}font-size:14px;" onchange="updateItemPrice(${i})">${lineOpts}</select></div>
@@ -1021,9 +1022,21 @@ async function updateItemPrice(i) {
   if (!prodSel?.value) return;
   const prodId = prodSel.value;
   const trimColor = document.getElementById(`oitrim_${i}`)?.value || '';
-  const prod = (window._orderProds || []).find(p => p.id === prodId);
+  // หาจาก window._orderProds ก่อน ถ้าไม่เจอดึงจาก DB โดยตรง
+  let prod = (window._orderProds || []).find(p => p.id === prodId);
+  if (!prod) prod = await DB.getProduct(prodId);
   if (!prod) return;
-  let price = (trimColor && prod.priceMap?.[trimColor] != null) ? prod.priceMap[trimColor] : (prod.price || 0);
+  // ราคาจาก priceMap[trimColor] → priceMap ค่าใดก็ได้ → prod.price
+  let price = 0;
+  if (trimColor && prod.priceMap?.[trimColor] != null) {
+    price = prod.priceMap[trimColor];
+  } else if (prod.priceMap && Object.keys(prod.priceMap).length > 0) {
+    // ถ้า trim ที่เลือกไม่มีในแผน ใช้ค่าแรกที่มี
+    const firstKey = Object.keys(prod.priceMap)[0];
+    price = prod.priceMap[firstKey] || 0;
+  } else {
+    price = prod.price || 0;
+  }
   if (window._orderCustId) price = await DB.getEffectivePrice(window._orderCustId, prodId, price, trimColor);
   const priceEl = document.getElementById(`oiprice_${i}`);
   if (priceEl) { priceEl.value = price; calcOrderTotal(); }
