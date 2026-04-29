@@ -227,6 +227,9 @@ body { background: #f0f2f5; margin: 0; }
   .order-items-table th:nth-child(1), .order-items-table td:nth-child(1) { width: 75%; }
   .order-items-table th:nth-child(2), .order-items-table td:nth-child(2) { width: 15%; }
   .order-items-table th:nth-child(5), .order-items-table td:nth-child(5) { width: 10%; }
+  #orderItemsBody { counter-reset: item-num; }
+  #orderItemsBody tr.order-item-row { counter-increment: item-num; }
+  .order-item-num::before { content: "รายการที่ " counter(item-num); }
   /* ประวัติออเดอร์ — ซ่อน เลขออเดอร์ + หมายเหตุ บนมือถือ */
   .orders-history-table th:nth-child(2),
   .orders-history-table td:nth-child(2),
@@ -981,8 +984,11 @@ function orderItemRow(i, products, item={}, custId) {
     </div>` : `<div id="oiextra_wrap_${i}" style="display:none;"></div>`;
 
   const specialVal=U.esc(item.specialNote||'');
-  return `<tr id="oirow_${i}" style="vertical-align:top;border-bottom:2px solid #e5e7eb;">
+  return `<tr id="oirow_${i}" class="order-item-row" style="vertical-align:top;border-bottom:3px solid #e5e7eb;">
     <td style="min-width:220px;padding:8px 6px;">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
+        <span class="order-item-num" style="background:#ede9fe;color:#5b21b6;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;"></span>
+      </div>
       <select style="${SS}border-color:#2563eb!important;" onchange="onOrderProdChange(this,${i})" id="oiprod_${i}">
         <option value="">🔍 -- เลือกสินค้า --</option>${opts}
       </select>
@@ -1491,12 +1497,13 @@ function buildPriceFields(prodName, existingPm) {
   const pmKeys = Object.keys(existingPm||{}).filter(k=>k!=='__default'&&existingPm[k]>0);
   const lines = spec?.lines?.length ? spec.lines : (pmKeys.length ? pmKeys : []);
   if(!lines.length) return `<div class="col-sm-4"><label class="form-label">ราคาปกติ (฿)</label>
-    <input type="number" class="form-control" id="pf_price" min="0" value="${existingPm?.__default||''}"></div>`;
+    <input type="number" class="form-control" id="pf_price" min="0" value="${existingPm?.__default||''}"></div>
+    ${!prodName?'<div class="col-12"><small class="text-muted">💡 พิมพ์ชื่อสินค้าให้ตรงกับระบบเพื่อให้ช่องราคาตามสีเส้นปรากฏโดยอัตโนมัติ</small></div>':''}`;
   const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   return `<div class="col-12"><label class="form-label fw-semibold">✨ ราคาตามสีเส้น (บาท)</label>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;">
       ${lines.map(l=>`<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;">
-        <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:4px;">${lineIcons[l]||''} เส้น${l}</div>
+        <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:4px;">${lineIcons[l]||''} ${l}</div>
         <input type="number" class="form-control form-control-sm" id="pf_pm_${l}" min="0" placeholder="ราคา..." value="${existingPm?.[l]||''}">
       </div>`).join('')}
     </div></div>
@@ -1511,7 +1518,7 @@ async function showProductModal(id) {
     <div class="col-sm-4"><label class="form-label">รหัสสินค้า</label>
       <input type="text" class="form-control" id="pf_code" placeholder="เช่น L001" value="${U.esc(p?.code||'')}"></div>
     <div class="col-sm-8"><label class="form-label">ชื่อสินค้า <span class="text-danger">*</span></label>
-      <input type="text" class="form-control" id="pf_name" required value="${U.esc(p?.name||'')}" placeholder="ชื่อโลง / รุ่น" list="specNameList" oninput="refreshPriceFields(this.value)">
+      <input type="text" class="form-control" id="pf_name" required value="${U.esc(p?.name||'')}" placeholder="ชื่อโลง / รุ่น" list="specNameList" oninput="refreshPriceFields(this.value)" onchange="refreshPriceFields(this.value)">
       <datalist id="specNameList">${nameOpts}</datalist></div>
     <div class="col-sm-6"><label class="form-label">ประเภท</label>
       <input type="text" class="form-control" id="pf_cat" value="${U.esc(p?.category||'')}" placeholder="เช่น ไม้สัก, MDF"></div>
