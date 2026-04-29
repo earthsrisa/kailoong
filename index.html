@@ -965,7 +965,7 @@ function orderItemRow(i, products, item={}, custId) {
       <select style="${SS}border-color:#2563eb!important;" onchange="onOrderProdChange(this,${i})" id="oiprod_${i}">
         <option value="">🔍 -- เลือกสินค้า --</option>${opts}
       </select>
-      <div id="oispec_${i}" style="${pName?'':\'display:none;\'}">
+      <div id="oispec_${i}" style="${pName?'':'display:none;'}">
         <div style="display:grid;grid-template-columns:${hasColor?'1fr 1fr':'1fr'};gap:6px;margin-top:7px;">
           ${hasColor?`<div>
             <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">🎨 สีโลง</div>
