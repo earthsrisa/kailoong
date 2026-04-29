@@ -347,8 +347,8 @@ const COFFIN_SPEC = {
   'บ่าง':             {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
   'ย้อย':             {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
   'กลาง':             {colors:['ขาว','แดง'], lines:['ทอง','เงิน','คริสต์'], extra:['หน้า 24 นิ้ว','หน้า 26 นิ้ว','หน้า 28 นิ้ว']},
-  'มุกน้อย':          {colors:['ขาว','แดง'], lines:['เงิน','ทอง','ผ้าจีบ']},
-  'มุกใหญ่':          {colors:['ขาว','แดง'], lines:['เงิน','ทอง','ผ้าจีบ']},
+  'มุกน้อย':          {colors:['ขาว','แดง'], lines:['เงิน','ทอง','ผ้าจีบ','ผ้าดอก']},
+  'มุกใหญ่':          {colors:['ขาว','แดง'], lines:['เงิน','ทอง','ผ้าจีบ','ผ้าดอก']},
   'สิงห์น้อย':        {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
   'สิงห์น้อย 3 ชั้น': {colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
   'สิงห์ใหญ่':        {colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
@@ -963,7 +963,7 @@ function orderItemRow(i, products, item={}, custId) {
 
   // สีเส้น options
   const lineVal = item.trimColor || spec.lines[0] || 'ทอง';
-  const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷'};
+  const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   const lineOpts = spec.lines.map(l=>`<option value="${l}" ${lineVal===l?'selected':''}>${lineIcons[l]||''} ${l}</option>`).join('');
 
   // extra options (กลาง)
@@ -1014,7 +1014,7 @@ function updateItemSpec(i, prodName) {
   const spec = COFFIN_SPEC[prodName] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
   const hasColor = spec.colors.length > 0;
   const SS='font-size:15px;font-weight:600;border:2px solid #d1d5db;border-radius:8px;padding:7px 10px;width:100%;background:#fff;cursor:pointer;';
-  const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷'};
+  const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   const lineOpts = spec.lines.map(l=>`<option value="${l}">${lineIcons[l]||''} ${l}</option>`).join('');
   const colorOpts = hasColor
     ? spec.colors.map(c=>`<option value="${c}">${c==='ขาว'?'⬜':'🟥'} ${c}</option>`).join('')
@@ -1368,7 +1368,7 @@ async function deleteCustomer(id) {
 async function showCustomerPriceModal(custId) {
   const [cust, products] = await Promise.all([DB.getCustomer(custId), DB.getProducts()]);
   if (!cust||!products.length){U.toast('กรุณาเพิ่มสินค้าก่อน','error');return;}
-  const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷'};
+  const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   const rows=products.map(p=>{
     const spec=COFFIN_SPEC[p.name];
     const lines=spec?.lines||Object.keys(p.priceMap||{});
@@ -1451,7 +1451,7 @@ async function renderProducts(el) {
 function prodRow(p,i) {
   const spec=COFFIN_SPEC[p.name];
   const lines=spec?.lines||Object.keys(p.priceMap||{});
-  const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷'};
+  const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   let priceCell;
   const pm=p.priceMap||{};
   const hasPm=lines.length&&Object.keys(pm).some(k=>pm[k]>0);
@@ -1486,7 +1486,7 @@ function buildPriceFields(prodName, existingPm) {
   const lines=spec?.lines||[];
   if(!lines.length) return `<div class="col-sm-4"><label class="form-label">ราคาปกติ (฿)</label>
     <input type="number" class="form-control" id="pf_price" min="0" value="${existingPm?.__default||''}"></div>`;
-  const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷'};
+  const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   return `<div class="col-12"><label class="form-label fw-semibold">✨ ราคาตามสีเส้น (บาท)</label>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;">
       ${lines.map(l=>`<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;">
