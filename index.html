@@ -609,7 +609,14 @@ async function renderDashboard(el) {
     custTodayMap[o.customerId].total+=U.orderTotal(o);
   });
   const custTodayList=Object.values(custTodayMap);
-  window._dashTodayData={custTodayList,todayOrders,dateLabel:new Date().toLocaleDateString('th-TH-u-ca-buddhist',{weekday:'long',day:'numeric',month:'long',year:'numeric'})};
+
+  // รายการรอส่ง: ยังไม่ส่ง หรือ ส่งแล้วแต่ยังเป็นวันนี้
+  const pendingOrders = orders.filter(o=>
+    !o.isDelivered || (o.deliveredAt && o.deliveredAt >= todayTs)
+  ).sort((a,b)=>a.createdAt-b.createdAt);
+
+  const dateLabel=new Date().toLocaleDateString('th-TH-u-ca-buddhist',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  window._dashTodayData={pendingOrders,custTodayList,todayOrders,dateLabel};
 
   el.innerHTML=`
   <div class="row g-3 mb-3">
@@ -628,30 +635,40 @@ async function renderDashboard(el) {
       </div>
     </div>
 
-    <!-- แยกรายลูกค้าวันนี้ -->
+    <!-- รายการรอส่ง -->
     <div class="col-xl-8">
       <div class="cust-today-card" style="height:100%;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
-          <h3 style="margin:0;font-size:15px;font-weight:700;opacity:.85;"><i class="fa-solid fa-users me-2"></i>ใครสั่งอะไรบ้างวันนี้</h3>
+          <h3 style="margin:0;font-size:15px;font-weight:700;opacity:.85;"><i class="fa-solid fa-truck me-2"></i>รายการรอส่ง
+            ${pendingOrders.length ? `<span style="background:rgba(255,255,255,.2);border-radius:20px;padding:1px 10px;font-size:12px;margin-left:6px;">${pendingOrders.length} รายการ</span>` : ''}
+          </h3>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn-card-outline" onclick="printTodayOrders()"><i class="fa-solid fa-print me-1"></i>พิมพ์รายการวันนี้</button>
+            <button class="btn-card-outline" onclick="printPendingOrders()"><i class="fa-solid fa-print me-1"></i>พิมพ์รายการรอส่ง</button>
             <button class="btn-card-solid" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>
           </div>
         </div>
-        ${custTodayList.length ? custTodayList.map(c=>`
-          <div style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-              <span style="font-size:16px;font-weight:700;">${U.esc(c.name)}</span>
-              <button class="btn-card-outline" style="font-size:12px;padding:3px 10px;" onclick="showCreateReceiptModal(null,'${encodeURIComponent(c.name)}')">
-                <i class="fa-solid fa-file-invoice me-1"></i>ออกบิล
-              </button>
+        ${pendingOrders.length ? pendingOrders.map(o=>{
+          const isDoneToday = o.isDelivered && o.deliveredAt;
+          const itemLines = (o.items||[]).map(i=>{
+            const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
+            return {key:i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:''), qty:i.qty};
+          });
+          return `<div style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;${isDoneToday?'opacity:.5;':''}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;">
+              <div>
+                <span style="font-size:15px;font-weight:700;">${U.esc(o.customerName||'-')}</span>
+                <span style="font-size:11px;opacity:.65;margin-left:7px;">${U.date(o.createdAt)}</span>
+                ${isDoneToday ? '<span style="font-size:11px;background:rgba(134,239,172,.25);border-radius:10px;padding:1px 8px;margin-left:5px;">✅ ส่งแล้ว</span>' : ''}
+              </div>
+              <div style="display:flex;gap:5px;flex-shrink:0;">
+                ${!isDoneToday ? `<button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(34,197,94,.25);border:1.5px solid rgba(134,239,172,.5);" onclick="markDelivered('${o.id}')"><i class="fa-solid fa-truck me-1"></i>จัดส่งแล้ว</button>` : ''}
+                <button class="btn-card-outline" style="font-size:11px;padding:3px 10px;" onclick="showCreateReceiptModal(null,'${encodeURIComponent(o.customerName)}')"><i class="fa-solid fa-file-invoice me-1"></i>ออกบิล</button>
+              </div>
             </div>
-            ${Object.entries(c.items).map(([name,qty])=>`
-              <div style="display:flex;justify-content:space-between;font-size:13px;opacity:.85;padding:2px 8px;">
-                <span>${U.esc(name)}</span><span style="font-weight:700;">${qty}</span>
-              </div>`).join('')}
-          </div>`).join('')
-          : '<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;">ยังไม่มีออเดอร์วันนี้</div>'}
+            ${itemLines.map(({key,qty})=>`<div style="display:flex;justify-content:space-between;font-size:12px;opacity:.85;padding:1px 8px;"><span>${U.esc(key)}</span><span style="font-weight:700;">${qty}</span></div>`).join('')}
+          </div>`;
+        }).join('')
+        : '<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;"><i class="fa-solid fa-circle-check me-2"></i>ส่งของครบแล้ว ไม่มีรายการค้างส่ง</div>'}
       </div>
     </div>
   </div>
@@ -1066,15 +1083,33 @@ function onOrderStyleChange(sel, i) {
 }
 
 // ── พิมพ์รายการออเดอร์วันนี้ ──
-function printTodayOrders() {
-  const d = window._dashTodayData;
-  if (!d || !d.custTodayList || !d.custTodayList.length) {
-    U.toast('ยังไม่มีออเดอร์วันนี้','error'); return;
-  }
-  const totalPieces = d.custTodayList.reduce((a,c)=>a+Object.values(c.items).reduce((x,v)=>x+v,0),0);
-  const totalCusts  = d.custTodayList.length;
+async function markDelivered(orderId) {
+  const order = await DB.getOrder(orderId);
+  if (!order) return;
+  await DB.putOrder({...order, isDelivered:true, deliveredAt:Date.now()});
+  U.toast('บันทึกจัดส่งแล้ว ✓');
+  navigate('dashboard');
+}
 
-  const rows = d.custTodayList.map(c=>{
+function printPendingOrders() {
+  const d = window._dashTodayData;
+  if (!d || !d.pendingOrders || !d.pendingOrders.length) {
+    U.toast('ไม่มีรายการรอส่ง','error'); return;
+  }
+  // สร้าง list จาก pendingOrders
+  const list = d.pendingOrders.map(o=>{
+    const items={};
+    (o.items||[]).forEach(i=>{
+      const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
+      const key=i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:'');
+      items[key]=(items[key]||0)+i.qty;
+    });
+    return {name:o.customerName, date:U.date(o.createdAt), items};
+  });
+  const totalPieces = list.reduce((a,c)=>a+Object.values(c.items).reduce((x,v)=>x+v,0),0);
+  const totalCusts  = list.length;
+
+  const rows = list.map(c=>{
     const custPieces = Object.values(c.items).reduce((a,v)=>a+v,0);
     const itemRows = Object.entries(c.items).map(([name,qty])=>{
       const boxes = Array.from({length:qty},()=>'<span class="pen-box"></span>').join('');
@@ -1087,7 +1122,7 @@ function printTodayOrders() {
     return `
     <div class="cust-block">
       <div class="cust-head">
-        <span class="cust-name">${c.name}</span>
+        <span class="cust-name">${c.name}</span><span style="font-size:10px;opacity:.7;margin-left:6px;">${c.date||''}</span>
         <span class="cust-count">${custPieces} ชิ้น</span>
       </div>
       <table>
@@ -1136,13 +1171,13 @@ function printTodayOrders() {
       .grand-total,.cust-head{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
     }
   </style></head><body>
-  <h1>📋 รายการออเดอร์วันนี้</h1>
+  <h1>🚚 รายการรอส่ง</h1>
   <div class="sub">${d.dateLabel}</div>
   <div class="grand-total">
     <div>
       <div class="label">สรุปยอดรวมทั้งหมด</div>
       <div class="num">${totalPieces} ชิ้น</div>
-      <div class="sub2">${totalCusts} ลูกค้า — ${d.custTodayList.map(c=>c.name).join(' · ')}</div>
+      <div class="sub2">${totalCusts} ออเดอร์ — ${list.map(c=>c.name).join(' · ')}</div>
     </div>
     <div style="font-size:32px;opacity:.3;">📦</div>
   </div>
