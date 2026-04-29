@@ -650,7 +650,7 @@ async function renderDashboard(el) {
             ${pendingOrders.length ? `<span style="background:rgba(255,255,255,.2);border-radius:20px;padding:1px 10px;font-size:12px;margin-left:6px;">${pendingOrders.length} รายการ</span>` : ''}
           </h3>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn-card-outline" onclick="printPendingOrders()"><i class="fa-solid fa-print me-1"></i>พิมพ์รายการรอส่ง</button>
+            <button class="btn-card-outline" onclick="showPrintSelectModal()"><i class="fa-solid fa-print me-1"></i>พิมพ์รายการรอส่ง</button>
             <button class="btn-card-solid" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>
           </div>
         </div>
@@ -1101,13 +1101,81 @@ async function markDelivered(orderId) {
   navigate('dashboard');
 }
 
-function printPendingOrders() {
+function showPrintSelectModal() {
   const d = window._dashTodayData;
   if (!d || !d.pendingOrders || !d.pendingOrders.length) {
     U.toast('ไม่มีรายการรอส่ง','error'); return;
   }
+  const orders = d.pendingOrders;
+  const rows = orders.map((o,idx)=>{
+    const totalQty = (o.items||[]).reduce((a,i)=>a+i.qty,0);
+    const isDone = o.isDelivered && o.deliveredAt;
+    return `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;margin-bottom:6px;background:#fff;" id="psl_label_${idx}">
+      <input type="checkbox" class="psl-cb" data-idx="${idx}" id="psl_cb_${idx}" checked style="width:18px;height:18px;cursor:pointer;accent-color:#2563eb;">
+      <div style="flex:1;">
+        <div style="font-weight:700;font-size:14px;">${U.esc(o.customerName||'-')} ${isDone?'<span style="font-size:11px;color:#16a34a;">✅ ส่งแล้ว</span>':''}</div>
+        <div style="font-size:11px;color:#6b7280;">${U.date(o.createdAt)} · ${totalQty} ชิ้น · ${(o.items||[]).length} รายการ</div>
+      </div>
+      <span style="background:#dbeafe;color:#1e40af;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;">${totalQty} ชิ้น</span>
+    </label>`;
+  }).join('');
+  const body = `<div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:2px solid #e5e7eb;">
+      <button type="button" onclick="togglePslAll(true)" class="btn btn-sm btn-outline-primary">เลือกทั้งหมด</button>
+      <button type="button" onclick="togglePslAll(false)" class="btn btn-sm btn-outline-secondary">ยกเลิกทั้งหมด</button>
+      <span id="psl_count" style="font-size:12px;color:#6b7280;margin-left:4px;"></span>
+    </div>
+    <div id="psl_list">${rows}</div>
+  </div>`;
+  showModal('pslModal','🖨️ เลือกลูกค้าที่จะพิมพ์',body,
+    `<button class="btn btn-primary" onclick="confirmPrintSelect()"><i class="fa-solid fa-print me-1"></i>พิมพ์รายการที่เลือก</button>
+     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,
+    'modal-md');
+  updatePslCount();
+  // ผูก event บน checkbox เพื่ออัปเดต label style
+  setTimeout(()=>{
+    document.querySelectorAll('.psl-cb').forEach(cb=>{
+      cb.addEventListener('change',()=>{
+        const lbl=document.getElementById('psl_label_'+cb.dataset.idx);
+        if(lbl) lbl.style.borderColor=cb.checked?'#3b82f6':'#e5e7eb';
+        updatePslCount();
+      });
+      // init style
+      const lbl=document.getElementById('psl_label_'+cb.dataset.idx);
+      if(lbl) lbl.style.borderColor=cb.checked?'#3b82f6':'#e5e7eb';
+    });
+  },100);
+}
+function togglePslAll(val) {
+  document.querySelectorAll('.psl-cb').forEach(cb=>{
+    cb.checked=val;
+    const lbl=document.getElementById('psl_label_'+cb.dataset.idx);
+    if(lbl) lbl.style.borderColor=val?'#3b82f6':'#e5e7eb';
+  });
+  updatePslCount();
+}
+function updatePslCount() {
+  const total=document.querySelectorAll('.psl-cb').length;
+  const checked=document.querySelectorAll('.psl-cb:checked').length;
+  const el=document.getElementById('psl_count');
+  if(el) el.textContent=`เลือก ${checked}/${total} ลูกค้า`;
+}
+function confirmPrintSelect() {
+  const d = window._dashTodayData;
+  const selectedIdxs=[...document.querySelectorAll('.psl-cb:checked')].map(cb=>parseInt(cb.dataset.idx));
+  if(!selectedIdxs.length){U.toast('กรุณาเลือกอย่างน้อย 1 ลูกค้า','error');return;}
+  const selectedOrders=selectedIdxs.map(i=>d.pendingOrders[i]);
+  closeModal('pslModal');
+  printPendingOrders(selectedOrders);
+}
+function printPendingOrders(ordersInput) {
+  const d = window._dashTodayData;
+  const ordersToUse = ordersInput || (d ? d.pendingOrders : null);
+  if (!ordersToUse || !ordersToUse.length) {
+    U.toast('ไม่มีรายการรอส่ง','error'); return;
+  }
   // สร้าง list จาก pendingOrders
-  const list = d.pendingOrders.map(o=>{
+  const list = ordersToUse.map(o=>{
     const items={};
     (o.items||[]).forEach(i=>{
       const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
