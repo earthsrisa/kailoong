@@ -1678,10 +1678,14 @@ async function saveProduct() {
   if (!name){U.toast('กรุณากรอกชื่อสินค้า','error');return;}
   const id=document.getElementById('pf_id')?.value||'';
   const spec=COFFIN_SPEC[name];
-  const lines=spec?.lines||[];
+  const DEFAULT_LINES=['ทอง','เงิน'];
+  const pmKeys=id?(Object.keys((await DB.getProduct(id))?.priceMap||{}).filter(k=>k!=='__default')):[]; 
+  const lines=spec?.lines?.length?spec.lines:(pmKeys.length?pmKeys:DEFAULT_LINES);
   const priceMap={};
-  lines.forEach(l=>{
-    const v=parseFloat(document.getElementById(`pf_pm_${l}`)?.value||'');
+  // อ่านจาก input ที่มีใน DOM ตรงๆ (ครอบคลุมทั้ง COFFIN_SPEC และ default)
+  document.querySelectorAll('[id^="pf_pm_"]').forEach(el=>{
+    const l=el.id.replace('pf_pm_','');
+    const v=parseFloat(el.value||'');
     if(!isNaN(v)&&v>0) priceMap[l]=v;
   });
   const defaultPrice=parseFloat(document.getElementById('pf_price')?.value||0)||0;
