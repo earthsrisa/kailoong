@@ -1632,10 +1632,9 @@ function buildPriceFields(prodName, existingPm) {
   const spec=COFFIN_SPEC[prodName];
   // ถ้า COFFIN_SPEC ไม่มี ให้ดูจาก priceMap ที่มีอยู่แล้ว
   const pmKeys = Object.keys(existingPm||{}).filter(k=>k!=='__default'&&existingPm[k]>0);
-  const lines = spec?.lines?.length ? spec.lines : (pmKeys.length ? pmKeys : []);
-  if(!lines.length) return `<div class="col-sm-4"><label class="form-label">ราคาปกติ (฿)</label>
-    <input type="number" class="form-control" id="pf_price" min="0" value="${existingPm?.__default||''}"></div>
-    ${!prodName?'<div class="col-12"><small class="text-muted">💡 พิมพ์ชื่อสินค้าให้ตรงกับระบบเพื่อให้ช่องราคาตามสีเส้นปรากฏโดยอัตโนมัติ</small></div>':''}`;
+  // default เสมอ: อย่างน้อยต้องมี ทอง + เงิน
+  const DEFAULT_LINES = ['ทอง','เงิน'];
+  const lines = spec?.lines?.length ? spec.lines : (pmKeys.length ? pmKeys : DEFAULT_LINES);
   const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   return `<div class="col-12"><label class="form-label fw-semibold">✨ ราคาตามสีเส้น (บาท)</label>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;">
