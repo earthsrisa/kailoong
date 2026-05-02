@@ -594,7 +594,7 @@ async function renderDashboard(el) {
 
   // ดึงเฉพาะที่ต้องการ: orders วันนี้ + invoices เดือนนี้ + customers (เล็ก)
   // orders/invoices ทั้งหมดยังต้องการสำหรับ "count" cards — ใช้ cache ทำให้ไม่ช้า
-  const [orders, invoices, customers] = await Promise.all([DB.getOrders(), DB.getInvoices(), DB.getCustomers()]);
+  const [orders, invoices, customers, products] = await Promise.all([DB.getOrders(), DB.getInvoices(), DB.getCustomers(), DB.getProducts()]);
   const todayOrders  = orders.filter(o=>o.createdAt >= todayTs);
   const monthIncome  = invoices.filter(i=>i.createdAt>=monthStart).reduce((a,i)=>a+U.invTotal(i).total,0);
 
@@ -623,6 +623,7 @@ async function renderDashboard(el) {
 
   const dateLabel=new Date().toLocaleDateString('th-TH-u-ca-buddhist',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   window._allOrdersCache = orders;
+  window._allProductsCache = Object.fromEntries(products.map(p=>[p.name, p]));
   window._dashTodayData={pendingOrders,custTodayList,todayOrders,dateLabel};
 
   el.innerHTML=`
@@ -1243,15 +1244,23 @@ function printPendingOrders(ordersInput) {
   if (!ordersToUse || !ordersToUse.length) {
     U.toast('ไม่มีรายการรอส่ง','error'); return;
   }
-  // สร้าง list จาก pendingOrders
+  // สร้าง list จาก pendingOrders — แยก โลง vs อุปกรณ์เสริม
+  const prodCache = window._allProductsCache || {};
+  function isCoffin(productName) {
+    const p = prodCache[productName];
+    if (p) return (p.unit||'โลง').trim() === 'โลง';
+    return !!COFFIN_SPEC[productName]; // fallback ใช้ COFFIN_SPEC
+  }
   const list = ordersToUse.map(o=>{
-    const items={};
+    const items={};     // โลง (นับจำนวน)
+    const extras={};    // อุปกรณ์เสริม (แสดงแต่ไม่นับ)
     (o.items||[]).forEach(i=>{
       const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
       const key=i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:'');
-      items[key]=(items[key]||0)+i.qty;
+      if(isCoffin(i.productName)) items[key]=(items[key]||0)+i.qty;
+      else extras[key]=(extras[key]||0)+i.qty;
     });
-    return {name:o.customerName, date:U.date(o.createdAt), items};
+    return {name:o.customerName, date:U.date(o.createdAt), items, extras};
   });
   const totalPieces = list.reduce((a,c)=>a+Object.values(c.items).reduce((x,v)=>x+v,0),0);
   const totalCusts  = list.length;
@@ -1266,11 +1275,18 @@ function printPendingOrders(ordersInput) {
         <td class="c-box">${boxes}</td>
       </tr>`;
     }).join('');
+    const extraRows = Object.entries(c.extras||{}).map(([name,qty])=>`
+      <tr style="opacity:.65;">
+        <td style="font-style:italic;">${name}</td>
+        <td class="c-qty" style="color:#6b7280;">${qty}</td>
+        <td class="c-box"></td>
+      </tr>`).join('');
+    const extraSection = extraRows ? `<tr><td colspan="3" style="font-size:9px;color:#9ca3af;padding:3px 8px;border-top:1px dashed #e5e7eb;">อุปกรณ์เสริม</td></tr>${extraRows}` : '';
     return `
     <div class="cust-block">
       <div class="cust-head">
         <span class="cust-name">${c.name}</span><span style="font-size:10px;opacity:.7;margin-left:6px;">${c.date||''}</span>
-        <span class="cust-count">${custPieces} ชิ้น</span>
+        <span class="cust-count">${custPieces} โลง</span>
       </div>
       <table>
         <colgroup><col class="c-name"><col class="c-qty"><col class="c-box"></colgroup>
@@ -1279,7 +1295,7 @@ function printPendingOrders(ordersInput) {
           <th class="c-qty">จำนวน</th>
           <th class="c-box">เช็ค</th>
         </tr></thead>
-        <tbody>${itemRows}</tbody>
+        <tbody>${itemRows}${extraSection}</tbody>
       </table>
     </div>`;
   }).join('');
@@ -1323,7 +1339,7 @@ function printPendingOrders(ordersInput) {
   <div class="grand-total">
     <div>
       <div class="label">สรุปยอดรวมทั้งหมด</div>
-      <div class="num">${totalPieces} ชิ้น</div>
+      <div class="num">${totalPieces} โลง</div>
       <div class="sub2">${totalCusts} ออเดอร์ — ${list.map(c=>c.name).join(' · ')}</div>
     </div>
     <div style="font-size:32px;opacity:.3;">📦</div>
