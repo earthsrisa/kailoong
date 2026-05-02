@@ -2039,6 +2039,33 @@ async function saveReceipt(andPrint=false) {
     notes:document.getElementById('rc_notes')?.value.trim()||'',
   };
 
+  // ── ป้องกันออกบิลซ้ำวันเดียวกัน (เฉพาะบิลใหม่) ──────────────────────
+  if (!editId && !window._rcConfirmedDup) {
+    const allInv=await DB.getInvoices();
+    const todayStart=new Date(); todayStart.setHours(0,0,0,0);
+    const existing=allInv.find(inv=>inv.customerId===custId&&inv.createdAt>=todayStart.getTime());
+    if (existing) {
+      const ap=andPrint;
+      showModal('dupInvModal','พบใบเสร็จซ้ำ',
+        `<div style="background:#fef3c7;border-radius:10px;padding:14px 18px;border-left:4px solid #f59e0b;margin-bottom:12px;">
+           <strong style="color:#92400e;">⚠️ พบใบเสร็จวันนี้แล้ว</strong><br>
+           <span style="font-size:13px;color:#78350f;">ลูกค้า <strong>${U.esc(cust.name)}</strong>
+           มีใบเสร็จวันนี้แล้ว เลขที่ <strong>${U.esc(existing.invoiceNo)}</strong> (฿${U.money(U.invTotal(existing).total)})</span>
+         </div>
+         <p style="font-size:13px;color:#374151;margin:0;">ต้องการทำอะไร?</p>`,
+        `<button class="btn btn-warning" onclick="closeModal('dupInvModal');showCreateReceiptModal('${existing.id}');">
+           <i class="fa-solid fa-pen-to-square me-1"></i>แก้ไขใบเดิม (${U.esc(existing.invoiceNo)})
+         </button>
+         <button class="btn btn-primary" onclick="closeModal('dupInvModal');window._rcConfirmedDup=true;saveReceipt(${ap});">
+           <i class="fa-solid fa-plus me-1"></i>ออกใบใหม่เพิ่ม
+         </button>
+         <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`);
+      return;
+    }
+  }
+  window._rcConfirmedDup=false;
+  // ─────────────────────────────────────────────────────────────────────────
+
   let savedId;
   if (editId){const old=await DB.getInvoice(editId);await DB.putInvoice({...old,...data});savedId=editId;U.toast('แก้ไขใบเสร็จแล้ว ✓');}
   else{data.invoiceNo=await DB.nextReceiptNo();savedId=await DB.addInvoice(data);U.toast('ออกใบเสร็จแล้ว ✓');}
