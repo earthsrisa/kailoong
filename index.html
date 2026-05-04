@@ -328,7 +328,7 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 const CFG = {
   businessName: 'ร้านขายส่งโลงศพ',
   sellerName: '',
-  businessAddress: '', businessPhone: '', businessTaxId: '',
+  businessAddress: '', businessPhone: '', businessTaxId: '', promptpayId: '',
 };
 
 // ═══════════════════════════════════════
@@ -435,7 +435,7 @@ const DB = {
     // ดึงทั้ง collection ครั้งเดียว แทน 4 queries แยก
     const snap = await this._fs.collection('settings').get();
     const map = {}; snap.docs.forEach(d => { map[d.id] = d.data().value; });
-    for (const k of ['businessName','sellerName','businessAddress','businessPhone','businessTaxId']) {
+    for (const k of ['businessName','sellerName','businessAddress','businessPhone','businessTaxId','promptpayId']) {
       if (map[k] !== undefined) CFG[k] = map[k];
     }
   },
@@ -2080,6 +2080,26 @@ async function saveReceipt(andPrint=false) {
   navigate('invoices');
 }
 
+
+function _promptpayPayload(rawId, amount) {
+  function crc16(s){
+    let c=0xFFFF;
+    for(let i=0;i<s.length;i++){c^=s.charCodeAt(i)<<8;for(let j=0;j<8;j++)c=(c&0x8000)?((c<<1)^0x1021):(c<<1);}
+    return(c&0xFFFF).toString(16).toUpperCase().padStart(4,'0');
+  }
+  function f(tag,val){return tag+String(val.length).padStart(2,'0')+val;}
+  const id=rawId.replace(/[^0-9]/g,'');
+  let ptype,pval;
+  if(id.length===10){ptype='01';pval='0066'+id.slice(1);}
+  else if(id.length===13){ptype='02';pval=id;}
+  else return null;
+  const acct=f('00','A000000677010111')+f(ptype,pval);
+  let p=f('00','01')+f('01','11')+f('29',acct)+f('52','0000')+f('53','764');
+  if(amount>0) p+=f('54',amount.toFixed(2));
+  p+=f('58','TH')+f('59','PromptPay')+f('60','Bangkok')+'6304';
+  return p+crc16(p);
+}
+
 async function printReceiptById(id) { const inv=await DB.getInvoice(id); if(inv)printReceiptData(inv); }
 
 function printReceiptData(inv) {
@@ -2134,6 +2154,10 @@ body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12
 .inv-sig{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:18px;}
 .inv-sig-box{text-align:center;}
 .sig-line{border-top:1px solid #000;margin-top:30px;padding-top:4px;font-size:10px;color:#333;}
+.inv-qr-wrap{display:flex;justify-content:center;margin-bottom:10px;}
+.inv-qr-box{text-align:center;border:1.5px solid #10b981;border-radius:10px;padding:10px 16px;background:#f0fdf4;display:inline-block;}
+.inv-qr-label{font-size:10px;color:#059669;font-weight:700;margin-top:5px;}
+.inv-qr-amount{font-size:15px;font-weight:800;color:#065f46;margin-top:2px;}
 .no-print{margin-top:14px;text-align:center;}
 .inv-bank{display:flex;align-items:center;gap:12px;border:2px solid #e91e8c;border-radius:8px;padding:8px 12px;margin-bottom:12px;background:#fff0f7;}
 .inv-bank-logo{flex-shrink:0;}
@@ -2197,6 +2221,14 @@ body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12
     </table>
   </div>
   ${notesBlock}
+  ${CFG.promptpayId?`
+  <div class="inv-qr-wrap">
+    <div class="inv-qr-box">
+      <div id="qr_canvas" style="display:inline-block;"></div>
+      <div class="inv-qr-label">สแกนจ่าย PromptPay</div>
+      <div class="inv-qr-amount">฿${U.money(t.total)}</div>
+    </div>
+  </div>`:''}
   <div class="inv-bank">
     <div class="inv-bank-logo"><img src="data:image/jpeg;base64,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" style="width:48px;height:auto;display:block;border-radius:4px;"></div>
     <div class="inv-bank-info">
@@ -2214,12 +2246,20 @@ body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12
 <div class="no-print">
   <button onclick="window.print()" style="padding:9px 24px;background:#1e3a8a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ พิมพ์</button>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
 <script>
 window.addEventListener('load',function(){
   var el=document.querySelector('.inv-page');
   var b=document.body;
+  // Generate QR
+  var qrDiv=document.getElementById('qr_canvas');
+  if(qrDiv&&typeof QRCode!=='undefined'){
+    var payload=${JSON.stringify(_promptpayPayload(CFG.promptpayId||'',t.total))};
+    if(payload&&payload!=='null'){
+      new QRCode(qrDiv,{text:payload,width:120,height:120,correctLevel:QRCode.CorrectLevel.M});
+    }
+  }
   if(!el)return;
-  // A5 portrait: usable height = 210mm - 16mm margins = 194mm ≈ 734px at 96dpi
   var maxH=734;
   var h=el.scrollHeight;
   if(h>maxH){ var z=maxH/h; b.style.zoom=z; }
@@ -2454,6 +2494,10 @@ async function renderSettings(el) {
               <input type="text" class="form-control" id="st_taxId" value="${U.esc(CFG.businessTaxId)}"></div>
             <div class="col-12"><label class="form-label">ที่อยู่ร้าน (แสดงบนใบเสร็จ)</label>
               <textarea class="form-control" id="st_addr" rows="3">${U.esc(CFG.businessAddress)}</textarea></div>
+            <div class="col-12">
+              <label class="form-label"><i class="fa-solid fa-qrcode me-1 text-success"></i>PromptPay ID <span style="font-size:11px;color:#6b7280;">(เบอร์โทร 10 หลัก หรือเลขบัตรประชาชน 13 หลัก)</span></label>
+              <input type="text" class="form-control" id="st_promptpay" value="${U.esc(CFG.promptpayId)}" placeholder="เช่น 0812345678 หรือ 1234567890123">
+            </div>
           </div>
           <div class="mt-4">
             <button class="btn btn-primary" onclick="saveSettings()">
@@ -2529,7 +2573,8 @@ async function saveSettings() {
   CFG.businessPhone=document.getElementById('st_phone')?.value.trim()||'';
   CFG.businessTaxId=document.getElementById('st_taxId')?.value.trim()||'';
   CFG.businessAddress=document.getElementById('st_addr')?.value.trim()||'';
-  await Promise.all(['businessName','sellerName','businessPhone','businessTaxId','businessAddress'].map(k=>DB.setSetting(k,CFG[k])));
+  CFG.promptpayId=document.getElementById('st_promptpay')?.value.trim()||'';
+  await Promise.all(['businessName','sellerName','businessPhone','businessTaxId','businessAddress','promptpayId'].map(k=>DB.setSetting(k,CFG[k])));
   document.getElementById('sidebarBizName').textContent=CFG.businessName;
   U.toast('บันทึกการตั้งค่าแล้ว ✓');
 }
