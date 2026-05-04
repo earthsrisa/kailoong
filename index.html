@@ -2154,10 +2154,9 @@ body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12
 .inv-sig{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:18px;}
 .inv-sig-box{text-align:center;}
 .sig-line{border-top:1px solid #000;margin-top:30px;padding-top:4px;font-size:10px;color:#333;}
-.inv-qr-wrap{display:flex;justify-content:center;margin-bottom:10px;}
-.inv-qr-box{text-align:center;border:1.5px solid #10b981;border-radius:10px;padding:10px 16px;background:#f0fdf4;display:inline-block;}
-.inv-qr-label{font-size:10px;color:#059669;font-weight:700;margin-top:5px;}
-.inv-qr-amount{font-size:15px;font-weight:800;color:#065f46;margin-top:2px;}
+.inv-bank-qr{flex-shrink:0;text-align:center;border-left:1px solid #f8bbd0;padding-left:10px;margin-left:4px;}
+.inv-bank-qr canvas,.inv-bank-qr img{width:72px!important;height:72px!important;}
+.inv-qr-label{font-size:9px;color:#c2185b;font-weight:700;margin-top:3px;}
 .no-print{margin-top:14px;text-align:center;}
 .inv-bank{display:flex;align-items:center;gap:12px;border:2px solid #e91e8c;border-radius:8px;padding:8px 12px;margin-bottom:12px;background:#fff0f7;}
 .inv-bank-logo{flex-shrink:0;}
@@ -2221,14 +2220,6 @@ body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12
     </table>
   </div>
   ${notesBlock}
-  ${CFG.promptpayId?`
-  <div class="inv-qr-wrap">
-    <div class="inv-qr-box">
-      <div id="qr_canvas" style="display:inline-block;"></div>
-      <div class="inv-qr-label">สแกนจ่าย PromptPay</div>
-      <div class="inv-qr-amount">฿${U.money(t.total)}</div>
-    </div>
-  </div>`:''}
   <div class="inv-bank">
     <div class="inv-bank-logo"><img src="data:image/jpeg;base64,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" style="width:48px;height:auto;display:block;border-radius:4px;"></div>
     <div class="inv-bank-info">
@@ -2237,6 +2228,7 @@ body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12
       <div class="inv-bank-row"><span class="inv-bank-label">เลขบัญชี</span><span class="inv-bank-val inv-bank-acct">020-134537-727</span></div>
       <div class="inv-bank-row"><span class="inv-bank-label">ชื่อบัญชี</span><span class="inv-bank-val">พัชรี ก๋าใจ</span></div>
     </div>
+    ${CFG.promptpayId?'<div class="inv-bank-qr"><div id="qr_canvas"></div><div class="inv-qr-label">สแกนจ่าย</div></div>':''}
   </div>
   <div class="inv-sig">
     <div class="inv-sig-box"><div class="sig-line">ผู้รับสินค้า / ลูกค้า</div></div>
