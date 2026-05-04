@@ -956,7 +956,14 @@ async function showCreateOrderModal(editId) {
 async function showEditOrderModal(id) { await showCreateOrderModal(id); }
 
 function orderItemRow(i, products, item={}, custId) {
-  const opts=(products||[]).map(p=>`<option value="${p.id}" data-price="${p.price}" data-name="${U.esc(p.name)}" ${item.productId==p.id?'selected':''}>${U.esc(p.name)}</option>`).join('');
+  const _getBasePrice=p=>{
+    if(p.price>0) return p.price;
+    const pm=p.priceMap||{};
+    const vals=Object.values(pm).filter(v=>typeof v==='number'&&v>0);
+    return vals.length?Math.min(...vals):0;
+  };
+  const sortedProds=[...(products||[])].sort((a,b)=>_getBasePrice(a)-_getBasePrice(b));
+  const opts=sortedProds.map((p,idx)=>`<option value="${p.id}" data-price="${p.price}" data-name="${U.esc(p.name)}" ${item.productId==p.id?'selected':''}>${idx+1}. ${U.esc(p.name)}</option>`).join('');
   const SS='font-size:15px;font-weight:600;border:2px solid #d1d5db;border-radius:8px;padding:7px 10px;width:100%;background:#fff;cursor:pointer;';
 
   // หา spec จากชื่อสินค้า
