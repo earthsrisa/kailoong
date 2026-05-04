@@ -969,7 +969,10 @@ function orderItemRow(i, products, item={}, custId) {
 
   // หา spec จากชื่อสินค้า
   const pName = item.productName||'';
-  const spec  = COFFIN_SPEC[pName] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
+  const _rowProd = (products||[]).find(p=>p.name===pName);
+  const _isAcc = _rowProd ? ((_rowProd.unit||'โลง').trim()!=='โลง') : ['เทพ','มุม','เส้น'].some(k=>pName.includes(k));
+  const _baseSpec = COFFIN_SPEC[pName] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
+  const spec  = _isAcc ? {colors:[], lines:_baseSpec.lines, extra:_baseSpec.extra} : _baseSpec;
   const hasColor = spec.colors.length > 0;
   const hasExtra = !!spec.extra;
 
@@ -1003,7 +1006,7 @@ function orderItemRow(i, products, item={}, custId) {
       <select style="${SS}border-color:#2563eb!important;" onchange="onOrderProdChange(this,${i})" id="oiprod_${i}">
         <option value="">🔍 -- เลือกสินค้า --</option>${opts}
       </select>
-      <div id="oispec_${i}" style="${pName?'':'display:none;'}">
+      <div id="oispec_${i}" style="${(!pName||_isAcc)?'display:none;':''}">
         <div style="display:grid;grid-template-columns:${hasColor?'1fr 1fr':'1fr'};gap:6px;margin-top:7px;">
           ${hasColor?`<div>
             <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">🎨 สีโลง</div>
@@ -1032,7 +1035,10 @@ function orderItemRow(i, products, item={}, custId) {
 }
 
 function updateItemSpec(i, prodName) {
-  const spec = COFFIN_SPEC[prodName] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
+  const _uProd = (window._orderProds||[]).find(p=>p.name===prodName);
+  const _uAcc = _uProd ? ((_uProd.unit||'โลง').trim()!=='โลง') : ['เทพ','มุม','เส้น'].some(k=>(prodName||'').includes(k));
+  const _uBase = COFFIN_SPEC[prodName] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
+  const spec = _uAcc ? {colors:[], lines:_uBase.lines, extra:_uBase.extra} : _uBase;
   const hasColor = spec.colors.length > 0;
   const SS='font-size:15px;font-weight:600;border:2px solid #d1d5db;border-radius:8px;padding:7px 10px;width:100%;background:#fff;cursor:pointer;';
   const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
