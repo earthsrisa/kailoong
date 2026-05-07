@@ -549,6 +549,14 @@ const U = {
   date(ts)  { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric'}); },
   datetime(ts) { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); },
   dateInput(ts) { if(!ts)return''; return new Date(ts).toISOString().split('T')[0]; },
+  dateCompact(ts) {
+    if(!ts)return'-';
+    const d=new Date(ts);
+    const dt=d.toLocaleDateString('th-TH-u-ca-buddhist',{day:'numeric',month:'short'});
+    const yr=String(d.getFullYear()+543).slice(-2);
+    const tm=d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit',hour12:false});
+    return `<span style="white-space:nowrap;">${dt} ${yr}</span><br><span style="color:#9ca3af;font-size:10px;">${tm}</span>`;
+  },
   esc(s)    { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); },
   orderTotal(o) {
     const sub=(o.items||[]).reduce((a,i)=>a+(i.qty*i.price),0);
@@ -730,12 +738,12 @@ async function renderDashboard(el) {
     </div>
     <div class="table-scroll">
       <table class="table-clean">
-        <colgroup><col style="width:110px"><col style="width:80px"><col><col style="width:90px"><col style="width:36px"></colgroup>
+        <colgroup><col style="width:72px"><col style="width:80px"><col><col style="width:90px"><col style="width:36px"></colgroup>
         <thead><tr><th>วันที่/เวลา</th><th>ลูกค้า</th><th>รายการ</th><th>ยอดรวม</th><th></th></tr></thead>
         <tbody>
           ${[...orders].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6).map(o=>`
           <tr>
-            <td style="white-space:nowrap;font-size:12px;color:#6b7280;">${U.datetime(o.createdAt)}</td>
+            <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
             <td style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong></td>
             <td style="font-size:12px;color:#374151;word-break:break-word;">
               ${(o.items||[]).map(i=>U.esc(itemLabel(i))+' ×'+i.qty).join(' · ')||'-'}
@@ -776,7 +784,7 @@ async function renderOrders(el) {
     </div>
     <div class="table-scroll">
       <table class="table-clean orders-history-table">
-        <colgroup><col style="width:100px"><col><col style="width:80px"><col><col style="width:90px"><col><col></colgroup>
+        <colgroup><col style="width:72px"><col><col style="width:80px"><col><col style="width:90px"><col><col></colgroup>
         <thead><tr>
           <th>วันที่ / เวลา</th><th>เลขออเดอร์</th><th>ลูกค้า</th>
           <th>รายการสินค้า</th><th>ยอดรวม</th><th>หมายเหตุ</th><th></th>
@@ -792,7 +800,7 @@ function renderOrderRows(list) {
   if (!list.length) return `<tr><td colspan="7"><div class="empty-state" style="padding:30px"><i class="fa-solid fa-inbox"></i><p>ไม่มีออเดอร์</p></div></td></tr>`;
   return list.map(o=>`
   <tr>
-    <td style="white-space:nowrap;font-size:13px;">${U.datetime(o.createdAt)}</td>
+    <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
     <td><code style="background:#f3f4f6;padding:2px 7px;border-radius:4px;font-size:12px;">${U.esc(o.orderNo)}</code></td>
     <td><strong>${U.esc(o.customerName||'-')}</strong></td>
     <td style="max-width:260px;">
