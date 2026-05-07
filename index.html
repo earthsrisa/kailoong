@@ -108,6 +108,9 @@ body { background: #f0f2f5; margin: 0; }
 .search-box { position: relative; }
 .search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 13px; }
 .search-box input { padding-left: 34px; }
+.ord-item { display: inline-block; }
+.ord-item-d { display: inline; }
+.ord-item-d + .ord-item-d::before { content: ' · '; color: #9ca3af; }
 
 /* ── Order item rows ── */
 .items-table { width: 100%; border-collapse: collapse; }
@@ -248,6 +251,11 @@ body { background: #f0f2f5; margin: 0; }
   .order-items-table th:nth-child(1), .order-items-table td:nth-child(1) { width: 75%; }
   .order-items-table th:nth-child(2), .order-items-table td:nth-child(2) { width: 15%; }
   .order-items-table th:nth-child(5), .order-items-table td:nth-child(5) { width: 10%; }
+
+  /* รายการโลง — แสดง 1 บรรทัดต่อรายการบนมือถือ */
+  .ord-item { display: block !important; margin: 2px 0 !important; }
+  .ord-item-d { display: block; font-size: 12px; line-height: 1.6; }
+  .ord-item-d + .ord-item-d::before { content: ''; }
 
   /* ประวัติออเดอร์ — ซ่อน เลขออเดอร์ + หมายเหตุ บนมือถือ */
   .orders-history-table th:nth-child(2),
@@ -746,7 +754,7 @@ async function renderDashboard(el) {
             <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
             <td style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong></td>
             <td style="font-size:12px;color:#374151;word-break:break-word;">
-              ${(o.items||[]).map(i=>U.esc(itemLabel(i))+' ×'+i.qty).join(' · ')||'-'}
+              ${(o.items||[]).map(i=>`<span class="ord-item-d">${U.esc(itemLabel(i))} ×${i.qty}</span>`).join('')||'-'}
             </td>
             <td style="font-weight:700;font-size:13px;white-space:nowrap;">฿${U.money(U.orderTotal(o))}</td>
             <td><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
@@ -808,7 +816,7 @@ function renderOrderRows(list) {
         const trimBg=i.trimColor==='ทอง'?'#fef3c7':i.trimColor==='เงิน'?'#f1f5f9':'#f8fafc';
         const trimTx=i.trimColor==='ทอง'?'#92400e':i.trimColor==='เงิน'?'#475569':'#6b7280';
         const label=U.esc(i.productName)+(i.color?` <span style="background:${i.color==='แดง'?'#fee2e2':i.color==='ดำ'?'#374151':i.color==='น้ำตาล'?'#fef3c7':'#f1f5f9'};color:${i.color==='ดำ'?'#fff':'inherit'};border-radius:3px;padding:1px 5px;font-size:11px;">${U.esc(i.color)}</span>`:'')+(i.trimColor?` <span style="background:${trimBg};color:${trimTx};border-radius:3px;padding:1px 5px;font-size:11px;">${i.trimColor==='ทอง'?'🟡':'🔘'}เส้น${U.esc(i.trimColor)}</span>`:'')+(i.style&&i.style!=='ธรรมดา'?` <span style="background:#dbeafe;color:#1e40af;border-radius:3px;padding:1px 6px;font-size:11px;font-weight:600;">✝ ${U.esc(i.style)}</span>`:' ')+(i.specialNote?` <em style="color:#9ca3af;font-size:11px;">${U.esc(i.specialNote)}</em>`:'');
-        return `<span style="display:inline-block;background:#f1f5f9;border-radius:4px;padding:2px 8px;font-size:12px;margin:2px 2px 2px 0;">${label} ×${i.qty}</span>`;
+        return `<span class="ord-item" style="background:#f1f5f9;border-radius:4px;padding:2px 8px;font-size:12px;margin:2px 2px 2px 0;">${label} ×${i.qty}</span>`;
       }).join('')||'-'}
     </td>
     <td style="font-weight:700;white-space:nowrap;">฿${U.money(U.orderTotal(o))}</td>
