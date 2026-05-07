@@ -191,17 +191,37 @@ body { background: #f0f2f5; margin: 0; }
 .inv-sig-box { text-align: center; }
 .inv-sig-box .sig-line { border-top: 1px solid #000; margin-top: 36px; padding-top: 5px; font-size: 11px; color: #333; }
 
+/* ── Bottom Nav (mobile) ── */
+#bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 200;
+  background: #1a2332;
+  border-top: 1px solid #2d3f57;
+  justify-content: space-around;
+  align-items: stretch;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.bnav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: none; border: none; color: #8fa3bf;
+  font-size: 10px; gap: 3px; padding: 8px 4px; cursor: pointer;
+  transition: color .15s; min-height: 56px;
+}
+.bnav-item i { font-size: 19px; }
+.bnav-item span { font-family: 'Sarabun', sans-serif; }
+.bnav-item.active { color: #60a5fa; }
+.bnav-item:hover { color: #fff; }
+
 /* ── Mobile ── */
 @media (max-width: 768px) {
-  #sidebar { width: 54px; }
-  #sidebar .brand { padding: 14px 0; display: flex; justify-content: center; }
-  #sidebar .brand .biz-name, #sidebar .brand .biz-sub, #sidebar .nav-link span, #sidebar .nav-section { display: none; }
-  #sidebar .nav-link { padding: 12px 0; justify-content: center; border-radius: 0; }
-  #sidebar .nav-link i { width: auto; font-size: 18px; }
-  #main { margin-left: 54px; max-width: calc(100vw - 54px); }
+  #sidebar { display: none !important; }
+  #bottom-nav { display: flex; }
+  #main { margin-left: 0; max-width: 100vw; }
   #topbar { padding: 12px 14px; }
   #topbar h1 { font-size: 16px; }
-  #page-content { padding: 10px 10px; }
+  #page-content { padding: 10px 10px 80px; }
   .card-box { padding: 14px 12px; }
   .card-head { flex-wrap: wrap; gap: 8px; }
   .card-head h2 { font-size: 14px; }
@@ -297,6 +317,25 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
     <button class="nav-link" data-page="settings" onclick="navigate('settings')"><i class="fa-solid fa-gear"></i><span>ตั้งค่าร้าน</span></button>
   </nav>
 </div>
+
+<!-- BOTTOM NAV (mobile only) -->
+<nav id="bottom-nav">
+  <button class="bnav-item" data-page="dashboard" onclick="navigate('dashboard')">
+    <i class="fa-solid fa-chart-pie"></i><span>หน้าหลัก</span>
+  </button>
+  <button class="bnav-item" data-page="orders" onclick="navigate('orders')">
+    <i class="fa-solid fa-clock-rotate-left"></i><span>ออเดอร์</span>
+  </button>
+  <button class="bnav-item" data-page="invoices" onclick="navigate('invoices')">
+    <i class="fa-solid fa-file-invoice"></i><span>ใบเสร็จ</span>
+  </button>
+  <button class="bnav-item" data-page="customers" onclick="navigate('customers')">
+    <i class="fa-solid fa-users"></i><span>ลูกค้า</span>
+  </button>
+  <button class="bnav-item" data-page="products" onclick="navigate('products')">
+    <i class="fa-solid fa-box"></i><span>สินค้า</span>
+  </button>
+</nav>
 
 <!-- MAIN -->
 <div id="main">
@@ -555,6 +594,7 @@ if (window.navigator.standalone === true) {
 function navigate(page) {
   window._currentPage = page;
   document.querySelectorAll('#sidebar .nav-link').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
+  document.querySelectorAll('#bottom-nav .bnav-item').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   document.getElementById('pageTitle').textContent=PAGE_TITLES[page]||page;
   document.getElementById('topbarActions').innerHTML='';
   const el=document.getElementById('page-content');
@@ -1493,6 +1533,7 @@ function custRow(c,i) {
     <td>${customCount?`<span class="price-custom"><i class="fa-solid fa-tag me-1"></i>${customCount} สินค้า</span>`:
          `<span style="color:#9ca3af;font-size:12px;">ราคาปกติ</span>`}</td>
     <td class="d-flex gap-1">
+      <button class="btn btn-sm btn-outline-info btn-icon" onclick="showCustomerHistory('${c.id}')" title="ประวัติการซื้อ"><i class="fa-solid fa-clock-rotate-left"></i></button>
       <button class="btn btn-sm btn-outline-warning btn-icon" onclick="showCustomerPriceModal('${c.id}')" title="จัดการราคา"><i class="fa-solid fa-tag"></i></button>
       <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showCustomerModal('${c.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
       <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteCustomer('${c.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
@@ -1504,6 +1545,51 @@ function filterCustTable(val) {
   const q=val.toLowerCase();
   const data=(window._custData||[]).filter(c=>!q||c.name.toLowerCase().includes(q)||(c.phone||'').includes(q));
   document.getElementById('custTbody').innerHTML=data.map((c,i)=>custRow(c,i)).join('')||emptyRow(7,'ไม่พบลูกค้า');
+}
+
+async function showCustomerHistory(custId) {
+  const [cust,orders,invoices]=await Promise.all([DB.getCustomer(custId),DB.getOrders(),DB.getInvoices()]);
+  if(!cust)return;
+  const cOrders=orders.filter(o=>String(o.customerId)===String(custId)).sort((a,b)=>b.createdAt-a.createdAt);
+  const cInvs=invoices.filter(i=>String(i.customerId)===String(custId)).sort((a,b)=>b.createdAt-a.createdAt);
+  const totalSpent=cInvs.reduce((s,inv)=>s+U.invTotal(inv).total,0);
+  const unpaid=cInvs.filter(i=>!i.isPaid).reduce((s,inv)=>s+U.invTotal(inv).total,0);
+  const ordRows=cOrders.length?cOrders.map(o=>`<tr>
+    <td style="font-size:12px;white-space:nowrap;">${U.datetime(o.createdAt)}</td>
+    <td><code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px;">${U.esc(o.orderNo)}</code></td>
+    <td style="font-size:12px;color:#6b7280;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(o.items||[]).map(i=>U.esc(i.productName)+'×'+i.qty).join(', ')||'-'}</td>
+    <td style="font-weight:700;white-space:nowrap;">฿${U.money(U.orderTotal(o))}</td>
+  </tr>`).join(''):`<tr><td colspan="4"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-inbox"></i><p>ไม่มีออเดอร์</p></div></td></tr>`;
+  const invRows=cInvs.length?cInvs.map(inv=>{
+    const t=U.invTotal(inv);
+    const badge=inv.isPaid?`<span class="badge-paid"><i class="fa-solid fa-check me-1"></i>ชำระแล้ว</span>`:`<span class="badge-unpaid"><i class="fa-solid fa-clock me-1"></i>ค้างชำระ</span>`;
+    return `<tr>
+      <td style="font-size:12px;white-space:nowrap;">${U.date(inv.createdAt)}</td>
+      <td><strong style="font-size:13px;">${U.esc(inv.invoiceNo)}</strong></td>
+      <td style="font-weight:700;white-space:nowrap;">฿${U.money(t.total)}</td>
+      <td>${badge}</td>
+      <td><button class="btn btn-sm btn-outline-primary btn-icon" onclick="printReceiptById('${inv.id}')" title="พิมพ์"><i class="fa-solid fa-print"></i></button></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="5"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-file-circle-xmark"></i><p>ไม่มีใบเสร็จ</p></div></td></tr>`;
+  const body=`
+    <div class="row g-3 mb-3">
+      <div class="col-4"><div class="stat-card"><div class="label">ออเดอร์</div><div class="value" style="font-size:22px;">${cOrders.length}</div></div></div>
+      <div class="col-4"><div class="stat-card"><div class="label">ยอดรวม</div><div class="value" style="font-size:18px;">฿${U.money(totalSpent)}</div></div></div>
+      <div class="col-4"><div class="stat-card"><div class="label">ค้างชำระ</div><div class="value" style="font-size:18px;color:${unpaid>0?'#dc2626':'#16a34a'};">฿${U.money(unpaid)}</div></div></div>
+    </div>
+    <ul class="nav nav-tabs mb-3">
+      <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#chOrd">ออเดอร์ (${cOrders.length})</a></li>
+      <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#chInv">ใบเสร็จ (${cInvs.length})</a></li>
+    </ul>
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="chOrd"><div class="table-scroll">
+        <table class="table-clean"><thead><tr><th>วันที่</th><th>เลขออเดอร์</th><th>รายการ</th><th>ยอดรวม</th></tr></thead>
+        <tbody>${ordRows}</tbody></table></div></div>
+      <div class="tab-pane fade" id="chInv"><div class="table-scroll">
+        <table class="table-clean"><thead><tr><th>วันที่</th><th>เลขใบเสร็จ</th><th>ยอดรวม</th><th>สถานะ</th><th></th></tr></thead>
+        <tbody>${invRows}</tbody></table></div></div>
+    </div>`;
+  showModal('custHistModal',`ประวัติ: ${U.esc(cust.name)}`,body,`<button class="btn btn-primary" onclick="navigate('customers')">ปิด</button><button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>`,'modal-lg');
 }
 
 async function showCustomerModal(id) {
@@ -1740,14 +1826,29 @@ async function renderInvoices(el) {
   document.getElementById('topbarActions').innerHTML=
     `<button class="btn btn-primary" onclick="showCreateReceiptModal()"><i class="fa-solid fa-plus me-1"></i>ออกใบเสร็จรับเงิน</button>
      <button class="btn btn-outline-success" onclick="exportExcel()"><i class="fa-solid fa-file-excel me-1"></i>Export Excel</button>`;
-  const invoices=(await DB.getInvoices()).sort((a,b)=>b.createdAt-a.createdAt);
+  const [invAll, invCusts] = await Promise.all([DB.getInvoices(), DB.getCustomers()]);
+  const invoices = invAll.sort((a,b)=>b.createdAt-a.createdAt);
+  const invCustOpts = invCusts.sort((a,b)=>a.name.localeCompare(b.name,'th')).map(c=>`<option value="${c.id}">${U.esc(c.name)}</option>`).join('');
 
   el.innerHTML=`
   <div class="card-box">
-    <div class="card-head">
+    <div class="card-head" style="flex-direction:column;align-items:flex-start;gap:10px;">
       <h2><i class="fa-solid fa-file-invoice me-2 text-primary"></i>ใบเสร็จรับเงิน</h2>
-      <div class="search-box"><i class="fa-solid fa-search"></i>
-        <input type="text" class="form-control form-control-sm" placeholder="ค้นหาเลขบิล / ชื่อลูกค้า..." style="min-width:220px;" oninput="filterInvTable(this.value)">
+      <div class="d-flex gap-2 flex-wrap align-items-center" style="width:100%;">
+        <div class="search-box"><i class="fa-solid fa-search"></i>
+          <input type="text" class="form-control form-control-sm" id="invSearch" placeholder="ค้นหาเลขบิล / ลูกค้า..." style="min-width:180px;" oninput="applyInvFilter()">
+        </div>
+        <select class="form-select form-select-sm" id="invFilterCust" style="width:auto;min-width:130px;" onchange="applyInvFilter()">
+          <option value="">ลูกค้าทุกราย</option>${invCustOpts}
+        </select>
+        <select class="form-select form-select-sm" id="invFilterStatus" style="width:auto;" onchange="applyInvFilter()">
+          <option value="">ทุกสถานะ</option>
+          <option value="unpaid">ค้างชำระ</option>
+          <option value="paid">ชำระแล้ว</option>
+        </select>
+        <input type="date" class="form-control form-control-sm" id="invFilterFrom" onchange="applyInvFilter()" style="width:auto;" title="ตั้งแต่วันที่">
+        <input type="date" class="form-control form-control-sm" id="invFilterTo" onchange="applyInvFilter()" style="width:auto;" title="ถึงวันที่">
+        <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('invSearch').value='';document.getElementById('invFilterCust').value='';document.getElementById('invFilterStatus').value='';document.getElementById('invFilterFrom').value='';document.getElementById('invFilterTo').value='';applyInvFilter();" title="ล้างตัวกรอง"><i class="fa-solid fa-xmark"></i></button>
       </div>
     </div>
     <div class="table-scroll">
@@ -1792,9 +1893,19 @@ function invRow(inv) {
   </tr>`;
 }
 
-function filterInvTable(val) {
-  const q=val.toLowerCase();
-  const data=(window._invData||[]).filter(i=>!q||i.invoiceNo?.toLowerCase().includes(q)||i.customerName?.toLowerCase().includes(q));
+function applyInvFilter() {
+  const q = (document.getElementById('invSearch')?.value||'').toLowerCase();
+  const custId = document.getElementById('invFilterCust')?.value||'';
+  const status = document.getElementById('invFilterStatus')?.value||'';
+  const from = document.getElementById('invFilterFrom')?.value||'';
+  const to   = document.getElementById('invFilterTo')?.value||'';
+  let data = window._invData||[];
+  if (q)      data = data.filter(i=>i.invoiceNo?.toLowerCase().includes(q)||i.customerName?.toLowerCase().includes(q));
+  if (custId) data = data.filter(i=>String(i.customerId)===custId);
+  if (status==='paid')   data = data.filter(i=>i.isPaid);
+  if (status==='unpaid') data = data.filter(i=>!i.isPaid);
+  if (from)   data = data.filter(i=>new Date(i.createdAt).toISOString().slice(0,10)>=from);
+  if (to)     data = data.filter(i=>new Date(i.createdAt).toISOString().slice(0,10)<=to);
   document.getElementById('invTbody').innerHTML=data.map(invRow).join('')||emptyRow(7,'ไม่พบใบเสร็จ');
 }
 
