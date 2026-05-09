@@ -264,9 +264,10 @@ body { background: #f0f2f5; margin: 0; }
   .orders-history-table td:nth-child(6) { display: none; }
   /* วันที่ column แคบลง */
   .orders-history-table td:nth-child(1) { font-size:11px; white-space:nowrap; }
-  /* รายการรอส่ง — ขนาดตัวหนังสือใหญ่ขึ้นบนมือถือ */
+  /* รายการรอส่ง — ขนาดตัวหนังสือใหญ่ขึ้น + ไม่จำกัดความสูง (ไม่ scroll ภายใน) */
   .pend-row { font-size: 16px !important; padding: 4px 8px !important; line-height:1.5; }
   .pend-row span:first-child { font-size: 16px; }
+  .cust-today-card { max-height: none !important; overflow-y: visible !important; }
 }
 
 /* ── PWA Standalone (iPhone) safe-area ── */
