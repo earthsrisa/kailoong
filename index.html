@@ -735,7 +735,7 @@ async function renderDashboard(el) {
           ${[...orders].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6).map(o=>`
           <tr>
             <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
-            <td style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong></td>
+            <td style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;">NEW</span>':''}</td>
             <td style="font-size:12px;color:#374151;word-break:break-word;">
               ${(o.items||[]).map(i=>`<span class="ord-item-d">${U.esc(itemLabel(i))} ×${i.qty}</span>`).join('')||'-'}
             </td>
