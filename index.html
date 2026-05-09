@@ -264,6 +264,9 @@ body { background: #f0f2f5; margin: 0; }
   .orders-history-table td:nth-child(6) { display: none; }
   /* วันที่ column แคบลง */
   .orders-history-table td:nth-child(1) { font-size:11px; white-space:nowrap; }
+  /* รายการรอส่ง — ขนาดตัวหนังสือใหญ่ขึ้นบนมือถือ */
+  .pend-row { font-size: 14px !important; padding: 3px 8px !important; }
+  .pend-row span:first-child { font-size: 14px; }
 }
 
 /* ── PWA Standalone (iPhone) safe-area ── */
@@ -730,7 +733,7 @@ async function renderDashboard(el) {
                 <button class="btn-card-outline" style="font-size:11px;padding:3px 10px;" onclick="showCreateReceiptModal(null,'${encodeURIComponent(o.customerName)}')"><i class="fa-solid fa-file-invoice me-1"></i>ออกบิล</button>
               </div>
             </div>
-            ${itemLines.map(({key,qty})=>`<div style="display:flex;justify-content:space-between;font-size:12px;opacity:.85;padding:1px 8px;"><span>${U.esc(key)}</span><span style="font-weight:700;">${qty}</span></div>`).join('')}
+            ${itemLines.map(({key,qty})=>`<div class="pend-row" style="display:flex;justify-content:space-between;font-size:12px;opacity:.85;padding:1px 8px;"><span>${U.esc(key)}</span><span style="font-weight:700;">${qty}</span></div>`).join('')}
           </div>`;
         }).join('')
         : '<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;"><i class="fa-solid fa-circle-check me-2"></i>ส่งของครบแล้ว ไม่มีรายการค้างส่ง</div>'}</div>
@@ -1497,6 +1500,37 @@ async function saveOrder() {
     await DB.putOrder({...old,...data,id:editId});
     U.toast('แก้ไขออเดอร์แล้ว ✓');
   } else {
+    // ── ตรวจสอบออเดอร์ค้างของลูกค้าคนนี้ ──
+    const allOrd = await DB.getOrders();
+    const pendingEx = allOrd
+      .filter(o => o.customerId === custId && !o.isDelivered)
+      .sort((a,b) => b.createdAt - a.createdAt);
+    if (pendingEx.length > 0) {
+      const ex = pendingEx[0];
+      const ok = confirm(`ลูกค้า "${data.customerName}" มีออเดอร์ ${ex.orderNo} ค้างอยู่\nต้องการเพิ่มสินค้าต่อออเดอร์นั้นเลยไหม?\n\n(กด OK = เพิ่มต่อออเดอร์เดิม, กด Cancel = สร้างออเดอร์ใหม่)`);
+      if (ok) {
+        const merged = [...(ex.items||[])];
+        for (const ni of data.items) {
+          const idx = merged.findIndex(m =>
+            m.productId === ni.productId &&
+            (m.color||'') === (ni.color||'') &&
+            (m.trimColor||'') === (ni.trimColor||'')
+          );
+          if (idx >= 0) {
+            merged[idx] = {...merged[idx], qty: merged[idx].qty + ni.qty};
+          } else {
+            merged.push(ni);
+          }
+        }
+        const updNotes = [ex.notes, data.notes].filter(Boolean).join(' / ');
+        const updDisc  = (ex.discount||0) + (data.discount||0);
+        await DB.putOrder({...ex, items: merged, notes: updNotes, discount: updDisc});
+        U.toast(`เพิ่มสินค้าต่อออเดอร์ ${ex.orderNo} แล้ว ✓`);
+        closeModal('orderModal');
+        navigate('orders');
+        return;
+      }
+    }
     data.orderNo=await DB.nextOrderNo();
     await DB.addOrder(data);
     U.toast('บันทึกออเดอร์แล้ว ✓');
@@ -2267,45 +2301,45 @@ function printReceiptData(inv) {
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12mm;}
+body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12mm;font-size:13px;}
 @media print{@page{size:A5 portrait;margin:8mm 10mm;}body{padding:0;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}.no-print{display:none!important;}}
 .inv-page{font-family:'Sarabun',sans-serif;color:#000;background:#fff;max-width:100%;}
 .inv-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:2px solid #000;margin-bottom:10px;}
-.inv-company h1{font-size:17px;font-weight:800;color:#000;margin:0 0 2px;}
-.inv-company p{font-size:10px;color:#333;margin:1px 0;}
+.inv-company h1{font-size:19px;font-weight:800;color:#000;margin:0 0 2px;}
+.inv-company p{font-size:12px;color:#333;margin:1px 0;}
 .inv-doc-info{text-align:right;}
-.inv-doc-info .doc-type{font-size:18px;font-weight:800;color:#000;margin-bottom:3px;}
-.inv-doc-info table{margin-left:auto;font-size:10px;}
+.inv-doc-info .doc-type{font-size:20px;font-weight:800;color:#000;margin-bottom:3px;}
+.inv-doc-info table{margin-left:auto;font-size:12px;}
 .inv-doc-info td{padding:1px 4px;color:#000;}
 .inv-doc-info td:first-child{color:#555;padding-right:6px;}
 .inv-doc-info td:last-child{font-weight:700;}
 .inv-parties{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
 .inv-party{background:#fff;border:1px solid #ccc;border-radius:4px;padding:6px 10px;}
-.inv-party h3{font-size:8px;text-transform:uppercase;color:#555;margin:0 0 3px;letter-spacing:1px;border-bottom:1px solid #ddd;padding-bottom:2px;}
-.inv-party p{font-size:11px;margin:1px 0;color:#000;}
+.inv-party h3{font-size:10px;text-transform:uppercase;color:#555;margin:0 0 3px;letter-spacing:1px;border-bottom:1px solid #ddd;padding-bottom:2px;}
+.inv-party p{font-size:13px;margin:1px 0;color:#000;}
 .inv-items table{width:100%;border-collapse:collapse;margin-bottom:10px;}
-.inv-items th{background:#fff;color:#000;font-size:10px;font-weight:700;padding:5px 8px;border-top:2px solid #000;border-bottom:1px solid #000;}
-.inv-items td{padding:4px 8px;border-bottom:1px solid #ddd;font-size:11px;color:#000;background:#fff;}
+.inv-items th{background:#fff;color:#000;font-size:12px;font-weight:700;padding:5px 8px;border-top:2px solid #000;border-bottom:1px solid #000;}
+.inv-items td{padding:5px 8px;border-bottom:1px solid #ddd;font-size:13px;color:#000;background:#fff;}
 .inv-totals{display:flex;justify-content:flex-end;margin-bottom:10px;}
-.inv-totals table{font-size:11px;min-width:200px;border-top:1px solid #ccc;}
+.inv-totals table{font-size:13px;min-width:220px;border-top:1px solid #ccc;}
 .inv-totals td{padding:2px 6px;color:#000;}
-.grand-row td{font-size:14px;font-weight:800;border-top:2px solid #000;padding-top:5px;}
-.inv-notes{font-size:10px;color:#333;border:1px solid #ccc;padding:6px 10px;border-radius:4px;margin-bottom:10px;}
+.grand-row td{font-size:16px;font-weight:800;border-top:2px solid #000;padding-top:5px;}
+.inv-notes{font-size:12px;color:#333;border:1px solid #ccc;padding:6px 10px;border-radius:4px;margin-bottom:10px;}
 .inv-sig{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:18px;}
 .inv-sig-box{text-align:center;}
-.sig-line{border-top:1px solid #000;margin-top:30px;padding-top:4px;font-size:10px;color:#333;}
+.sig-line{border-top:1px solid #000;margin-top:30px;padding-top:4px;font-size:12px;color:#333;}
 .inv-bank-qr{flex-shrink:0;text-align:center;border-left:1px solid #f8bbd0;padding-left:10px;margin-left:4px;}
 .inv-bank-qr canvas,.inv-bank-qr img{width:72px!important;height:72px!important;}
-.inv-qr-label{font-size:9px;color:#c2185b;font-weight:700;margin-top:3px;}
+.inv-qr-label{font-size:11px;color:#c2185b;font-weight:700;margin-top:3px;}
 .no-print{margin-top:14px;text-align:center;}
 .inv-bank{display:flex;align-items:center;gap:12px;border:2px solid #e91e8c;border-radius:8px;padding:8px 12px;margin-bottom:12px;background:#fff0f7;}
 .inv-bank-logo{flex-shrink:0;}
 .inv-bank-info{flex:1;}
-.inv-bank-title{font-size:9px;font-weight:700;color:#c2185b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;border-bottom:1px solid #f8bbd0;padding-bottom:2px;}
-.inv-bank-row{display:flex;gap:6px;margin:2px 0;font-size:11px;}
-.inv-bank-label{color:#555;min-width:70px;}
+.inv-bank-title{font-size:11px;font-weight:700;color:#c2185b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;border-bottom:1px solid #f8bbd0;padding-bottom:2px;}
+.inv-bank-row{display:flex;gap:6px;margin:2px 0;font-size:13px;}
+.inv-bank-label{color:#555;min-width:78px;}
 .inv-bank-val{color:#000;font-weight:600;}
-.inv-bank-acct{font-size:13px;font-weight:800;color:#e91e8c;letter-spacing:.5px;}
+.inv-bank-acct{font-size:15px;font-weight:800;color:#e91e8c;letter-spacing:.5px;}
 </style></head><body>
 <div class="inv-page">
   <div class="inv-header">
