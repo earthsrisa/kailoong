@@ -716,28 +716,7 @@ async function renderDashboard(el) {
             <button class="btn-card-solid" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>
           </div>
         </div>
-        <div id="pendingList">${pendingOrders.length ? pendingOrders.map(o=>{
-          const isDoneToday = o.isDelivered && o.deliveredAt;
-          const itemLines = (o.items||[]).map(i=>{
-            const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
-            return {key:i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:''), qty:i.qty};
-          });
-          return `<div style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;${isDoneToday?'opacity:.5;':''}">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;">
-              <div>
-                <span style="font-size:15px;font-weight:700;">${U.esc(o.customerName||'-')}</span>
-                <span style="font-size:11px;opacity:.65;margin-left:7px;">${U.date(o.createdAt)}</span>
-                ${isDoneToday ? '<span style="font-size:11px;background:rgba(134,239,172,.25);border-radius:10px;padding:1px 8px;margin-left:5px;">✅ ส่งแล้ว</span>' : ''}
-              </div>
-              <div style="display:flex;gap:5px;flex-shrink:0;">
-                ${!isDoneToday ? `<button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(34,197,94,.25);border:1.5px solid rgba(134,239,172,.5);" onclick="markDelivered('${o.id}')"><i class="fa-solid fa-truck me-1"></i>จัดส่งแล้ว</button>` : ''}
-                <button class="btn-card-outline" style="font-size:11px;padding:3px 10px;" onclick="showCreateReceiptModal(null,'${encodeURIComponent(o.customerName)}')"><i class="fa-solid fa-file-invoice me-1"></i>ออกบิล</button>
-              </div>
-            </div>
-            ${itemLines.map(({key,qty})=>`<div class="pend-row" style="display:flex;justify-content:space-between;opacity:.85;"><span>${U.esc(key)}</span><span style="font-weight:700;">${qty}</span></div>`).join('')}
-          </div>`;
-        }).join('')
-        : '<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;"><i class="fa-solid fa-circle-check me-2"></i>ส่งของครบแล้ว ไม่มีรายการค้างส่ง</div>'}</div>
+        <div id="pendingList">${buildPendingHtml(pendingOrders)}</div>
       </div>
     </div>
   </div>
@@ -1206,37 +1185,67 @@ async function filterPendingByDate(dateStr) {
     listEl.innerHTML = '<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;"><i class="fa-solid fa-circle-check me-2"></i>' + label + '</div>';
     return;
   }
-  listEl.innerHTML = filtered.map(o => {
-    const isDoneToday = o.isDelivered && o.deliveredAt;
-    const itemLines = (o.items||[]).map(i => {
-      const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
-      const key = i.productName
-        + (i.color&&i.color!=='-'?' ('+i.color+')':'')
-        + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
-        + (i.extra?' '+i.extra:'');
-      return {key, qty:i.qty};
-    });
-    const deliverBtn = !isDoneToday
-      ? `<button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(34,197,94,.25);border:1.5px solid rgba(134,239,172,.5);" onclick="markDelivered('${o.id}')"><i class="fa-solid fa-truck me-1"></i>จัดส่งแล้ว</button>`
-      : '';
-    const billBtn = `<button class="btn-card-outline" style="font-size:11px;padding:3px 10px;" onclick="showCreateReceiptModal(null,'${encodeURIComponent(o.customerName||'')}')"><i class="fa-solid fa-file-invoice me-1"></i>ออกบิล</button>`;
-    const doneTag = isDoneToday ? '<span style="font-size:11px;background:rgba(134,239,172,.25);border-radius:10px;padding:1px 8px;margin-left:5px;">✅ ส่งแล้ว</span>' : '';
-    const items = itemLines.map(({key,qty}) =>
-      `<div class="pend-row" style="display:flex;justify-content:space-between;opacity:.85;"><span>${U.esc(key)}</span><span style="font-weight:700;">${qty}</span></div>`
-    ).join('');
-    return `<div style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;${isDoneToday?'opacity:.5;':''}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;">
-        <div>
-          <span style="font-size:15px;font-weight:700;">${U.esc(o.customerName||'-')}</span>
-          <span style="font-size:11px;opacity:.65;margin-left:7px;">${U.date(o.createdAt)}</span>
-          ${doneTag}
-        </div>
-        <div style="display:flex;gap:5px;flex-shrink:0;">${deliverBtn}${billBtn}</div>
-      </div>${items}</div>`;
-  }).join('');
+  listEl.innerHTML = buildPendingHtml(filtered);
 }
 
 // ── พิมพ์รายการออเดอร์วันนี้ ──
+// ── helper: group pending orders by customer → HTML ──
+function buildPendingHtml(orders) {
+  if (!orders.length) return '<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;"><i class="fa-solid fa-circle-check me-2"></i>ส่งของครบแล้ว ไม่มีรายการค้างส่ง</div>';
+  // group by customerId (fallback customerName)
+  const map = new Map();
+  for (const o of orders) {
+    const key = o.customerId || o.customerName;
+    if (!map.has(key)) map.set(key, {customerName:o.customerName, custId:o.customerId, orders:[]});
+    map.get(key).orders.push(o);
+  }
+  return [...map.values()].map(g => {
+    const allDone   = g.orders.every(o => o.isDelivered && o.deliveredAt);
+    const pendingIds= g.orders.filter(o => !o.isDelivered).map(o => o.id);
+    const latestTs  = Math.max(...g.orders.map(o => o.createdAt));
+    // merge items across all orders in group
+    const merged = [];
+    for (const o of g.orders) {
+      for (const i of (o.items||[])) {
+        const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
+        const label = i.productName
+          + (i.color&&i.color!=='-'?' ('+i.color+')':'')
+          + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
+          + (i.extra?' '+i.extra:'');
+        const ex = merged.find(m => m.key===label);
+        if (ex) ex.qty += i.qty; else merged.push({key:label, qty:i.qty});
+      }
+    }
+    const ordNos = g.orders.length > 1 ? ` <span style="font-size:10px;opacity:.55;">(${g.orders.length} ออเดอร์)</span>` : '';
+    const doneTag = allDone ? '<span style="font-size:11px;background:rgba(134,239,172,.25);border-radius:10px;padding:1px 8px;margin-left:5px;">✅ ส่งแล้ว</span>' : '';
+    const deliverBtn = !allDone
+      ? `<button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(34,197,94,.25);border:1.5px solid rgba(134,239,172,.5);" onclick="markDeliveredGroup(${JSON.stringify(pendingIds)})"><i class="fa-solid fa-truck me-1"></i>จัดส่งแล้ว</button>`
+      : '';
+    const billBtn = `<button class="btn-card-outline" style="font-size:11px;padding:3px 10px;" onclick="showCreateReceiptModal(null,'${encodeURIComponent(g.customerName||'')}')"><i class="fa-solid fa-file-invoice me-1"></i>ออกบิล</button>`;
+    const itemsHtml = merged.map(({key,qty}) =>
+      `<div class="pend-row" style="display:flex;justify-content:space-between;opacity:.85;"><span>${U.esc(key)}</span><span style="font-weight:700;">${qty}</span></div>`
+    ).join('');
+    return `<div style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;${allDone?'opacity:.5;':''}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;">
+        <div>
+          <span style="font-size:15px;font-weight:700;">${U.esc(g.customerName||'-')}</span>${ordNos}
+          <span style="font-size:11px;opacity:.65;margin-left:7px;">${U.date(latestTs)}</span>
+          ${doneTag}
+        </div>
+        <div style="display:flex;gap:5px;flex-shrink:0;">${deliverBtn}${billBtn}</div>
+      </div>${itemsHtml}</div>`;
+  }).join('');
+}
+
+async function markDeliveredGroup(ids) {
+  for (const id of ids) {
+    const o = await DB.getOrder(id);
+    if (o) await DB.putOrder({...o, isDelivered:true, deliveredAt:Date.now()});
+  }
+  U.toast('บันทึกจัดส่งแล้ว ✓');
+  navigate('dashboard');
+}
+
 async function markDelivered(orderId) {
   const order = await DB.getOrder(orderId);
   if (!order) return;
