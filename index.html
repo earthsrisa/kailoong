@@ -814,7 +814,7 @@ function renderOrderRows(list) {
   <tr>
     <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
     <td><code style="background:#f3f4f6;padding:2px 7px;border-radius:4px;font-size:12px;">${U.esc(o.orderNo)}</code></td>
-    <td><strong>${U.esc(o.customerName||'-')}</strong></td>
+    <td><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;">NEW</span>':''}</td>
     <td style="max-width:260px;">
       ${(o.items||[]).map(i=>{
         const trimBg=i.trimColor==='ทอง'?'#fef3c7':i.trimColor==='เงิน'?'#f1f5f9':'#f8fafc';
@@ -1501,37 +1501,6 @@ async function saveOrder() {
     await DB.putOrder({...old,...data,id:editId});
     U.toast('แก้ไขออเดอร์แล้ว ✓');
   } else {
-    // ── ตรวจสอบออเดอร์ค้างของลูกค้าคนนี้ ──
-    const allOrd = await DB.getOrders();
-    const pendingEx = allOrd
-      .filter(o => o.customerId === custId && !o.isDelivered)
-      .sort((a,b) => b.createdAt - a.createdAt);
-    if (pendingEx.length > 0) {
-      const ex = pendingEx[0];
-      const ok = confirm(`ลูกค้า "${data.customerName}" มีออเดอร์ ${ex.orderNo} ค้างอยู่\nต้องการเพิ่มสินค้าต่อออเดอร์นั้นเลยไหม?\n\n(กด OK = เพิ่มต่อออเดอร์เดิม, กด Cancel = สร้างออเดอร์ใหม่)`);
-      if (ok) {
-        const merged = [...(ex.items||[])];
-        for (const ni of data.items) {
-          const idx = merged.findIndex(m =>
-            m.productId === ni.productId &&
-            (m.color||'') === (ni.color||'') &&
-            (m.trimColor||'') === (ni.trimColor||'')
-          );
-          if (idx >= 0) {
-            merged[idx] = {...merged[idx], qty: merged[idx].qty + ni.qty};
-          } else {
-            merged.push(ni);
-          }
-        }
-        const updNotes = [ex.notes, data.notes].filter(Boolean).join(' / ');
-        const updDisc  = (ex.discount||0) + (data.discount||0);
-        await DB.putOrder({...ex, items: merged, notes: updNotes, discount: updDisc});
-        U.toast(`เพิ่มสินค้าต่อออเดอร์ ${ex.orderNo} แล้ว ✓`);
-        closeModal('orderModal');
-        navigate('orders');
-        return;
-      }
-    }
     data.orderNo=await DB.nextOrderNo();
     await DB.addOrder(data);
     U.toast('บันทึกออเดอร์แล้ว ✓');
