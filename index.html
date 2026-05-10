@@ -1582,7 +1582,7 @@ function calcOrderTotal() {
   s('os_sub',sub); s('os_disc',disc); s('os_total',sub-disc);
 }
 
-// คืน array [{customerName, items:[{name,qty}]}] ของออเดอร์วันนี้ (ใช้ cache ที่ถูก update แล้ว)
+// คืน array [{customerName, items:[{name,qty,color,trimColor}]}] ของออเดอร์วันนี้
 async function getTodayOrdersSummary() {
   const all = await DB.getOrders();
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
@@ -1591,7 +1591,12 @@ async function getTodayOrdersSummary() {
     .filter(o => o.createdAt >= ts)
     .map(o => ({
       customerName: o.customerName,
-      items: (o.items||[]).map(it => ({ name: it.productName, qty: it.qty }))
+      items: (o.items||[]).map(it => ({
+        name: it.productName,
+        qty: it.qty,
+        color: it.color||'',
+        trimColor: it.trimColor||''
+      }))
     }));
 }
 
@@ -1636,7 +1641,7 @@ async function saveOrder() {
       await DB.putOrder({...old,...data,id:editId});
       U.toast('แก้ไขออเดอร์แล้ว ✓');
       // แจ้งเตือน LINE กลุ่ม — แก้ไขออเดอร์ (fire-and-forget)
-      const lineItemsEdit = data.items.map(it=>({ name: it.productName, qty: it.qty }));
+      const lineItemsEdit = data.items.map(it=>({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'' }));
       const todayEdit = await getTodayOrdersSummary();
       fetch('/api/notify-line', {
         method:'POST',
@@ -1655,7 +1660,7 @@ async function saveOrder() {
       await DB.addOrder(data);
       U.toast('บันทึกออเดอร์แล้ว ✓');
       // แจ้งเตือน LINE กลุ่ม — ออเดอร์ใหม่ (fire-and-forget)
-      const lineItems = data.items.map(it=>({ name: it.productName, qty: it.qty }));
+      const lineItems = data.items.map(it=>({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'' }));
       const todayNew = await getTodayOrdersSummary();
       fetch('/api/notify-line', {
         method:'POST',
@@ -1688,7 +1693,7 @@ function deleteOrder(id) {
     navigate('orders');
     // แจ้งเตือน LINE กลุ่ม — ลบออเดอร์ (fire-and-forget)
     if (order) {
-      const lineItems = (order.items||[]).map(it=>({ name: it.productName, qty: it.qty }));
+      const lineItems = (order.items||[]).map(it=>({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'' }));
       const todayDel = await getTodayOrdersSummary(); // cache แล้วไม่มีออเดอร์ที่ลบ
       fetch('/api/notify-line', {
         method:'POST',

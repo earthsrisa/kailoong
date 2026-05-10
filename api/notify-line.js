@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Missing LINE config' });
   }
 
-  const { type, orderNo, customerName, items, createdAt, todayOrders } = req.body;
+  const { type, customerName, items, createdAt, todayOrders } = req.body;
   // type: 'new' | 'edit' | 'delete'
 
   const dateStr = new Date(createdAt).toLocaleString('th-TH', {
@@ -21,32 +21,22 @@ export default async function handler(req, res) {
 
   const itemList = items || [];
 
-  // รายการสินค้า (ไม่แสดงราคา)
+  // รายการสินค้า (รวม สีโลง + สีเส้น, ไม่แสดงราคา)
   const numEmoji = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
   const itemLines = itemList
     .map((i, idx) => {
       const num = numEmoji[idx] || `${idx+1}.`;
-      return `${num} ${i.name} × ${i.qty} ใบ`;
+      const parts = [i.name, i.color, i.trimColor].filter(Boolean);
+      return `${num} ${parts.join(' ')} × ${i.qty} ใบ`;
     })
     .join('\n');
 
-  // สรุปรวมจำนวน
-  const totalQty = itemList.reduce((s, i) => s + Number(i.qty), 0);
-
-  // สรุปโลงแต่ละประเภท
-  const coffin_summary = itemList
-    .map(i => `${i.name} ${i.qty} ใบ`)
-    .join(', ');
-
-  let header, icon;
+  let header;
   if (type === 'edit') {
-    icon = '✏️';
-    header = `✏️ แก้ไขออเดอร์แล้ว (#${orderNo} แก้ไข)`;
+    header = `✏️ แก้ไขออเดอร์แล้ว`;
   } else if (type === 'delete') {
-    icon = '🗑️';
     header = `🗑️ ลบออเดอร์แล้ว!`;
   } else {
-    icon = '📦';
     header = `📦 ออเดอร์ใหม่เข้ามาแล้ว!`;
   }
 
@@ -54,52 +44,59 @@ export default async function handler(req, res) {
 
   let message;
   if (type === 'delete') {
+    // รายการที่ถูกลบ — แสดงสีโลง + สีเส้นด้วย
+    const deleteItemLines = itemList.map(i => {
+      const parts = [i.name, i.color, i.trimColor].filter(Boolean);
+      return `❌ ${parts.join(' ')} × ${i.qty} ใบ`;
+    }).join('\n');
+
     message =
       `${header}\n` +
       `${divider}\n` +
-      `🔢 เลขที่: ${orderNo}\n` +
       `👤 ลูกค้า: ${customerName}\n` +
       `📅 วันที่: ${dateStr}\n` +
       `${divider}\n` +
       `รายการที่ถูกลบ:\n` +
-      itemLines.split('\n').map(l => `❌ ${l.replace(/^[0-9️⃣🔟]+\s/, '')}`).join('\n') + '\n' +
-      `${divider}\n` +
-      `🗑️ ลบออกทั้งหมด ${totalQty} ใบ (${coffin_summary})`;
+      deleteItemLines;
   } else {
     message =
       `${header}\n` +
       `${divider}\n` +
-      `🔢 เลขที่: ${orderNo}\n` +
       `👤 ลูกค้า: ${customerName}\n` +
       `📅 วันที่: ${dateStr}\n` +
       `${divider}\n` +
       `รายการสินค้า:\n` +
-      `${itemLines}\n` +
-      `${divider}\n` +
-      `📊 สรุป: ${customerName} สั่ง ${coffin_summary} รวม ${totalQty} ใบ`;
+      `${itemLines}`;
   }
 
   // สรุปออเดอร์วันนี้ทั้งหมด (cumulative daily summary)
   let daySummary = '';
   if (todayOrders && todayOrders.length > 0) {
-    // จัดกลุ่มตามชื่อลูกค้า
+    // จัดกลุ่มตามชื่อลูกค้า รักษาลำดับการเข้ามา
     const byCustomer = {};
+    const custOrder = [];
     for (const order of todayOrders) {
       const cust = order.customerName || '?';
-      if (!byCustomer[cust]) byCustomer[cust] = {};
+      if (!byCustomer[cust]) { byCustomer[cust] = []; custOrder.push(cust); }
       for (const item of (order.items || [])) {
-        const n = item.name;
-        byCustomer[cust][n] = (byCustomer[cust][n] || 0) + Number(item.qty);
+        byCustomer[cust].push(item);
       }
     }
-    const custLines = Object.entries(byCustomer).map(([cust, coffins]) => {
-      const parts = Object.entries(coffins).map(([n, q]) => `${n} ${q} ใบ`).join(', ');
-      return `👤 ${cust}: ${parts}`;
+    const custBlocks = custOrder.map(cust => {
+      const lines = byCustomer[cust].map(i => {
+        const parts = [i.name, i.color, i.trimColor].filter(Boolean);
+        return `${parts.join(' ')} × ${i.qty} ใบ`;
+      }).join('\n');
+      return `${cust}\n${lines}`;
     });
     const grandTotal = todayOrders.reduce(
       (sum, o) => sum + (o.items || []).reduce((s, i) => s + Number(i.qty), 0), 0
     );
-    daySummary = `${divider}\n📋 สรุปออเดอร์วันนี้:\n${custLines.join('\n')}\n📦 รวมทั้งวัน ${grandTotal} ใบ`;
+    daySummary =
+      `${divider}\n` +
+      `สรุปรายการทั้งหมด\n\n` +
+      `${custBlocks.join('\n\n')}\n\n` +
+      `รวม ${grandTotal} ใบ`;
   }
 
   message += daySummary ? '\n' + daySummary : '';
