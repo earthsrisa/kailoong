@@ -91,7 +91,9 @@ export default async function handler(req, res) {
     const custBlocks = custOrder.map(cust => {
       const lines = byCustomer[cust].map(i => {
         const parts = [i.name, i.color, i.trimColor].filter(Boolean);
-        return `${parts.join(' ')} × ${i.qty} ใบ`;
+        // แสดง (ใหม่)/(แก้ไข) ต่อท้ายบรรทัดสินค้า
+        const actionLabel = i.action === 'new' ? ' (ใหม่)' : i.action === 'edit' ? ' (แก้ไข)' : '';
+        return `${parts.join(' ')} × ${i.qty} ใบ${actionLabel}`;
       }).join('\n');
       return `${cust}\n${lines}`;
     });

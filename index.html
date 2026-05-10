@@ -1030,7 +1030,8 @@ async function saveAddItems(orderId) {
     U.toast('เพิ่มรายการเข้าออเดอร์แล้ว ✓');
     // แจ้งเตือน LINE — แสดงเฉพาะรายการที่เพิ่มเข้ามา
     if (newItems.length > 0) {
-      const todayAdd = await getTodayOrdersSummary();
+      const addItemKeys = newItems.map(it => `${it.productName}|${it.color||''}|${it.trimColor||''}`);
+      const todayAdd = await getTodayOrdersSummary({ currentOrderId: orderId, actionType: 'edit', actionItemKeys: addItemKeys });
       fetch('/api/notify-line', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -1597,22 +1598,37 @@ function calcOrderTotal() {
   s('os_sub',sub); s('os_disc',disc); s('os_total',sub-disc);
 }
 
-// คืน array [{customerName, items:[{name,qty,color,trimColor}]}] ของออเดอร์วันนี้
-async function getTodayOrdersSummary() {
+// คืน array [{customerName, items:[{name,qty,color,trimColor,action}]}] ของออเดอร์วันนี้
+// options:
+//   currentOrderId — ID ของออเดอร์ที่เพิ่ง new/edit
+//   actionType     — 'new' | 'edit'
+//   actionItemKeys — array ของ "name|color|trimColor" ที่ต้องการ tag (สำหรับ edit)
+//                    ถ้าไม่ส่ง (new order) → tag ทุก item ในออเดอร์นั้น
+async function getTodayOrdersSummary({ currentOrderId, actionType, actionItemKeys } = {}) {
   const all = await DB.getOrders();
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
   const ts = todayStart.getTime();
+  const keySet = actionItemKeys ? new Set(actionItemKeys) : null;
   return all
     .filter(o => o.createdAt >= ts)
-    .map(o => ({
-      customerName: o.customerName,
-      items: (o.items||[]).map(it => ({
-        name: it.productName,
-        qty: it.qty,
-        color: it.color||'',
-        trimColor: it.trimColor||''
-      }))
-    }));
+    .map(o => {
+      const isCurrent = currentOrderId && String(o.id) === String(currentOrderId);
+      return {
+        customerName: o.customerName,
+        items: (o.items||[]).map(it => {
+          let action = '';
+          if (isCurrent) {
+            if (actionType === 'new') {
+              action = 'new'; // ทุก item ในออเดอร์ใหม่
+            } else if (actionType === 'edit' && keySet) {
+              const k = `${it.productName}|${it.color||''}|${it.trimColor||''}`;
+              if (keySet.has(k)) action = 'edit';
+            }
+          }
+          return { name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', action };
+        })
+      };
+    });
 }
 
 async function saveOrder() {
@@ -1681,7 +1697,8 @@ async function saveOrder() {
         // ถ้าชื่อลูกค้าเปลี่ยนแต่ไม่มีรายการเปลี่ยน ให้แสดงว่าแก้ไขชื่อ
         const notifyItems = changedItems.length > 0 ? changedItems
           : [{ name: `(เปลี่ยนชื่อจาก "${old.customerName}" → "${data.customerName}")`, qty: 0, color: '', trimColor: '', changeType: 'modified' }];
-        const todayEdit = await getTodayOrdersSummary();
+        const actionItemKeys = notifyItems.map(it => `${it.name}|${it.color||''}|${it.trimColor||''}`);
+        const todayEdit = await getTodayOrdersSummary({ currentOrderId: editId, actionType: 'edit', actionItemKeys });
         fetch('/api/notify-line', {
           method:'POST',
           headers:{'Content-Type':'application/json'},
@@ -1696,11 +1713,11 @@ async function saveOrder() {
       }
     } else {
       data.orderNo=await DB.nextOrderNo();
-      await DB.addOrder(data);
+      const newOrderId = await DB.addOrder(data);
       U.toast('บันทึกออเดอร์แล้ว ✓');
       // แจ้งเตือน LINE กลุ่ม — ออเดอร์ใหม่ (fire-and-forget)
       const lineItems = data.items.map(it=>({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'' }));
-      const todayNew = await getTodayOrdersSummary();
+      const todayNew = await getTodayOrdersSummary({ currentOrderId: newOrderId, actionType: 'new' });
       fetch('/api/notify-line', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
