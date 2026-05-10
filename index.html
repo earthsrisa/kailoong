@@ -591,7 +591,7 @@ const U = {
   money(n)  { return Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); },
   date(ts)  { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric'}); },
   datetime(ts) { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); },
-  dateInput(ts) { if(!ts)return''; return new Date(ts).toISOString().split('T')[0]; },
+  dateInput(ts) { if(!ts)return''; return new Date(ts).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}); },
   dateCompact(ts) {
     if(!ts)return'-';
     const d=new Date(ts);
