@@ -1626,6 +1626,24 @@ async function saveOrder() {
       data.orderNo=await DB.nextOrderNo();
       await DB.addOrder(data);
       U.toast('บันทึกออเดอร์แล้ว ✓');
+      // แจ้งเตือน LINE กลุ่ม (fire-and-forget)
+      const lineItems = data.items.map(it=>({
+        name: it.productName,
+        qty: it.qty,
+        total: it.qty * it.price
+      }));
+      const lineTotal = lineItems.reduce((s,i)=>s+i.total,0) - (data.discount||0);
+      fetch('/api/notify-line', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          orderNo: data.orderNo,
+          customerName: data.customerName,
+          items: lineItems,
+          total: lineTotal,
+          createdAt: data.createdAt
+        })
+      }).catch(()=>{}); // ไม่แสดง error ถ้าแจ้งเตือนล้มเหลว
     }
     closeModal('orderModal');
     navigate('orders');
