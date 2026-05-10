@@ -735,12 +735,14 @@ function closeModal(id) { const el=document.getElementById(id); if(el){try{boots
 
 // ── Custom Confirm Dialog (แทน browser confirm) ──
 function U_confirm(msg, onYes, {title='ยืนยันการดำเนินการ', yesLabel='ยืนยัน', yesCls='btn-danger', icon='fa-triangle-exclamation', iconColor='#dc2626'}={}) {
+  // เก็บ callback ไว้ใน window แทนการ serialize เป็น string (ป้องกัน closure หาย)
+  window._confirmCb = onYes;
   showModal('confirmDialog', title,
     `<div class="d-flex align-items-start gap-3">
        <i class="fa-solid ${icon}" style="font-size:28px;color:${iconColor};flex-shrink:0;margin-top:2px;"></i>
        <p style="margin:0;font-size:15px;line-height:1.6;">${msg}</p>
      </div>`,
-    `<button class="btn ${yesCls}" onclick="closeModal('confirmDialog');(${onYes.toString()})()">
+    `<button class="btn ${yesCls}" onclick="closeModal('confirmDialog');window._confirmCb&&window._confirmCb()">
        <i class="fa-solid fa-check me-1"></i>${yesLabel}
      </button>
      <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`);
