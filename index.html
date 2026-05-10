@@ -386,7 +386,7 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
   <div id="topbar">
     <h1 id="pageTitle">Dashboard</h1>
     <div style="display:flex;align-items:center;gap:8px;">
-      <button id="refreshBtn" onclick="if(window._currentPage)navigate(window._currentPage)" title="รีเฟรช" style="background:none;border:1.5px solid #d1d5db;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7280;font-size:15px;transition:all .15s;" onmouseover="this.style.borderColor='#2563eb';this.style.color='#2563eb'" onmouseout="this.style.borderColor='#d1d5db';this.style.color='#6b7280'"><i class="fa-solid fa-rotate-right"></i></button>
+      <button id="refreshBtn" onclick="DB._cache={};if(window._currentPage)navigate(window._currentPage)" title="รีเฟรช" style="background:none;border:1.5px solid #d1d5db;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7280;font-size:15px;transition:all .15s;" onmouseover="this.style.borderColor='#2563eb';this.style.color='#2563eb'" onmouseout="this.style.borderColor='#d1d5db';this.style.color='#6b7280'"><i class="fa-solid fa-rotate-right"></i></button>
       <div id="topbarActions"></div>
     </div>
   </div>
@@ -631,6 +631,31 @@ const U = {
 };
 
 // ═══════════════════════════════════════
+//  SORTABLE TABLE HELPER
+// ═══════════════════════════════════════
+const _sortState={};
+function sortTable(tbodyId, key, renderRow, dataKey) {
+  const prev=_sortState[tbodyId]||{key:null,asc:true};
+  const asc = prev.key===key ? !prev.asc : true;
+  _sortState[tbodyId]={key,asc};
+  const data=window[dataKey]||[];
+  const sorted=[...data].sort((a,b)=>{
+    let av=a[key], bv=b[key];
+    if(typeof av==='string') return asc?av.localeCompare(bv,'th'):bv.localeCompare(av,'th');
+    return asc?(av||0)-(bv||0):(bv||0)-(av||0);
+  });
+  document.getElementById(tbodyId).innerHTML=renderRow(sorted);
+  // อัปเดต indicator ลูกศร
+  document.querySelectorAll(`[data-sort-tbody="${tbodyId}"]`).forEach(th=>{
+    const arr=th.querySelector('.sort-arr');
+    if(arr) arr.textContent = th.dataset.sortKey===key ? (asc?'↑':'↓') : '↕';
+  });
+}
+function sortTh(label, tbodyId, key, dataKey) {
+  return `<span data-sort-tbody="${tbodyId}" data-sort-key="${key}" onclick="sortTable('${tbodyId}','${key}',${dataKey==='_allOrders'?'renderOrderRows':dataKey==='_custData'?'renderCustRows':'renderInvRows'},'${dataKey}')" style="cursor:pointer;user-select:none;">${label} <span class="sort-arr" style="font-size:10px;opacity:.5;">↕</span></span>`;
+}
+
+// ═══════════════════════════════════════
 //  BOTTOM NAV MORE MENU
 // ═══════════════════════════════════════
 function toggleBnavMore() {
@@ -697,9 +722,29 @@ function showModal(id,title,body,footer,size='') {
   document.getElementById('modal-container').appendChild(div);
   const m=new bootstrap.Modal(div);
   div.addEventListener('hidden.bs.modal',()=>{m.dispose();div.remove();});
+  // Keyboard: Ctrl+Enter = กดปุ่มแรกใน footer, Escape จัดการโดย Bootstrap อยู่แล้ว
+  div.addEventListener('keydown',(e)=>{
+    if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){
+      e.preventDefault();
+      div.querySelector('.modal-footer button:not([data-bs-dismiss])')?.click();
+    }
+  });
   m.show(); return m;
 }
 function closeModal(id) { const el=document.getElementById(id); if(el){try{bootstrap.Modal.getInstance(el)?.hide();}catch(e){}el.remove();} }
+
+// ── Custom Confirm Dialog (แทน browser confirm) ──
+function U_confirm(msg, onYes, {title='ยืนยันการดำเนินการ', yesLabel='ยืนยัน', yesCls='btn-danger', icon='fa-triangle-exclamation', iconColor='#dc2626'}={}) {
+  showModal('confirmDialog', title,
+    `<div class="d-flex align-items-start gap-3">
+       <i class="fa-solid ${icon}" style="font-size:28px;color:${iconColor};flex-shrink:0;margin-top:2px;"></i>
+       <p style="margin:0;font-size:15px;line-height:1.6;">${msg}</p>
+     </div>`,
+    `<button class="btn ${yesCls}" onclick="closeModal('confirmDialog');(${onYes.toString()})()">
+       <i class="fa-solid fa-check me-1"></i>${yesLabel}
+     </button>
+     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`);
+}
 
 // ═══════════════════════════════════════
 //  DASHBOARD
@@ -813,7 +858,7 @@ async function renderOrders(el) {
     `<button class="btn btn-primary" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>`;
 
   const [orders, customers] = await Promise.all([DB.getOrders(), DB.getCustomers()]);
-  const sorted = [...orders].sort((a,b)=>b.createdAt-a.createdAt);
+  const sorted = [...orders].sort((a,b)=>b.createdAt-a.createdAt).map(o=>({...o,_total:U.orderTotal(o)}));
   const custOpts = customers.map(c=>`<option value="${c.id}">${U.esc(c.name)}</option>`).join('');
 
   el.innerHTML=`
@@ -834,8 +879,8 @@ async function renderOrders(el) {
       <table class="table-clean orders-history-table">
         <colgroup><col style="width:72px"><col><col style="width:80px"><col><col style="width:90px"><col><col></colgroup>
         <thead><tr>
-          <th>วันที่ / เวลา</th><th>เลขออเดอร์</th><th>ลูกค้า</th>
-          <th>รายการสินค้า</th><th>ยอดรวม</th><th>หมายเหตุ</th><th></th>
+          <th>${sortTh('วันที่','ordersTbody','createdAt','_allOrders')}</th><th>เลขออเดอร์</th><th>${sortTh('ลูกค้า','ordersTbody','customerName','_allOrders')}</th>
+          <th>รายการสินค้า</th><th>${sortTh('ยอดรวม','ordersTbody','_total','_allOrders')}</th><th>หมายเหตุ</th><th></th>
         </tr></thead>
         <tbody id="ordersTbody">${renderOrderRows(sorted)}</tbody>
       </table>
@@ -956,35 +1001,38 @@ function updateAddItemTotal() {
 }
 
 async function saveAddItems(orderId) {
-  const order=await DB.getOrder(orderId); if(!order)return;
-  const newItems=[];
-  document.querySelectorAll('#addItemsBody tr').forEach(row=>{
-    const m=row.id?.match(/airow_(\d+)/); if(!m)return;
-    const i=m[1];
-    const sel=document.getElementById(`aiprod_${i}`);
-    const prodId=sel?.value; if(!prodId)return;
-    const opt=sel.options[sel.selectedIndex];
-    const qty=parseFloat(document.getElementById(`aiqty_${i}`)?.value||1);
-    const price=parseFloat(document.getElementById(`aiprice_${i}`)?.value||0);
-    const productName=opt.dataset.name||opt.text||'';
-    // Merge with existing item of same product if exists
-    const existingIdx=(order.items||[]).findIndex(x=>x.productId===prodId);
-    if (existingIdx>=0) {
-      order.items[existingIdx].qty+=qty;
-    } else {
-      newItems.push({productId:prodId,productName,qty,price});
+  if (window._saving){return;} window._saving=true;
+  try {
+    const order=await DB.getOrder(orderId); if(!order)return;
+    const newItems=[];
+    document.querySelectorAll('#addItemsBody tr').forEach(row=>{
+      const m=row.id?.match(/airow_(\d+)/); if(!m)return;
+      const i=m[1];
+      const sel=document.getElementById(`aiprod_${i}`);
+      const prodId=sel?.value; if(!prodId)return;
+      const opt=sel.options[sel.selectedIndex];
+      const qty=parseFloat(document.getElementById(`aiqty_${i}`)?.value||1);
+      const price=parseFloat(document.getElementById(`aiprice_${i}`)?.value||0);
+      const productName=opt.dataset.name||opt.text||'';
+      const existingIdx=(order.items||[]).findIndex(x=>x.productId===prodId);
+      if (existingIdx>=0) { order.items[existingIdx].qty+=qty; }
+      else { newItems.push({productId:prodId,productName,qty,price}); }
+    });
+    if (!newItems.length && !document.querySelectorAll('#addItemsBody tr').length) {
+      U.toast('กรุณาเพิ่มรายการสินค้า','error'); return;
     }
-  });
-  if (!newItems.length && !document.querySelectorAll('#addItemsBody tr').length) {
-    U.toast('กรุณาเพิ่มรายการสินค้า','error'); return;
+    const extraNotes=document.getElementById('addItemNotes')?.value.trim();
+    order.items=[...(order.items||[]),...newItems];
+    if (extraNotes) order.notes=(order.notes?order.notes+' | ':'')+extraNotes;
+    await DB.putOrder(order);
+    U.toast('เพิ่มรายการเข้าออเดอร์แล้ว ✓');
+    closeModal('addItemsModal');
+    navigate('orders');
+  } catch(e) {
+    U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
+  } finally {
+    window._saving=false;
   }
-  const extraNotes=document.getElementById('addItemNotes')?.value.trim();
-  order.items=[...(order.items||[]),...newItems];
-  if (extraNotes) order.notes=(order.notes?order.notes+' | ':'')+extraNotes;
-  await DB.putOrder(order);
-  U.toast('เพิ่มรายการเข้าออเดอร์แล้ว ✓');
-  closeModal('addItemsModal');
-  navigate('orders');
 }
 
 // ── สร้างออเดอร์ใหม่ / แก้ไข ──
@@ -1294,21 +1342,25 @@ function buildPendingHtml(orders) {
   }).join('');
 }
 
-async function markDeliveredGroup(ids) {
-  for (const id of ids) {
-    const o = await DB.getOrder(id);
-    if (o) await DB.putOrder({...o, isDelivered:true, deliveredAt:Date.now()});
-  }
-  U.toast('บันทึกจัดส่งแล้ว ✓');
-  navigate('dashboard');
+function markDeliveredGroup(ids) {
+  U_confirm(`ยืนยันการจัดส่ง ${ids.length} ออเดอร์ใช่ไหม?`, async()=>{
+    for (const id of ids) {
+      const o = await DB.getOrder(id);
+      if (o) await DB.putOrder({...o, isDelivered:true, deliveredAt:Date.now()});
+    }
+    U.toast('บันทึกจัดส่งแล้ว ✓');
+    navigate('dashboard');
+  }, {title:'ยืนยันการจัดส่ง', yesLabel:'ส่งแล้ว', yesCls:'btn-success', icon:'fa-truck', iconColor:'#16a34a'});
 }
 
-async function markDelivered(orderId) {
-  const order = await DB.getOrder(orderId);
-  if (!order) return;
-  await DB.putOrder({...order, isDelivered:true, deliveredAt:Date.now()});
-  U.toast('บันทึกจัดส่งแล้ว ✓');
-  navigate('dashboard');
+function markDelivered(orderId) {
+  U_confirm('ยืนยันว่าจัดส่งออเดอร์นี้แล้วใช่ไหม?', async()=>{
+    const order = await DB.getOrder(orderId);
+    if (!order) return;
+    await DB.putOrder({...order, isDelivered:true, deliveredAt:Date.now()});
+    U.toast('บันทึกจัดส่งแล้ว ✓');
+    navigate('dashboard');
+  }, {title:'ยืนยันการจัดส่ง', yesLabel:'ส่งแล้ว', yesCls:'btn-success', icon:'fa-truck', iconColor:'#16a34a'});
 }
 
 function showPrintSelectModal() {
@@ -1530,57 +1582,62 @@ function calcOrderTotal() {
 
 async function saveOrder() {
   if (window._saving){return;} window._saving=true;
-  const custId=document.getElementById('of_cust')?.value||'';
-  if (!custId){window._saving=false;U.toast('กรุณาเลือกลูกค้า','error');return;}
-  const cust=await DB.getCustomer(custId);
+  try {
+    const custId=document.getElementById('of_cust')?.value||'';
+    if (!custId){U.toast('กรุณาเลือกลูกค้า','error');return;}
+    const cust=await DB.getCustomer(custId);
 
-  const items=[]; let anyItem=false;
-  document.querySelectorAll('#orderItemsBody tr').forEach(row=>{
-    const m=row.id?.match(/oirow_(\d+)/); if(!m)return;
-    const i=m[1];
-    const sel=document.getElementById(`oiprod_${i}`);
-    const prodId=sel?.value; if(!prodId)return;
-    const opt=sel.options[sel.selectedIndex];
-    const qty=parseFloat(document.getElementById(`oiqty_${i}`)?.value||1);
-    const price=parseFloat(document.getElementById(`oiprice_${i}`)?.value||0);
-    const color      = document.getElementById(`oicolor_${i}`)?.value||'';
-    const trimColor  = document.getElementById(`oitrim_${i}`)?.value||'';
-    const extra      = document.getElementById(`oiextra_${i}`)?.value||'';
-    const specialNote= document.getElementById(`oisp_${i}`)?.value.trim()||'';
-    items.push({productId:prodId,productName:opt.dataset.name||opt.text,qty,price,color,trimColor,extra,specialNote});
-    anyItem=true;
-  });
-  if (!anyItem){U.toast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','error');return;}
+    const items=[]; let anyItem=false;
+    document.querySelectorAll('#orderItemsBody tr').forEach(row=>{
+      const m=row.id?.match(/oirow_(\d+)/); if(!m)return;
+      const i=m[1];
+      const sel=document.getElementById(`oiprod_${i}`);
+      const prodId=sel?.value; if(!prodId)return;
+      const opt=sel.options[sel.selectedIndex];
+      const qty=parseFloat(document.getElementById(`oiqty_${i}`)?.value||1);
+      const price=parseFloat(document.getElementById(`oiprice_${i}`)?.value||0);
+      const color      = document.getElementById(`oicolor_${i}`)?.value||'';
+      const trimColor  = document.getElementById(`oitrim_${i}`)?.value||'';
+      const extra      = document.getElementById(`oiextra_${i}`)?.value||'';
+      const specialNote= document.getElementById(`oisp_${i}`)?.value.trim()||'';
+      items.push({productId:prodId,productName:opt.dataset.name||opt.text,qty,price,color,trimColor,extra,specialNote});
+      anyItem=true;
+    });
+    if (!anyItem){U.toast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','error');return;}
 
-  const editId=document.getElementById('of_editId')?.value||'';
-  const dateStr=document.getElementById('of_date')?.value;
-  const createdAt=dateStr?new Date(dateStr).setHours(new Date().getHours(),new Date().getMinutes(),0,0):Date.now();
+    const editId=document.getElementById('of_editId')?.value||'';
+    const dateStr=document.getElementById('of_date')?.value;
+    const createdAt=dateStr?new Date(dateStr).setHours(new Date().getHours(),new Date().getMinutes(),0,0):Date.now();
 
-  const data={
-    customerId:custId, customerName:cust?.name||'',
-    items,
-    discount:parseFloat(document.getElementById('of_discount')?.value||0),
-    notes:document.getElementById('of_notes')?.value.trim()||'',
-    createdAt,
-  };
-  if (editId) {
-    const old=await DB.getOrder(editId);
-    await DB.putOrder({...old,...data,id:editId});
-    U.toast('แก้ไขออเดอร์แล้ว ✓');
-  } else {
-    data.orderNo=await DB.nextOrderNo();
-    await DB.addOrder(data);
-    U.toast('บันทึกออเดอร์แล้ว ✓');
+    const data={
+      customerId:custId, customerName:cust?.name||'',
+      items,
+      discount:parseFloat(document.getElementById('of_discount')?.value||0),
+      notes:document.getElementById('of_notes')?.value.trim()||'',
+      createdAt,
+    };
+    if (editId) {
+      const old=await DB.getOrder(editId);
+      await DB.putOrder({...old,...data,id:editId});
+      U.toast('แก้ไขออเดอร์แล้ว ✓');
+    } else {
+      data.orderNo=await DB.nextOrderNo();
+      await DB.addOrder(data);
+      U.toast('บันทึกออเดอร์แล้ว ✓');
+    }
+    closeModal('orderModal');
+    navigate('orders');
+  } catch(e) {
+    U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
+  } finally {
+    window._saving=false;
   }
-  window._saving=false;
-  closeModal('orderModal');
-  navigate('orders');
 }
 
-async function deleteOrder(id) {
-  if (!confirm('ลบออเดอร์นี้?'))return;
-  await DB.delOrder(id); U.toast('ลบออเดอร์แล้ว');
-  navigate('orders');
+function deleteOrder(id) {
+  U_confirm('ต้องการลบออเดอร์นี้ใช่ไหม? ข้อมูลจะหายไปถาวร', async()=>{
+    await DB.delOrder(id); U.toast('ลบออเดอร์แล้ว'); navigate('orders');
+  });
 }
 
 // ═══════════════════════════════════════
@@ -1603,7 +1660,7 @@ async function renderCustomers(el) {
     </div>
     <div class="table-scroll">
       <table class="table-clean">
-        <thead><tr><th>#</th><th>ชื่อลูกค้า / ร้านค้า</th><th>เบอร์โทร</th><th>ที่อยู่</th><th>ราคาพิเศษ</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>${sortTh('ชื่อลูกค้า','custTbody','name','_custData')}</th><th>เบอร์โทร</th><th>ที่อยู่</th><th>ราคาพิเศษ</th><th></th></tr></thead>
         <tbody id="custTbody">${customers.map((c,i)=>custRow(c,i)).join('')||emptyRow(7,'ยังไม่มีลูกค้า','fa-users-slash')}</tbody>
       </table>
     </div>
@@ -1629,10 +1686,13 @@ function custRow(c,i) {
   </tr>`;
 }
 
+function renderCustRows(list) {
+  return list.map((c,i)=>custRow(c,i)).join('')||emptyRow(7,'ไม่พบลูกค้า');
+}
 function filterCustTable(val) {
   const q=val.toLowerCase();
   const data=(window._custData||[]).filter(c=>!q||c.name.toLowerCase().includes(q)||(c.phone||'').includes(q));
-  document.getElementById('custTbody').innerHTML=data.map((c,i)=>custRow(c,i)).join('')||emptyRow(7,'ไม่พบลูกค้า');
+  document.getElementById('custTbody').innerHTML=renderCustRows(data);
 }
 
 async function showCustomerHistory(custId) {
@@ -1702,19 +1762,25 @@ async function showCustomerModal(id) {
 
 async function saveCustomer() {
   if (window._saving){return;} window._saving=true;
-  const name=document.getElementById('cf_name')?.value.trim();
-  if (!name){window._saving=false;U.toast('กรุณากรอกชื่อ','error');return;}
-  const id=document.getElementById('cf_id')?.value||'';
-  const data={name,phone:document.getElementById('cf_phone')?.value.trim()||'',taxId:document.getElementById('cf_taxId')?.value.trim()||'',address:document.getElementById('cf_address')?.value.trim()||'',notes:document.getElementById('cf_notes')?.value.trim()||''};
-  if (id){const old=await DB.getCustomer(id);await DB.putCustomer({...old,...data});U.toast('แก้ไขข้อมูลลูกค้าแล้ว ✓');}
-  else{await DB.addCustomer(data);U.toast('เพิ่มลูกค้าแล้ว ✓');}
-  window._saving=false;
-  closeModal('custModal');navigate('customers');
+  try {
+    const name=document.getElementById('cf_name')?.value.trim();
+    if (!name){U.toast('กรุณากรอกชื่อ','error');return;}
+    const id=document.getElementById('cf_id')?.value||'';
+    const data={name,phone:document.getElementById('cf_phone')?.value.trim()||'',taxId:document.getElementById('cf_taxId')?.value.trim()||'',address:document.getElementById('cf_address')?.value.trim()||'',notes:document.getElementById('cf_notes')?.value.trim()||''};
+    if (id){const old=await DB.getCustomer(id);await DB.putCustomer({...old,...data});U.toast('แก้ไขข้อมูลลูกค้าแล้ว ✓');}
+    else{await DB.addCustomer(data);U.toast('เพิ่มลูกค้าแล้ว ✓');}
+    closeModal('custModal');navigate('customers');
+  } catch(e) {
+    U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
+  } finally {
+    window._saving=false;
+  }
 }
 
-async function deleteCustomer(id) {
-  if (!confirm('ลบลูกค้านี้?'))return;
-  await DB.delCustomer(id);U.toast('ลบลูกค้าแล้ว');navigate('customers');
+function deleteCustomer(id) {
+  U_confirm('ต้องการลบลูกค้านี้ใช่ไหม? ข้อมูลจะหายไปถาวร', async()=>{
+    await DB.delCustomer(id);U.toast('ลบลูกค้าแล้ว');navigate('customers');
+  });
 }
 
 // ── ราคาพิเศษต่อลูกค้า ──
@@ -1881,34 +1947,39 @@ function refreshPriceFields(name) {
 
 async function saveProduct() {
   if (window._saving){return;} window._saving=true;
-  const name=document.getElementById('pf_name')?.value.trim();
-  if (!name){window._saving=false;U.toast('กรุณากรอกชื่อสินค้า','error');return;}
-  const id=document.getElementById('pf_id')?.value||'';
-  const spec=COFFIN_SPEC[name];
-  const DEFAULT_LINES=['ทอง','เงิน'];
-  const pmKeys=id?(Object.keys((await DB.getProduct(id))?.priceMap||{}).filter(k=>k!=='__default')):[]; 
-  const lines=spec?.lines?.length?spec.lines:(pmKeys.length?pmKeys:DEFAULT_LINES);
-  const priceMap={};
-  // อ่านจาก input ที่มีใน DOM ตรงๆ (ครอบคลุมทั้ง COFFIN_SPEC และ default)
-  document.querySelectorAll('[id^="pf_pm_"]').forEach(el=>{
-    const l=el.id.replace('pf_pm_','');
-    const v=parseFloat(el.value||'');
-    if(!isNaN(v)&&v>0) priceMap[l]=v;
-  });
-  const defaultPrice=parseFloat(document.getElementById('pf_price')?.value||0)||0;
-  const data={code:document.getElementById('pf_code')?.value.trim()||'',name,
-    category:document.getElementById('pf_cat')?.value.trim()||'',
-    unit:document.getElementById('pf_unit')?.value.trim()||'โลง',
-    price:defaultPrice, priceMap};
-  if (id){const old=await DB.getProduct(id);await DB.putProduct({...old,...data});U.toast('แก้ไขสินค้าแล้ว ✓');}
-  else{await DB.addProduct(data);U.toast('เพิ่มสินค้าแล้ว ✓');}
-  window._saving=false;
-  closeModal('prodModal');navigate('products');
+  try {
+    const name=document.getElementById('pf_name')?.value.trim();
+    if (!name){U.toast('กรุณากรอกชื่อสินค้า','error');return;}
+    const id=document.getElementById('pf_id')?.value||'';
+    const spec=COFFIN_SPEC[name];
+    const DEFAULT_LINES=['ทอง','เงิน'];
+    const pmKeys=id?(Object.keys((await DB.getProduct(id))?.priceMap||{}).filter(k=>k!=='__default')):[];
+    const lines=spec?.lines?.length?spec.lines:(pmKeys.length?pmKeys:DEFAULT_LINES);
+    const priceMap={};
+    document.querySelectorAll('[id^="pf_pm_"]').forEach(el=>{
+      const l=el.id.replace('pf_pm_','');
+      const v=parseFloat(el.value||'');
+      if(!isNaN(v)&&v>0) priceMap[l]=v;
+    });
+    const defaultPrice=parseFloat(document.getElementById('pf_price')?.value||0)||0;
+    const data={code:document.getElementById('pf_code')?.value.trim()||'',name,
+      category:document.getElementById('pf_cat')?.value.trim()||'',
+      unit:document.getElementById('pf_unit')?.value.trim()||'โลง',
+      price:defaultPrice, priceMap};
+    if (id){const old=await DB.getProduct(id);await DB.putProduct({...old,...data});U.toast('แก้ไขสินค้าแล้ว ✓');}
+    else{await DB.addProduct(data);U.toast('เพิ่มสินค้าแล้ว ✓');}
+    closeModal('prodModal');navigate('products');
+  } catch(e) {
+    U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
+  } finally {
+    window._saving=false;
+  }
 }
 
-async function deleteProduct(id) {
-  if (!confirm('ลบสินค้านี้?'))return;
-  await DB.delProduct(id);U.toast('ลบสินค้าแล้ว');navigate('products');
+function deleteProduct(id) {
+  U_confirm('ต้องการลบสินค้านี้ใช่ไหม? ข้อมูลจะหายไปถาวร', async()=>{
+    await DB.delProduct(id);U.toast('ลบสินค้าแล้ว');navigate('products');
+  });
 }
 
 // ═══════════════════════════════════════
@@ -1945,12 +2016,16 @@ async function renderInvoices(el) {
     </div>
     <div class="table-scroll">
       <table class="table-clean">
-        <thead><tr><th>เลขที่ใบเสร็จ</th><th>ลูกค้า</th><th>วันที่</th><th>รายการ</th><th style="text-align:right;">ยอดรวม</th><th style="text-align:center;">สถานะ</th><th></th></tr></thead>
+        <thead><tr><th>เลขที่ใบเสร็จ</th><th>${sortTh('ลูกค้า','invTbody','customerName','_invData')}</th><th>${sortTh('วันที่','invTbody','createdAt','_invData')}</th><th>รายการ</th><th style="text-align:right;">${sortTh('ยอดรวม','invTbody','_total','_invData')}</th><th style="text-align:center;">สถานะ</th><th></th></tr></thead>
         <tbody id="invTbody">${invoices.map(inv=>invRow(inv)).join('')||emptyRow(7,'ยังไม่มีใบเสร็จ','fa-file-circle-xmark')}</tbody>
       </table>
     </div>
   </div>`;
-  window._invData=invoices;
+  window._invData=invoices.map(i=>({...i,_total:U.invTotal(i).total}));
+}
+
+function renderInvRows(list) {
+  return list.map(inv=>invRow(inv)).join('')||emptyRow(7,'ยังไม่มีใบเสร็จ','fa-file-circle-xmark');
 }
 
 function invPaid(inv) {
@@ -2284,18 +2359,21 @@ async function saveReceipt(andPrint=false) {
   window._rcConfirmedDup=false;
   // ─────────────────────────────────────────────────────────────────────────
 
-  let savedId;
-  if (editId){const old=await DB.getInvoice(editId);await DB.putInvoice({...old,...data});savedId=editId;U.toast('แก้ไขใบเสร็จแล้ว ✓');}
-  else{data.invoiceNo=await DB.nextReceiptNo();savedId=await DB.addInvoice(data);U.toast('ออกใบเสร็จแล้ว ✓');}
-  window._saving=false;
-  closeModal('rcModal');
-  if (andPrint){
-    const inv=await DB.getInvoice(savedId);
-    // รอ Bootstrap modal animation ปิดสนิท (~350ms) ก่อนสั่งปริ้น
-    // เพื่อให้ backdrop หายออกไปก่อน จะได้ไม่มืด
-    setTimeout(()=>printReceiptData(inv), 400);
+  try {
+    let savedId;
+    if (editId){const old=await DB.getInvoice(editId);await DB.putInvoice({...old,...data});savedId=editId;U.toast('แก้ไขใบเสร็จแล้ว ✓');}
+    else{data.invoiceNo=await DB.nextReceiptNo();savedId=await DB.addInvoice(data);U.toast('ออกใบเสร็จแล้ว ✓');}
+    closeModal('rcModal');
+    if (andPrint){
+      const inv=await DB.getInvoice(savedId);
+      setTimeout(()=>printReceiptData(inv), 400);
+    }
+    navigate('invoices');
+  } catch(e) {
+    U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
+  } finally {
+    window._saving=false;
   }
-  navigate('invoices');
 }
 
 
@@ -2479,9 +2557,10 @@ window.addEventListener('load',function(){
   win.document.close();
 }
 
-async function deleteInvoice(id) {
-  if (!confirm('ลบใบเสร็จนี้?'))return;
-  await DB.delInvoice(id);U.toast('ลบใบเสร็จแล้ว');navigate('invoices');
+function deleteInvoice(id) {
+  U_confirm('ต้องการลบใบเสร็จนี้ใช่ไหม? ข้อมูลจะหายไปถาวร', async()=>{
+    await DB.delInvoice(id);U.toast('ลบใบเสร็จแล้ว');navigate('invoices');
+  });
 }
 
 async function toggleInvPaid(id, paid) {
@@ -2599,6 +2678,16 @@ async function renderReports(el) {
 
   // expense breakdown 6 months
   const monthExpenses6 = months.map(m=>expenses.filter(e=>{const d=new Date(e.date);return d.getFullYear()===m.year&&d.getMonth()===m.month;}).reduce((a,e)=>a+(e.amount||0),0));
+
+  // ── Top ลูกค้า (ตามช่วงที่เลือก) ──
+  const custMap={};
+  rangeOrders.forEach(o=>{
+    if(!custMap[o.customerId]) custMap[o.customerId]={name:o.customerName,orderCount:0,total:0,items:0};
+    custMap[o.customerId].orderCount++;
+    custMap[o.customerId].total+=U.orderTotal(o);
+    custMap[o.customerId].items+=(o.items||[]).reduce((a,i)=>a+i.qty,0);
+  });
+  const topCusts=Object.values(custMap).sort((a,b)=>b.total-a.total).slice(0,5);
 
   el.innerHTML=`
   <!-- ── Filter bar ── -->
@@ -2718,6 +2807,25 @@ async function renderReports(el) {
     </div></div>
     <div class="col-12"><div class="card-box"><div class="card-head"><h2>จำนวนออเดอร์รายเดือน</h2></div>
       <div class="p-3"><canvas id="orderChart" height="100"></canvas></div>
+    </div></div>
+    <div class="col-12"><div class="card-box">
+      <div class="card-head">
+        <h2><i class="fa-solid fa-trophy me-2" style="color:#f59e0b;"></i>Top ลูกค้า (${rangeLabels[rng]})</h2>
+      </div>
+      <div class="table-scroll">
+        ${topCusts.length ? `<table class="table-clean">
+          <thead><tr><th style="width:36px;">#</th><th>ลูกค้า</th><th style="text-align:center;">ออเดอร์</th><th style="text-align:center;">จำนวนชิ้น</th><th style="text-align:right;">ยอดรวม</th></tr></thead>
+          <tbody>
+            ${topCusts.map((c,i)=>`<tr>
+              <td><span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:${i===0?'#fef3c7':i===1?'#f1f5f9':i===2?'#fef3c7':'#f9fafb'};color:${i===0?'#92400e':i===1?'#475569':i===2?'#b45309':'#6b7280'};font-size:12px;font-weight:700;">${i+1}</span></td>
+              <td><strong>${U.esc(c.name)}</strong></td>
+              <td style="text-align:center;">${c.orderCount} ออเดอร์</td>
+              <td style="text-align:center;">${c.items} ชิ้น</td>
+              <td style="text-align:right;font-weight:700;color:#2563eb;">฿${U.money(c.total)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>` : '<div class="empty-state" style="padding:20px"><i class="fa-solid fa-users"></i><p>ยังไม่มีข้อมูล</p></div>'}
+      </div>
     </div></div>
   </div>`;
 
@@ -3098,36 +3206,42 @@ async function showExpenseModal(id) {
 
 async function saveExpense() {
   if (window._saving){return;} window._saving=true;
-  const dateVal   = document.getElementById('exp_date')?.value;
-  const amountStr = document.getElementById('exp_amount')?.value;
-  const amount    = parseFloat(amountStr);
-  if (!dateVal)                              { window._saving=false;U.toast('กรุณาเลือกวันที่','error'); return; }
-  if (!amountStr||amount<=0||isNaN(amount))  { window._saving=false;U.toast('กรุณากรอกจำนวนเงินที่ถูกต้อง','error'); return; }
+  try {
+    const dateVal   = document.getElementById('exp_date')?.value;
+    const amountStr = document.getElementById('exp_amount')?.value;
+    const amount    = parseFloat(amountStr);
+    if (!dateVal)                              { U.toast('กรุณาเลือกวันที่','error'); return; }
+    if (!amountStr||amount<=0||isNaN(amount))  { U.toast('กรุณากรอกจำนวนเงินที่ถูกต้อง','error'); return; }
 
-  const data = {
-    date:     new Date(dateVal).getTime(),
-    category: document.getElementById('exp_cat')?.value  || 'อื่นๆ',
-    note:     document.getElementById('exp_note')?.value.trim() || '',
-    amount
-  };
+    const data = {
+      date:     new Date(dateVal).getTime(),
+      category: document.getElementById('exp_cat')?.value  || 'อื่นๆ',
+      note:     document.getElementById('exp_note')?.value.trim() || '',
+      amount
+    };
 
-  if (window._editExpenseId) {
-    await DB.putExpense({ ...data, id: window._editExpenseId });
-    U.toast('แก้ไขรายจ่ายแล้ว ✓');
-  } else {
-    await DB.addExpense(data);
-    U.toast('เพิ่มรายจ่ายแล้ว ✓');
+    if (window._editExpenseId) {
+      await DB.putExpense({ ...data, id: window._editExpenseId });
+      U.toast('แก้ไขรายจ่ายแล้ว ✓');
+    } else {
+      await DB.addExpense(data);
+      U.toast('เพิ่มรายจ่ายแล้ว ✓');
+    }
+    closeModal('expenseModal');
+    navigate('expenses');
+  } catch(e) {
+    U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
+  } finally {
+    window._saving=false;
   }
-  window._saving=false;
-  closeModal('expenseModal');
-  navigate('expenses');
 }
 
-async function deleteExpense(id) {
-  if (!confirm('ลบรายจ่ายนี้?')) return;
-  await DB.delExpense(id);
-  U.toast('ลบรายจ่ายแล้ว');
-  navigate('expenses');
+function deleteExpense(id) {
+  U_confirm('ต้องการลบรายจ่ายนี้ใช่ไหม?', async()=>{
+    await DB.delExpense(id);
+    U.toast('ลบรายจ่ายแล้ว');
+    navigate('expenses');
+  });
 }
 
 // ═══════════════════════════════════════
