@@ -1622,28 +1622,42 @@ async function saveOrder() {
       const old=await DB.getOrder(editId);
       await DB.putOrder({...old,...data,id:editId});
       U.toast('แก้ไขออเดอร์แล้ว ✓');
-    } else {
-      data.orderNo=await DB.nextOrderNo();
-      await DB.addOrder(data);
-      U.toast('บันทึกออเดอร์แล้ว ✓');
-      // แจ้งเตือน LINE กลุ่ม (fire-and-forget)
-      const lineItems = data.items.map(it=>({
+      // แจ้งเตือน LINE กลุ่ม — แก้ไขออเดอร์ (fire-and-forget)
+      const lineItemsEdit = data.items.map(it=>({
         name: it.productName,
-        qty: it.qty,
-        total: it.qty * it.price
+        qty: it.qty
       }));
-      const lineTotal = lineItems.reduce((s,i)=>s+i.total,0) - (data.discount||0);
       fetch('/api/notify-line', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
+          type: 'edit',
+          orderNo: old.orderNo,
+          customerName: data.customerName,
+          items: lineItemsEdit,
+          createdAt: data.createdAt
+        })
+      }).catch(()=>{});
+    } else {
+      data.orderNo=await DB.nextOrderNo();
+      await DB.addOrder(data);
+      U.toast('บันทึกออเดอร์แล้ว ✓');
+      // แจ้งเตือน LINE กลุ่ม — ออเดอร์ใหม่ (fire-and-forget)
+      const lineItems = data.items.map(it=>({
+        name: it.productName,
+        qty: it.qty
+      }));
+      fetch('/api/notify-line', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          type: 'new',
           orderNo: data.orderNo,
           customerName: data.customerName,
           items: lineItems,
-          total: lineTotal,
           createdAt: data.createdAt
         })
-      }).catch(()=>{}); // ไม่แสดง error ถ้าแจ้งเตือนล้มเหลว
+      }).catch(()=>{});
     }
     closeModal('orderModal');
     navigate('orders');
@@ -1656,7 +1670,29 @@ async function saveOrder() {
 
 function deleteOrder(id) {
   U_confirm('ต้องการลบออเดอร์นี้ใช่ไหม? ข้อมูลจะหายไปถาวร', async()=>{
-    await DB.delOrder(id); U.toast('ลบออเดอร์แล้ว'); navigate('orders');
+    // ดึงข้อมูลออเดอร์ก่อนลบ เพื่อส่ง LINE notify
+    const order = await DB.getOrder(id);
+    await DB.delOrder(id);
+    U.toast('ลบออเดอร์แล้ว');
+    navigate('orders');
+    // แจ้งเตือน LINE กลุ่ม — ลบออเดอร์ (fire-and-forget)
+    if (order) {
+      const lineItems = (order.items||[]).map(it=>({
+        name: it.productName,
+        qty: it.qty
+      }));
+      fetch('/api/notify-line', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          type: 'delete',
+          orderNo: order.orderNo,
+          customerName: order.customerName,
+          items: lineItems,
+          createdAt: order.createdAt
+        })
+      }).catch(()=>{});
+    }
   });
 }
 

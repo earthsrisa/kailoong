@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-  // รับเฉพาะ POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -11,29 +10,74 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Missing LINE config' });
   }
 
-  const { orderNo, customerName, items, total, createdAt } = req.body;
+  const { type, orderNo, customerName, items, createdAt } = req.body;
+  // type: 'new' | 'edit' | 'delete'
 
-  // สร้างข้อความแจ้งเตือน
   const dateStr = new Date(createdAt).toLocaleString('th-TH', {
     timeZone: 'Asia/Bangkok',
     year: 'numeric', month: 'short', day: 'numeric',
     hour: '2-digit', minute: '2-digit'
   });
 
-  const itemLines = (items || [])
-    .map(i => `  • ${i.name} × ${i.qty} = ${Number(i.total).toLocaleString('th-TH')} ฿`)
+  const itemList = items || [];
+
+  // รายการสินค้า (ไม่แสดงราคา)
+  const numEmoji = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
+  const itemLines = itemList
+    .map((i, idx) => {
+      const num = numEmoji[idx] || `${idx+1}.`;
+      return `${num} ${i.name} × ${i.qty} ใบ`;
+    })
     .join('\n');
 
-  const message =
-    `📦 ออเดอร์ใหม่เข้ามาแล้ว!\n` +
-    `━━━━━━━━━━━━━━━\n` +
-    `🔢 เลขที่: ${orderNo}\n` +
-    `👤 ลูกค้า: ${customerName}\n` +
-    `📅 วันที่: ${dateStr}\n` +
-    `━━━━━━━━━━━━━━━\n` +
-    `${itemLines}\n` +
-    `━━━━━━━━━━━━━━━\n` +
-    `💰 รวม: ${Number(total).toLocaleString('th-TH')} ฿`;
+  // สรุปรวมจำนวน
+  const totalQty = itemList.reduce((s, i) => s + Number(i.qty), 0);
+
+  // สรุปโลงแต่ละประเภท
+  const coffin_summary = itemList
+    .map(i => `${i.name} ${i.qty} ใบ`)
+    .join(', ');
+
+  let header, icon;
+  if (type === 'edit') {
+    icon = '✏️';
+    header = `✏️ แก้ไขออเดอร์แล้ว (#${orderNo} แก้ไข)`;
+  } else if (type === 'delete') {
+    icon = '🗑️';
+    header = `🗑️ ลบออเดอร์แล้ว!`;
+  } else {
+    icon = '📦';
+    header = `📦 ออเดอร์ใหม่เข้ามาแล้ว!`;
+  }
+
+  const divider = '━━━━━━━━━━━━━━━';
+
+  let message;
+  if (type === 'delete') {
+    message =
+      `${header}\n` +
+      `${divider}\n` +
+      `🔢 เลขที่: ${orderNo}\n` +
+      `👤 ลูกค้า: ${customerName}\n` +
+      `📅 วันที่: ${dateStr}\n` +
+      `${divider}\n` +
+      `รายการที่ถูกลบ:\n` +
+      itemLines.split('\n').map(l => `❌ ${l.replace(/^[0-9️⃣🔟]+\s/, '')}`).join('\n') + '\n' +
+      `${divider}\n` +
+      `🗑️ ลบออกทั้งหมด ${totalQty} ใบ (${coffin_summary})`;
+  } else {
+    message =
+      `${header}\n` +
+      `${divider}\n` +
+      `🔢 เลขที่: ${orderNo}\n` +
+      `👤 ลูกค้า: ${customerName}\n` +
+      `📅 วันที่: ${dateStr}\n` +
+      `${divider}\n` +
+      `รายการสินค้า:\n` +
+      `${itemLines}\n` +
+      `${divider}\n` +
+      `📊 สรุป: ${customerName} สั่ง ${coffin_summary} รวม ${totalQty} ใบ`;
+  }
 
   try {
     const response = await fetch('https://api.line.me/v2/bot/message/push', {
