@@ -1640,21 +1640,41 @@ async function saveOrder() {
       const old=await DB.getOrder(editId);
       await DB.putOrder({...old,...data,id:editId});
       U.toast('แก้ไขออเดอร์แล้ว ✓');
-      // แจ้งเตือน LINE กลุ่ม — แก้ไขออเดอร์ (fire-and-forget)
-      const lineItemsEdit = data.items.map(it=>({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'' }));
-      const todayEdit = await getTodayOrdersSummary();
-      fetch('/api/notify-line', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          type: 'edit',
-          orderNo: old.orderNo,
-          customerName: data.customerName,
-          items: lineItemsEdit,
-          createdAt: data.createdAt,
-          todayOrders: todayEdit
-        })
-      }).catch(()=>{});
+      // แจ้งเตือน LINE กลุ่ม — แก้ไขออเดอร์ (เฉพาะรายการที่เปลี่ยน)
+      const oldItemMap = {};
+      (old.items||[]).forEach(it => { oldItemMap[it.productId] = it; });
+      const newItemMap = {};
+      (data.items||[]).forEach(it => { newItemMap[it.productId] = it; });
+      const changedItems = [];
+      // เพิ่มใหม่ หรือ แก้ไข
+      for (const it of data.items) {
+        const prev = oldItemMap[it.productId];
+        if (!prev) {
+          changedItems.push({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType: 'added' });
+        } else if (it.qty !== prev.qty || (it.color||'') !== (prev.color||'') || (it.trimColor||'') !== (prev.trimColor||'') || (it.extra||'') !== (prev.extra||'')) {
+          changedItems.push({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType: 'modified' });
+        }
+      }
+      // ลบออก
+      for (const it of (old.items||[])) {
+        if (!newItemMap[it.productId]) {
+          changedItems.push({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType: 'removed' });
+        }
+      }
+      if (changedItems.length > 0) {
+        const todayEdit = await getTodayOrdersSummary();
+        fetch('/api/notify-line', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            type: 'edit',
+            customerName: data.customerName,
+            items: changedItems,
+            createdAt: data.createdAt,
+            todayOrders: todayEdit
+          })
+        }).catch(()=>{});
+      }
     } else {
       data.orderNo=await DB.nextOrderNo();
       await DB.addOrder(data);

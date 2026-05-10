@@ -21,12 +21,17 @@ export default async function handler(req, res) {
 
   const itemList = items || [];
 
-  // รายการสินค้า (รวม สีโลง + สีเส้น, ไม่แสดงราคา)
+  // รายการสินค้า (รวม สีโลง + สีเส้น)
   const numEmoji = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
   const itemLines = itemList
     .map((i, idx) => {
-      const num = numEmoji[idx] || `${idx+1}.`;
       const parts = [i.name, i.color, i.trimColor].filter(Boolean);
+      if (type === 'edit') {
+        // แสดง icon ตามประเภทการเปลี่ยนแปลง
+        const icon = i.changeType === 'added' ? '➕' : i.changeType === 'removed' ? '➖' : '✏️';
+        return `${icon} ${parts.join(' ')} × ${i.qty} ใบ`;
+      }
+      const num = numEmoji[idx] || `${idx+1}.`;
       return `${num} ${parts.join(' ')} × ${i.qty} ใบ`;
     })
     .join('\n');
@@ -59,13 +64,14 @@ export default async function handler(req, res) {
       `รายการที่ถูกลบ:\n` +
       deleteItemLines;
   } else {
+    const sectionLabel = type === 'edit' ? 'รายการที่เปลี่ยนแปลง:' : 'รายการสินค้า:';
     message =
       `${header}\n` +
       `${divider}\n` +
       `👤 ลูกค้า: ${customerName}\n` +
       `📅 วันที่: ${dateStr}\n` +
       `${divider}\n` +
-      `รายการสินค้า:\n` +
+      `${sectionLabel}\n` +
       `${itemLines}`;
   }
 
