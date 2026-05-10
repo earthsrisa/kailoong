@@ -815,7 +815,7 @@ async function renderDashboard(el) {
             <span id="pendingCount" style="background:rgba(255,255,255,.2);border-radius:20px;padding:1px 10px;font-size:12px;margin-left:6px;">${pendingOrders.length} รายการ</span>
           </h3>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <input type="date" id="pendingDatePicker" value="${new Date().toISOString().slice(0,10)}" onchange="filterPendingByDate(this.value)" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:12px;padding:4px 8px;cursor:pointer;">
+            <input type="date" id="pendingDatePicker" value="${todayLocal()}" onchange="filterPendingByDate(this.value)" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:12px;padding:4px 8px;cursor:pointer;">
             <button class="btn-card-outline" onclick="showPrintSelectModal()"><i class="fa-solid fa-print me-1"></i>พิมพ์รายการรอส่ง</button>
             <button class="btn-card-solid" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>
           </div>
@@ -1028,6 +1028,20 @@ async function saveAddItems(orderId) {
     if (extraNotes) order.notes=(order.notes?order.notes+' | ':'')+extraNotes;
     await DB.putOrder(order);
     U.toast('เพิ่มรายการเข้าออเดอร์แล้ว ✓');
+    // แจ้งเตือน LINE — แสดงเฉพาะรายการที่เพิ่มเข้ามา
+    if (newItems.length > 0) {
+      const todayAdd = await getTodayOrdersSummary();
+      fetch('/api/notify-line', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          type: 'edit',
+          customerName: order.customerName,
+          items: newItems.map(it => ({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType: 'added' })),
+          createdAt: order.createdAt,
+          todayOrders: todayAdd
+        })
+      }).catch(()=>{});
+    }
     closeModal('addItemsModal');
     navigate('orders');
   } catch(e) {
@@ -1268,7 +1282,7 @@ async function filterPendingByDate(dateStr) {
   const allOrders = window._allOrdersCache || [];
   const selDate = new Date(dateStr); selDate.setHours(0,0,0,0);
   const selTs = selDate.getTime();
-  const isToday = dateStr === new Date().toISOString().slice(0,10);
+  const isToday = dateStr === todayLocal();
 
   const filtered = allOrders.filter(o => {
     const created = new Date(o.createdAt); created.setHours(0,0,0,0);
@@ -1346,10 +1360,11 @@ function buildPendingHtml(orders) {
 
 function markDeliveredGroup(ids) {
   U_confirm(`ยืนยันการจัดส่ง ${ids.length} ออเดอร์ใช่ไหม?`, async()=>{
-    for (const id of ids) {
+    const deliveredAt = Date.now();
+    await Promise.all(ids.map(async id => {
       const o = await DB.getOrder(id);
-      if (o) await DB.putOrder({...o, isDelivered:true, deliveredAt:Date.now()});
-    }
+      if (o) await DB.putOrder({...o, isDelivered:true, deliveredAt});
+    }));
     U.toast('บันทึกจัดส่งแล้ว ✓');
     navigate('dashboard');
   }, {title:'ยืนยันการจัดส่ง', yesLabel:'ส่งแล้ว', yesCls:'btn-success', icon:'fa-truck', iconColor:'#16a34a'});
@@ -1661,7 +1676,11 @@ async function saveOrder() {
           changedItems.push({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType: 'removed' });
         }
       }
-      if (changedItems.length > 0) {
+      const custChanged = data.customerName !== (old.customerName || '');
+      if (changedItems.length > 0 || custChanged) {
+        // ถ้าชื่อลูกค้าเปลี่ยนแต่ไม่มีรายการเปลี่ยน ให้แสดงว่าแก้ไขชื่อ
+        const notifyItems = changedItems.length > 0 ? changedItems
+          : [{ name: `(เปลี่ยนชื่อจาก "${old.customerName}" → "${data.customerName}")`, qty: 0, color: '', trimColor: '', changeType: 'modified' }];
         const todayEdit = await getTodayOrdersSummary();
         fetch('/api/notify-line', {
           method:'POST',
@@ -1669,7 +1688,7 @@ async function saveOrder() {
           body: JSON.stringify({
             type: 'edit',
             customerName: data.customerName,
-            items: changedItems,
+            items: notifyItems,
             createdAt: data.createdAt,
             todayOrders: todayEdit
           })
@@ -1828,7 +1847,7 @@ async function showCustomerHistory(custId) {
         <table class="table-clean"><thead><tr><th>วันที่</th><th>เลขใบเสร็จ</th><th>ยอดรวม</th><th>สถานะ</th><th></th></tr></thead>
         <tbody>${invRows}</tbody></table></div></div>
     </div>`;
-  showModal('custHistModal',`ประวัติ: ${U.esc(cust.name)}`,body,`<button class="btn btn-primary" onclick="navigate('customers')">ปิด</button><button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>`,'modal-lg');
+  showModal('custHistModal',`ประวัติ: ${U.esc(cust.name)}`,body,`<button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>`,'modal-lg');
 }
 
 async function showCustomerModal(id) {
@@ -1868,7 +1887,13 @@ async function saveCustomer() {
   }
 }
 
-function deleteCustomer(id) {
+async function deleteCustomer(id) {
+  const [orders, invoices] = await Promise.all([DB.getOrders(), DB.getInvoices()]);
+  const hasOrders   = orders.find(o=>String(o.customerId)===String(id));
+  const hasInvoices = invoices.find(i=>String(i.customerId)===String(id));
+  if (hasOrders || hasInvoices) {
+    U.toast(`ไม่สามารถลบได้ มีออเดอร์/ใบเสร็จที่เชื่อมกับลูกค้านี้อยู่`, 'error'); return;
+  }
   U_confirm('ต้องการลบลูกค้านี้ใช่ไหม? ข้อมูลจะหายไปถาวร', async()=>{
     await DB.delCustomer(id);U.toast('ลบลูกค้าแล้ว');navigate('customers');
   });
@@ -2067,7 +2092,12 @@ async function saveProduct() {
   }
 }
 
-function deleteProduct(id) {
+async function deleteProduct(id) {
+  const orders = await DB.getOrders();
+  const inUse = orders.find(o=>(o.items||[]).some(it=>String(it.productId)===String(id)));
+  if (inUse) {
+    U.toast('ไม่สามารถลบได้ มีออเดอร์ที่ใช้สินค้านี้อยู่', 'error'); return;
+  }
   U_confirm('ต้องการลบสินค้านี้ใช่ไหม? ข้อมูลจะหายไปถาวร', async()=>{
     await DB.delProduct(id);U.toast('ลบสินค้าแล้ว');navigate('products');
   });
@@ -2162,8 +2192,8 @@ function applyInvFilter() {
   if (custId) data = data.filter(i=>String(i.customerId)===custId);
   if (status==='paid')   data = data.filter(i=>i.isPaid);
   if (status==='unpaid') data = data.filter(i=>!i.isPaid);
-  if (from)   data = data.filter(i=>new Date(i.createdAt).toISOString().slice(0,10)>=from);
-  if (to)     data = data.filter(i=>new Date(i.createdAt).toISOString().slice(0,10)<=to);
+  if (from)   data = data.filter(i=>new Date(i.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'})>=from);
+  if (to)     data = data.filter(i=>new Date(i.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'})<=to);
   document.getElementById('invTbody').innerHTML=data.map(invRow).join('')||emptyRow(7,'ไม่พบใบเสร็จ');
 }
 
@@ -2223,7 +2253,7 @@ async function showCreateReceiptModal(editId, prefillCustName) {
     </div>
     <div class="col-sm-4">
       <label class="form-label">ดึงออเดอร์ของวันที่</label>
-      <input type="date" class="form-control" id="rc_pullDate" value="${new Date().toISOString().split('T')[0]}">
+      <input type="date" class="form-control" id="rc_pullDate" value="${todayLocal()}">
     </div>
     <div class="col-sm-3 d-flex align-items-end">
       <button type="button" class="btn btn-success w-100" onclick="pullOrdersToReceipt()">
@@ -2669,7 +2699,7 @@ async function exportExcel() {
     const t=U.invTotal(inv);
     return {'เลขที่ใบเสร็จ':inv.invoiceNo||'','ลูกค้า':inv.customerName||'','วันที่':U.date(inv.createdAt),
       'รายการสินค้า':(inv.items||[]).map(i=>i.name+' x'+i.qty).join(', '),
-      'ยอดก่อนส่วนลด':t.subtotal,'ส่วนลด':t.discount,'ยอดสุทธิ':t.total,
+      'ยอดก่อนส่วนลด':t.sub,'ส่วนลด':t.disc,'ยอดสุทธิ':t.total,
       'ชำระแล้ว (บาท)':invPaid(inv),'ยังค้าง (บาท)':Math.max(0,t.total-invPaid(inv)),
       'สถานะ':invPaid(inv)>=t.total&&t.total>0?'ชำระแล้ว':invPaid(inv)>0?'ชำระบางส่วน':'ค้างชำระ','วันที่ชำระ':inv.paidAt?U.date(inv.paidAt):''};
   });
@@ -3264,13 +3294,13 @@ async function renderExpenses(el) {
 async function showExpenseModal(id) {
   const CATS = ['วัตถุดิบ','ค่าแรง','ค่าไฟ/น้ำ','ค่าเช่า','ขนส่ง','ซ่อมแซม','อื่นๆ'];
   const exp = id ? await DB.getExpense(id) : null;
-  const today = new Date().toISOString().slice(0,10);
+  const today = todayLocal();
 
   const body = `
     <div class="row g-3">
       <div class="col-sm-6">
         <label class="form-label">วันที่ <span class="text-danger">*</span></label>
-        <input type="date" class="form-control" id="exp_date" value="${exp ? new Date(exp.date).toISOString().slice(0,10) : today}">
+        <input type="date" class="form-control" id="exp_date" value="${exp ? new Date(exp.date).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}) : today}">
       </div>
       <div class="col-sm-6">
         <label class="form-label">หมวดหมู่</label>
