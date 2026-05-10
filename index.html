@@ -216,6 +216,28 @@ body { background: #f0f2f5; margin: 0; }
 .bnav-item span { font-family: 'Sarabun', sans-serif; }
 .bnav-item.active { color: #60a5fa; }
 .bnav-item:hover { color: #fff; }
+/* ── Bottom nav "เพิ่มเติม" overlay ── */
+#bnav-more-overlay {
+  display: none; position: fixed; inset: 0; z-index: 199;
+  background: rgba(0,0,0,.45);
+}
+#bnav-more-overlay.open { display: block; }
+#bnav-more-menu {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 210;
+  background: #1a2332; border-top: 1px solid #2d3f57;
+  padding: 12px 16px calc(env(safe-area-inset-bottom,0px) + 64px);
+  transform: translateY(100%); transition: transform .22s ease;
+  display: none;
+}
+#bnav-more-menu.open { display: block; transform: translateY(0); }
+#bnav-more-menu .bm-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 12px; color: #c9d9ec; font-size: 15px; font-weight: 500;
+  border-radius: 10px; cursor: pointer; border: none; background: none; width: 100%;
+  transition: background .15s;
+}
+#bnav-more-menu .bm-item:hover, #bnav-more-menu .bm-item.active { background: #243040; color: #fff; }
+#bnav-more-menu .bm-item i { width: 24px; text-align: center; font-size: 17px; color: #60a5fa; }
 
 /* ── Mobile ── */
 @media (max-width: 768px) {
@@ -331,6 +353,15 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 </div>
 
 <!-- BOTTOM NAV (mobile only) -->
+<!-- Bottom nav more-menu overlay -->
+<div id="bnav-more-overlay" onclick="closeBnavMore()"></div>
+<div id="bnav-more-menu">
+  <button class="bm-item" data-page="products" onclick="closeBnavMore();navigate('products')"><i class="fa-solid fa-box"></i>สินค้า</button>
+  <button class="bm-item" data-page="reports" onclick="closeBnavMore();navigate('reports')"><i class="fa-solid fa-chart-bar"></i>รายงาน</button>
+  <button class="bm-item" data-page="expenses" onclick="closeBnavMore();navigate('expenses')"><i class="fa-solid fa-money-bill-wave"></i>รายจ่ายโรงงาน</button>
+  <button class="bm-item" data-page="settings" onclick="closeBnavMore();navigate('settings')"><i class="fa-solid fa-gear"></i>ตั้งค่าร้าน</button>
+</div>
+
 <nav id="bottom-nav">
   <button class="bnav-item" data-page="dashboard" onclick="navigate('dashboard')">
     <i class="fa-solid fa-chart-pie"></i><span>หน้าหลัก</span>
@@ -344,8 +375,8 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
   <button class="bnav-item" data-page="customers" onclick="navigate('customers')">
     <i class="fa-solid fa-users"></i><span>ลูกค้า</span>
   </button>
-  <button class="bnav-item" data-page="products" onclick="navigate('products')">
-    <i class="fa-solid fa-box"></i><span>สินค้า</span>
+  <button class="bnav-item" id="bnavMoreBtn" onclick="toggleBnavMore()">
+    <i class="fa-solid fa-ellipsis"></i><span>เพิ่มเติม</span>
   </button>
 </nav>
 
@@ -588,13 +619,30 @@ const U = {
   toast(msg,type='success') {
     const el=document.createElement('div');
     el.className='toast-notif';
-    el.style.cssText='position:fixed;bottom:24px;right:24px;z-index:9999;min-width:240px;';
+    // บนมือถือ (bottom-nav แสดง) เลื่อน toast ขึ้น 72px ไม่ให้ทับ
+    const isMobile=window.innerWidth<992;
+    const bottom=isMobile?'82px':'24px';
+    el.style.cssText=`position:fixed;bottom:${bottom};right:16px;z-index:9999;min-width:220px;max-width:calc(100vw - 32px);`;
     el.innerHTML=`<div class="alert alert-${type==='success'?'success':'danger'} shadow-sm d-flex align-items-center gap-2" style="border-radius:10px;font-size:14px;">
       <i class="fa-solid ${type==='success'?'fa-circle-check':'fa-circle-xmark'}"></i>${msg}</div>`;
     document.body.appendChild(el);
     setTimeout(()=>el.remove(),3000);
   },
 };
+
+// ═══════════════════════════════════════
+//  BOTTOM NAV MORE MENU
+// ═══════════════════════════════════════
+function toggleBnavMore() {
+  const menu=document.getElementById('bnav-more-menu');
+  const overlay=document.getElementById('bnav-more-overlay');
+  const isOpen=menu.classList.contains('open');
+  if(isOpen){closeBnavMore();}else{menu.classList.add('open');overlay.classList.add('open');}
+}
+function closeBnavMore() {
+  document.getElementById('bnav-more-menu')?.classList.remove('open');
+  document.getElementById('bnav-more-overlay')?.classList.remove('open');
+}
 
 // ═══════════════════════════════════════
 //  NAVIGATION
@@ -612,12 +660,21 @@ if (window.navigator.standalone === true) {
 }
 
 function navigate(page) {
+  closeBnavMore();
   window._currentPage = page;
   document.querySelectorAll('#sidebar .nav-link').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   document.querySelectorAll('#bottom-nav .bnav-item').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
+  // ถ้าหน้าอยู่ใน more-menu ให้ไฮไลท์ปุ่ม "เพิ่มเติม" แทน
+  const morePages=['products','reports','expenses','settings'];
+  document.getElementById('bnavMoreBtn')?.classList.toggle('active', morePages.includes(page));
+  document.querySelectorAll('#bnav-more-menu .bm-item').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   document.getElementById('pageTitle').textContent=PAGE_TITLES[page]||page;
   document.getElementById('topbarActions').innerHTML='';
-  const el=document.getElementById('page-content');
+  // สร้าง element ใหม่ทุกครั้ง เพื่อป้องกัน async render เก่า update ทับหน้าใหม่
+  const old = document.getElementById('page-content');
+  const el = document.createElement('div');
+  el.id = 'page-content';
+  old.parentNode.replaceChild(el, old);
   // Dashboard แสดง skeleton ทันที, หน้าอื่นแสดง spinner
   el.innerHTML = page==='dashboard' ? SKELETON_CARDS
     : '<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>กำลังโหลด...</p></div>';
@@ -818,7 +875,7 @@ function applyOrderFilter() {
   const search  = (document.getElementById('filterSearch')?.value||'').toLowerCase();
   let list = window._allOrders||[];
   if (custId)  list = list.filter(o=>String(o.customerId)===custId);
-  if (date)    list = list.filter(o=>new Date(o.createdAt).toISOString().startsWith(date));
+  if (date)    list = list.filter(o=>new Date(o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'})===date);
   if (search)  list = list.filter(o=>o.orderNo?.toLowerCase().includes(search)||o.customerName?.toLowerCase().includes(search)||(o.items||[]).some(i=>i.productName?.toLowerCase().includes(search)));
   document.getElementById('ordersTbody').innerHTML = renderOrderRows(list);
 }
@@ -1472,8 +1529,9 @@ function calcOrderTotal() {
 }
 
 async function saveOrder() {
+  if (window._saving){return;} window._saving=true;
   const custId=document.getElementById('of_cust')?.value||'';
-  if (!custId){U.toast('กรุณาเลือกลูกค้า','error');return;}
+  if (!custId){window._saving=false;U.toast('กรุณาเลือกลูกค้า','error');return;}
   const cust=await DB.getCustomer(custId);
 
   const items=[]; let anyItem=false;
@@ -1514,6 +1572,7 @@ async function saveOrder() {
     await DB.addOrder(data);
     U.toast('บันทึกออเดอร์แล้ว ✓');
   }
+  window._saving=false;
   closeModal('orderModal');
   navigate('orders');
 }
@@ -1642,12 +1701,14 @@ async function showCustomerModal(id) {
 }
 
 async function saveCustomer() {
+  if (window._saving){return;} window._saving=true;
   const name=document.getElementById('cf_name')?.value.trim();
-  if (!name){U.toast('กรุณากรอกชื่อ','error');return;}
+  if (!name){window._saving=false;U.toast('กรุณากรอกชื่อ','error');return;}
   const id=document.getElementById('cf_id')?.value||'';
   const data={name,phone:document.getElementById('cf_phone')?.value.trim()||'',taxId:document.getElementById('cf_taxId')?.value.trim()||'',address:document.getElementById('cf_address')?.value.trim()||'',notes:document.getElementById('cf_notes')?.value.trim()||''};
   if (id){const old=await DB.getCustomer(id);await DB.putCustomer({...old,...data});U.toast('แก้ไขข้อมูลลูกค้าแล้ว ✓');}
   else{await DB.addCustomer(data);U.toast('เพิ่มลูกค้าแล้ว ✓');}
+  window._saving=false;
   closeModal('custModal');navigate('customers');
 }
 
@@ -1819,8 +1880,9 @@ function refreshPriceFields(name) {
 }
 
 async function saveProduct() {
+  if (window._saving){return;} window._saving=true;
   const name=document.getElementById('pf_name')?.value.trim();
-  if (!name){U.toast('กรุณากรอกชื่อสินค้า','error');return;}
+  if (!name){window._saving=false;U.toast('กรุณากรอกชื่อสินค้า','error');return;}
   const id=document.getElementById('pf_id')?.value||'';
   const spec=COFFIN_SPEC[name];
   const DEFAULT_LINES=['ทอง','เงิน'];
@@ -1840,6 +1902,7 @@ async function saveProduct() {
     price:defaultPrice, priceMap};
   if (id){const old=await DB.getProduct(id);await DB.putProduct({...old,...data});U.toast('แก้ไขสินค้าแล้ว ✓');}
   else{await DB.addProduct(data);U.toast('เพิ่มสินค้าแล้ว ✓');}
+  window._saving=false;
   closeModal('prodModal');navigate('products');
 }
 
@@ -2166,8 +2229,9 @@ function calcRcTotal() {
 }
 
 async function saveReceipt(andPrint=false) {
+  if (window._saving){return;} window._saving=true;
   const custId=document.getElementById('rc_cust')?.value||'';
-  if (!custId){U.toast('กรุณาเลือกลูกค้า','error');return;}
+  if (!custId){window._saving=false;U.toast('กรุณาเลือกลูกค้า','error');return;}
   const cust=(window._rcCustList||[]).find(c=>c.id===custId)||{};
 
   const items=[];
@@ -2223,6 +2287,7 @@ async function saveReceipt(andPrint=false) {
   let savedId;
   if (editId){const old=await DB.getInvoice(editId);await DB.putInvoice({...old,...data});savedId=editId;U.toast('แก้ไขใบเสร็จแล้ว ✓');}
   else{data.invoiceNo=await DB.nextReceiptNo();savedId=await DB.addInvoice(data);U.toast('ออกใบเสร็จแล้ว ✓');}
+  window._saving=false;
   closeModal('rcModal');
   if (andPrint){
     const inv=await DB.getInvoice(savedId);
@@ -2458,12 +2523,43 @@ async function exportExcel() {
 // ═══════════════════════════════════════
 //  REPORTS
 // ═══════════════════════════════════════
+function setReportRange(r) {
+  window._reportRange = r;
+  navigate('reports');
+}
+
 async function renderReports(el) {
+  // ── ดึง filter ที่บันทึกไว้ (default: เดือนนี้) ──
+  const rng = window._reportRange || 'month';
+  const now = new Date();
+  function getRangeTs(r) {
+    const y=now.getFullYear(), m=now.getMonth(), d=now.getDate();
+    if (r==='today')  return new Date(y,m,d).getTime();
+    if (r==='week')   return new Date(y,m,d-now.getDay()).getTime();
+    if (r==='month')  return new Date(y,m,1).getTime();
+    if (r==='year')   return new Date(y,0,1).getTime();
+    if (r==='custom') {
+      const v=document.getElementById('rpt_from')?.value||window._reportFrom||'';
+      return v ? new Date(v).getTime() : 0;
+    }
+    return 0; // all
+  }
+  function getRangeEnd(r) {
+    if (r==='custom') {
+      const v=document.getElementById('rpt_to')?.value||window._reportTo||'';
+      return v ? new Date(v).setHours(23,59,59,999) : Date.now();
+    }
+    return Date.now();
+  }
+  const rangeStart = getRangeTs(rng);
+  const rangeEnd   = getRangeEnd(rng);
+
+  const rangeLabels={today:'วันนี้',week:'สัปดาห์นี้',month:'เดือนนี้',year:'ปีนี้',all:'ทั้งหมด',custom:'กำหนดเอง'};
+
   const [orders,invoices,customers,expenses]=await Promise.all([DB.getOrders(),DB.getInvoices(),DB.getCustomers(),DB.getExpenses()]);
-  const now=new Date();
   const monthStart=new Date(now.getFullYear(),now.getMonth(),1).getTime();
 
-  // ── วันนี้ ──
+  // ── วันนี้ (fixed — ไม่เปลี่ยนตาม filter) ──
   const todayOrders=orders.filter(o=>U.isToday(o.createdAt));
   const todayItemsMap={};
   todayOrders.forEach(o=>(o.items||[]).forEach(i=>{
@@ -2473,8 +2569,11 @@ async function renderReports(el) {
   }));
   const todayTotal=todayOrders.reduce((a,o)=>a+U.orderTotal(o),0);
 
-  // ── เดือน ──
-  const monthIncome=invoices.filter(i=>i.createdAt>=monthStart).reduce((a,i)=>a+U.invTotal(i).total,0);
+  // ── ช่วงที่เลือก ──
+  const rangeInvoices=invoices.filter(i=>i.createdAt>=rangeStart&&i.createdAt<=rangeEnd);
+  const rangeOrders=orders.filter(o=>o.createdAt>=rangeStart&&o.createdAt<=rangeEnd);
+  const rangeExpenses=expenses.filter(e=>e.date>=rangeStart&&e.date<=rangeEnd);
+  const monthIncome=rangeInvoices.reduce((a,i)=>a+U.invTotal(i).total,0);
 
   // ── 6 เดือน ──
   const months=Array.from({length:6},(_,k)=>{
@@ -2484,15 +2583,15 @@ async function renderReports(el) {
   const monthRevenue=months.map(m=>invoices.filter(r=>{const d=new Date(r.createdAt);return d.getFullYear()===m.year&&d.getMonth()===m.month;}).reduce((a,r)=>a+U.invTotal(r).total,0));
   const monthOrderCt=months.map(m=>orders.filter(o=>{const d=new Date(o.createdAt);return d.getFullYear()===m.year&&d.getMonth()===m.month;}).length);
 
-  // ── สินค้าขายดี ──
+  // ── สินค้าขายดี (ตามช่วงที่เลือก) ──
   const prodCount={};
-  orders.forEach(o=>(o.items||[]).forEach(i=>{prodCount[i.productName]=(prodCount[i.productName]||0)+i.qty;}));
+  rangeOrders.forEach(o=>(o.items||[]).forEach(i=>{prodCount[i.productName]=(prodCount[i.productName]||0)+i.qty;}));
   const topProds=Object.entries(prodCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
-  const avgOrder=orders.length?orders.reduce((a,o)=>a+U.orderTotal(o),0)/orders.length:0;
+  const avgOrder=rangeOrders.length?rangeOrders.reduce((a,o)=>a+U.orderTotal(o),0)/rangeOrders.length:0;
 
-  // ── กำไร/ขาดทุน ──
-  const monthExpenseTotal = expenses.filter(e=>e.date>=monthStart).reduce((a,e)=>a+(e.amount||0),0);
+  // ── กำไร/ขาดทุน (ตามช่วงที่เลือก) ──
+  const monthExpenseTotal = rangeExpenses.reduce((a,e)=>a+(e.amount||0),0);
   const allExpenseTotal   = expenses.reduce((a,e)=>a+(e.amount||0),0);
   const allIncomeTotal    = invoices.reduce((a,i)=>a+U.invTotal(i).total,0);
   const monthProfit       = monthIncome - monthExpenseTotal;
@@ -2502,6 +2601,23 @@ async function renderReports(el) {
   const monthExpenses6 = months.map(m=>expenses.filter(e=>{const d=new Date(e.date);return d.getFullYear()===m.year&&d.getMonth()===m.month;}).reduce((a,e)=>a+(e.amount||0),0));
 
   el.innerHTML=`
+  <!-- ── Filter bar ── -->
+  <div class="card-box mb-3" style="padding:12px 16px;">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <span style="font-size:13px;font-weight:600;color:#374151;white-space:nowrap;"><i class="fa-solid fa-calendar-days me-1 text-primary"></i>ช่วงเวลา:</span>
+      ${['today','week','month','year','all','custom'].map(r=>`
+        <button onclick="setReportRange('${r}')" style="padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid ${rng===r?'#2563eb':'#d1d5db'};background:${rng===r?'#2563eb':'#fff'};color:${rng===r?'#fff':'#374151'};transition:all .15s;">${{today:'วันนี้',week:'สัปดาห์นี้',month:'เดือนนี้',year:'ปีนี้',all:'ทั้งหมด',custom:'กำหนดเอง'}[r]}</button>
+      `).join('')}
+      ${rng==='custom'?`
+        <input type="date" id="rpt_from" value="${window._reportFrom||''}" onchange="window._reportFrom=this.value" style="font-size:13px;border:1px solid #d1d5db;border-radius:6px;padding:4px 8px;">
+        <span style="font-size:13px;color:#6b7280;">ถึง</span>
+        <input type="date" id="rpt_to" value="${window._reportTo||''}" onchange="window._reportTo=this.value" style="font-size:13px;border:1px solid #d1d5db;border-radius:6px;padding:4px 8px;">
+        <button onclick="navigate('reports')" style="padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid #2563eb;background:#2563eb;color:#fff;">ดูข้อมูล</button>
+      `:''}
+      <span style="margin-left:auto;font-size:12px;color:#9ca3af;">${rangeLabels[rng]}: ${rangeOrders.length} ออเดอร์ | ${rangeInvoices.length} ใบเสร็จ</span>
+    </div>
+  </div>
+
   <!-- วันนี้สั่งอะไรบ้าง -->
   <div class="card-box mb-4" style="border-left:4px solid #2563eb;">
     <div class="card-head" style="background:#f0f7ff;">
@@ -2541,11 +2657,11 @@ async function renderReports(el) {
   <div class="row g-3 mb-4">
     <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
       <div class="icon-wrap" style="background:#d1fae5;color:#059669;"><i class="fa-solid fa-baht-sign"></i></div>
-      <div><div class="label">ยอดรับเงินเดือนนี้</div><div class="value" style="font-size:20px;">฿${U.money(monthIncome)}</div></div>
+      <div><div class="label">ยอดรับเงิน (${rangeLabels[rng]})</div><div class="value" style="font-size:20px;">฿${U.money(monthIncome)}</div></div>
     </div></div>
     <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
       <div class="icon-wrap" style="background:#dbeafe;color:#2563eb;"><i class="fa-solid fa-list-check"></i></div>
-      <div><div class="label">ออเดอร์ทั้งหมด</div><div class="value">${orders.length}</div></div>
+      <div><div class="label">ออเดอร์ (${rangeLabels[rng]})</div><div class="value">${rangeOrders.length}</div></div>
     </div></div>
     <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
       <div class="icon-wrap" style="background:#fef3c7;color:#d97706;"><i class="fa-solid fa-calculator"></i></div>
@@ -2557,26 +2673,26 @@ async function renderReports(el) {
     </div></div>
   </div>
 
-  <!-- กำไร / ขาดทุน เดือนนี้ -->
+  <!-- กำไร / ขาดทุน ตามช่วงที่เลือก -->
   <div class="card-box mb-4" style="border-left:4px solid ${monthProfit>=0?'#10b981':'#ef4444'};">
     <div class="card-head" style="background:${monthProfit>=0?'#f0fdf4':'#fff5f5'};">
       <h2 style="color:${monthProfit>=0?'#059669':'#dc2626'};"><i class="fa-solid fa-scale-balanced me-2"></i>กำไร / ขาดทุน</h2>
-      <div style="font-size:11px;color:#6b7280;">เดือนนี้</div>
+      <div style="font-size:11px;color:#6b7280;">${rangeLabels[rng]}</div>
     </div>
     <div class="p-3">
       <div class="row g-3 text-center">
         <div class="col-sm-4">
-          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">รายรับเดือนนี้</div>
+          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">รายรับ (${rangeLabels[rng]})</div>
           <div style="font-size:22px;font-weight:700;color:#10b981;">฿${U.money(monthIncome)}</div>
           <div style="font-size:11px;color:#9ca3af;">จากใบเสร็จ</div>
         </div>
         <div class="col-sm-4">
-          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">รายจ่ายเดือนนี้</div>
+          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">รายจ่าย (${rangeLabels[rng]})</div>
           <div style="font-size:22px;font-weight:700;color:#dc2626;">฿${U.money(monthExpenseTotal)}</div>
           <div style="font-size:11px;color:#9ca3af;">ค่าใช้จ่ายโรงงาน</div>
         </div>
         <div class="col-sm-4" style="border-top:${monthProfit>=0?'2px solid #10b981':'2px solid #dc2626'};padding-top:12px;margin-top:4px;">
-          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">${monthProfit>=0?'กำไร':'ขาดทุน'}เดือนนี้</div>
+          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">${monthProfit>=0?'กำไร':'ขาดทุน'} (${rangeLabels[rng]})</div>
           <div style="font-size:26px;font-weight:700;color:${monthProfit>=0?'#059669':'#dc2626'};">${monthProfit>=0?'+':''}฿${U.money(Math.abs(monthProfit))}</div>
           <div style="font-size:11px;color:#9ca3af;">รายรับ − รายจ่าย</div>
         </div>
@@ -2981,11 +3097,12 @@ async function showExpenseModal(id) {
 }
 
 async function saveExpense() {
+  if (window._saving){return;} window._saving=true;
   const dateVal   = document.getElementById('exp_date')?.value;
   const amountStr = document.getElementById('exp_amount')?.value;
   const amount    = parseFloat(amountStr);
-  if (!dateVal)                              { U.toast('กรุณาเลือกวันที่','error'); return; }
-  if (!amountStr||amount<=0||isNaN(amount))  { U.toast('กรุณากรอกจำนวนเงินที่ถูกต้อง','error'); return; }
+  if (!dateVal)                              { window._saving=false;U.toast('กรุณาเลือกวันที่','error'); return; }
+  if (!amountStr||amount<=0||isNaN(amount))  { window._saving=false;U.toast('กรุณากรอกจำนวนเงินที่ถูกต้อง','error'); return; }
 
   const data = {
     date:     new Date(dateVal).getTime(),
@@ -3001,6 +3118,7 @@ async function saveExpense() {
     await DB.addExpense(data);
     U.toast('เพิ่มรายจ่ายแล้ว ✓');
   }
+  window._saving=false;
   closeModal('expenseModal');
   navigate('expenses');
 }
