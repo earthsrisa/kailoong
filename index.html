@@ -1582,6 +1582,19 @@ function calcOrderTotal() {
   s('os_sub',sub); s('os_disc',disc); s('os_total',sub-disc);
 }
 
+// คืน array [{customerName, items:[{name,qty}]}] ของออเดอร์วันนี้ (ใช้ cache ที่ถูก update แล้ว)
+async function getTodayOrdersSummary() {
+  const all = await DB.getOrders();
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const ts = todayStart.getTime();
+  return all
+    .filter(o => o.createdAt >= ts)
+    .map(o => ({
+      customerName: o.customerName,
+      items: (o.items||[]).map(it => ({ name: it.productName, qty: it.qty }))
+    }));
+}
+
 async function saveOrder() {
   if (window._saving){return;} window._saving=true;
   try {
@@ -1623,10 +1636,8 @@ async function saveOrder() {
       await DB.putOrder({...old,...data,id:editId});
       U.toast('แก้ไขออเดอร์แล้ว ✓');
       // แจ้งเตือน LINE กลุ่ม — แก้ไขออเดอร์ (fire-and-forget)
-      const lineItemsEdit = data.items.map(it=>({
-        name: it.productName,
-        qty: it.qty
-      }));
+      const lineItemsEdit = data.items.map(it=>({ name: it.productName, qty: it.qty }));
+      const todayEdit = await getTodayOrdersSummary();
       fetch('/api/notify-line', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -1635,7 +1646,8 @@ async function saveOrder() {
           orderNo: old.orderNo,
           customerName: data.customerName,
           items: lineItemsEdit,
-          createdAt: data.createdAt
+          createdAt: data.createdAt,
+          todayOrders: todayEdit
         })
       }).catch(()=>{});
     } else {
@@ -1643,10 +1655,8 @@ async function saveOrder() {
       await DB.addOrder(data);
       U.toast('บันทึกออเดอร์แล้ว ✓');
       // แจ้งเตือน LINE กลุ่ม — ออเดอร์ใหม่ (fire-and-forget)
-      const lineItems = data.items.map(it=>({
-        name: it.productName,
-        qty: it.qty
-      }));
+      const lineItems = data.items.map(it=>({ name: it.productName, qty: it.qty }));
+      const todayNew = await getTodayOrdersSummary();
       fetch('/api/notify-line', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -1655,7 +1665,8 @@ async function saveOrder() {
           orderNo: data.orderNo,
           customerName: data.customerName,
           items: lineItems,
-          createdAt: data.createdAt
+          createdAt: data.createdAt,
+          todayOrders: todayNew
         })
       }).catch(()=>{});
     }
@@ -1677,10 +1688,8 @@ function deleteOrder(id) {
     navigate('orders');
     // แจ้งเตือน LINE กลุ่ม — ลบออเดอร์ (fire-and-forget)
     if (order) {
-      const lineItems = (order.items||[]).map(it=>({
-        name: it.productName,
-        qty: it.qty
-      }));
+      const lineItems = (order.items||[]).map(it=>({ name: it.productName, qty: it.qty }));
+      const todayDel = await getTodayOrdersSummary(); // cache แล้วไม่มีออเดอร์ที่ลบ
       fetch('/api/notify-line', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
@@ -1689,7 +1698,8 @@ function deleteOrder(id) {
           orderNo: order.orderNo,
           customerName: order.customerName,
           items: lineItems,
-          createdAt: order.createdAt
+          createdAt: order.createdAt,
+          todayOrders: todayDel
         })
       }).catch(()=>{});
     }

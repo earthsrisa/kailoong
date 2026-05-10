@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Missing LINE config' });
   }
 
-  const { type, orderNo, customerName, items, createdAt } = req.body;
+  const { type, orderNo, customerName, items, createdAt, todayOrders } = req.body;
   // type: 'new' | 'edit' | 'delete'
 
   const dateStr = new Date(createdAt).toLocaleString('th-TH', {
@@ -78,6 +78,31 @@ export default async function handler(req, res) {
       `${divider}\n` +
       `📊 สรุป: ${customerName} สั่ง ${coffin_summary} รวม ${totalQty} ใบ`;
   }
+
+  // สรุปออเดอร์วันนี้ทั้งหมด (cumulative daily summary)
+  let daySummary = '';
+  if (todayOrders && todayOrders.length > 0) {
+    // จัดกลุ่มตามชื่อลูกค้า
+    const byCustomer = {};
+    for (const order of todayOrders) {
+      const cust = order.customerName || '?';
+      if (!byCustomer[cust]) byCustomer[cust] = {};
+      for (const item of (order.items || [])) {
+        const n = item.name;
+        byCustomer[cust][n] = (byCustomer[cust][n] || 0) + Number(item.qty);
+      }
+    }
+    const custLines = Object.entries(byCustomer).map(([cust, coffins]) => {
+      const parts = Object.entries(coffins).map(([n, q]) => `${n} ${q} ใบ`).join(', ');
+      return `👤 ${cust}: ${parts}`;
+    });
+    const grandTotal = todayOrders.reduce(
+      (sum, o) => sum + (o.items || []).reduce((s, i) => s + Number(i.qty), 0), 0
+    );
+    daySummary = `${divider}\n📋 สรุปออเดอร์วันนี้:\n${custLines.join('\n')}\n📦 รวมทั้งวัน ${grandTotal} ใบ`;
+  }
+
+  message += daySummary ? '\n' + daySummary : '';
 
   try {
     const response = await fetch('https://api.line.me/v2/bot/message/push', {
