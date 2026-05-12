@@ -1461,31 +1461,58 @@ function printPendingOrders(ordersInput) {
     if (p) return (p.unit||'โลง').trim() === 'โลง';
     return !!COFFIN_SPEC[productName]; // fallback ใช้ COFFIN_SPEC
   }
-  // ── group by customer name, merge items ──
+  // ── group by customer name, merge items (store full data for styled display) ──
   const custMap = new Map();
   ordersToUse.forEach(o => {
     const key = o.customerId || o.customerName;
-    if (!custMap.has(key)) custMap.set(key, {name:o.customerName, dates:[], items:{}, extras:{}});
+    if (!custMap.has(key)) custMap.set(key, {name:o.customerName, dates:[], items:new Map(), extras:{}});
     const g = custMap.get(key);
     g.dates.push(U.date(o.createdAt));
     (o.items||[]).forEach(i=>{
       const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
       const lbl=i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:'');
-      if(isCoffin(i.productName)) g.items[lbl]=(g.items[lbl]||0)+i.qty;
-      else g.extras[lbl]=(g.extras[lbl]||0)+i.qty;
+      if(isCoffin(i.productName)){
+        if(g.items.has(lbl)) g.items.get(lbl).qty+=i.qty;
+        else g.items.set(lbl,{qty:i.qty,productName:i.productName,color:i.color||'',trimColor:i.trimColor||'',isChrist,extra:i.extra||''});
+      } else g.extras[lbl]=(g.extras[lbl]||0)+i.qty;
     });
   });
   const list = [...custMap.values()];
-  const totalPieces = list.reduce((a,c)=>a+Object.values(c.items).reduce((x,v)=>x+v,0),0);
+  const totalPieces = list.reduce((a,c)=>a+[...c.items.values()].reduce((x,v)=>x+v.qty,0),0);
   const totalCusts  = list.length;
 
+  // สร้าง HTML badge สำหรับสีโลง
+  function colorBadge(color) {
+    if (!color || color==='-') return '';
+    const s = {
+      'ขาว':    'background:#fff;color:#000;border:1.5px solid #333;',
+      'แดง':    'background:#7f0000;color:#fff;border:1px solid #7f0000;',
+      'ดำ':     'background:#111;color:#fff;',
+      'น้ำตาล': 'background:#92400e;color:#fff;',
+    }[color] || 'background:#e5e7eb;color:#374151;';
+    return `<span style="display:inline-block;${s}border-radius:3px;padding:1px 7px;font-size:12px;margin-left:3px;">${color}</span>`;
+  }
+  // สร้าง HTML badge สำหรับสีเส้น
+  function trimBadge(trim, isChrist) {
+    if (isChrist) return '<span style="display:inline-block;background:#dbeafe;color:#1e40af;border-radius:3px;padding:1px 7px;font-size:12px;margin-left:3px;">✝คริสต์</span>';
+    if (!trim) return '';
+    const s = {
+      'เงิน': 'background:#d1d5db;color:#111;border:1.5px solid #6b7280;',
+      'ทอง':  'background:#b45309;color:#fff;border:1px solid #92400e;',
+      'ขาว':  'background:#fff;color:#111;border:1.5px solid #374151;',
+      'ซีด':  'background:#d9f99d;color:#365314;border:1px solid #a3e635;',
+    }[trim] || 'background:#f3f4f6;color:#374151;';
+    return `<span style="display:inline-block;${s}border-radius:3px;padding:1px 7px;font-size:12px;margin-left:3px;">เส้น${trim}</span>`;
+  }
+
   const rows = list.map(c=>{
-    const custPieces = Object.values(c.items).reduce((a,v)=>a+v,0);
-    const itemRows = Object.entries(c.items).map(([name,qty])=>{
-      const boxes = Array.from({length:qty},()=>'<span class="pen-box"></span>').join('');
+    const custPieces = [...c.items.values()].reduce((a,v)=>a+v.qty,0);
+    const itemRows = [...c.items.values()].map(it=>{
+      const boxes = Array.from({length:it.qty},()=>'<span class="pen-box"></span>').join('');
+      const extraHtml = it.extra ? ` <em style="color:#9ca3af;font-size:12px;">${it.extra}</em>` : '';
       return `<tr>
-        <td>${name}</td>
-        <td class="c-qty">${qty} ชิ้น</td>
+        <td><strong>${it.productName}</strong>${colorBadge(it.color)}${trimBadge(it.trimColor,it.isChrist)}${extraHtml}</td>
+        <td class="c-qty">${it.qty} ชิ้น</td>
         <td class="c-box">${boxes}</td>
       </tr>`;
     }).join('');
