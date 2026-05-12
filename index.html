@@ -1545,7 +1545,7 @@ function printPendingOrders(ordersInput) {
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
   <title>รายการออเดอร์วันนี้</title>
   <style>
-    *{box-sizing:border-box;}
+    *{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
     body{font-family:'Sarabun',sans-serif;padding:10mm 10mm 8mm;color:#111;font-size:14px;margin:0;}
     h1{font-size:20px;font-weight:800;margin:0 0 2px;}
     .sub{font-size:13px;color:#555;margin-bottom:10px;}
