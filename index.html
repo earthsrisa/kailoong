@@ -782,7 +782,7 @@ async function renderDashboard(el) {
 
   // รายการรอส่ง: ยังไม่ส่ง หรือ ส่งแล้วแต่ยังเป็นวันนี้
   const pendingOrders = orders.filter(o=>
-    !o.isDelivered || (o.deliveredAt && o.deliveredAt >= todayTs)
+    !o.isDelivered
   ).sort((a,b)=>a.createdAt-b.createdAt);
 
   const dateLabel=new Date().toLocaleDateString('th-TH-u-ca-buddhist',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -1290,7 +1290,7 @@ async function filterPendingByDate(dateStr) {
     const createdTs = created.getTime();
     const delivTs = o.deliveredAt ? (() => { const dd=new Date(o.deliveredAt);dd.setHours(0,0,0,0);return dd.getTime(); })() : null;
     if (isToday) {
-      return !o.isDelivered || (delivTs !== null && delivTs >= selTs);
+      return !o.isDelivered;
     } else {
       return createdTs === selTs;
     }
