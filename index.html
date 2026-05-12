@@ -1461,17 +1461,21 @@ function printPendingOrders(ordersInput) {
     if (p) return (p.unit||'โลง').trim() === 'โลง';
     return !!COFFIN_SPEC[productName]; // fallback ใช้ COFFIN_SPEC
   }
-  const list = ordersToUse.map(o=>{
-    const items={};     // โลง (นับจำนวน)
-    const extras={};    // อุปกรณ์เสริม (แสดงแต่ไม่นับ)
+  // ── group by customer name, merge items ──
+  const custMap = new Map();
+  ordersToUse.forEach(o => {
+    const key = o.customerId || o.customerName;
+    if (!custMap.has(key)) custMap.set(key, {name:o.customerName, dates:[], items:{}, extras:{}});
+    const g = custMap.get(key);
+    g.dates.push(U.date(o.createdAt));
     (o.items||[]).forEach(i=>{
       const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
-      const key=i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:'');
-      if(isCoffin(i.productName)) items[key]=(items[key]||0)+i.qty;
-      else extras[key]=(extras[key]||0)+i.qty;
+      const lbl=i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:'');
+      if(isCoffin(i.productName)) g.items[lbl]=(g.items[lbl]||0)+i.qty;
+      else g.extras[lbl]=(g.extras[lbl]||0)+i.qty;
     });
-    return {name:o.customerName, date:U.date(o.createdAt), items, extras};
   });
+  const list = [...custMap.values()];
   const totalPieces = list.reduce((a,c)=>a+Object.values(c.items).reduce((x,v)=>x+v,0),0);
   const totalCusts  = list.length;
 
@@ -1491,11 +1495,11 @@ function printPendingOrders(ordersInput) {
         <td class="c-qty" style="color:#6b7280;">${qty}</td>
         <td class="c-box"></td>
       </tr>`).join('');
-    const extraSection = extraRows ? `<tr><td colspan="3" style="font-size:9px;color:#9ca3af;padding:3px 8px;border-top:1px dashed #e5e7eb;">อุปกรณ์เสริม</td></tr>${extraRows}` : '';
+    const extraSection = extraRows ? `<tr><td colspan="3" style="font-size:11px;color:#9ca3af;padding:3px 8px;border-top:1px dashed #e5e7eb;">อุปกรณ์เสริม</td></tr>${extraRows}` : '';
     return `
     <div class="cust-block">
       <div class="cust-head">
-        <span class="cust-name">${c.name}</span><span style="font-size:10px;opacity:.7;margin-left:6px;">${c.date||''}</span>
+        <span class="cust-name">${c.name}</span>
         <span class="cust-count">${custPieces} โลง</span>
       </div>
       <table>
@@ -1515,31 +1519,32 @@ function printPendingOrders(ordersInput) {
   <title>รายการออเดอร์วันนี้</title>
   <style>
     *{box-sizing:border-box;}
-    body{font-family:'Sarabun',sans-serif;padding:14px 16px;color:#111;font-size:13px;margin:0;}
-    h1{font-size:17px;font-weight:700;margin:0 0 2px;}
-    .sub{font-size:11px;color:#555;margin-bottom:10px;}
+    body{font-family:'Sarabun',sans-serif;padding:10mm 10mm 8mm;color:#111;font-size:14px;margin:0;}
+    h1{font-size:20px;font-weight:800;margin:0 0 2px;}
+    .sub{font-size:13px;color:#555;margin-bottom:10px;}
     .grand-total{background:#1e3a8a;color:#fff;border-radius:8px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
-    .grand-total .label{font-size:11px;opacity:.8;margin-bottom:1px;}
-    .grand-total .num{font-size:26px;font-weight:800;letter-spacing:1px;line-height:1.1;}
-    .grand-total .sub2{font-size:10px;opacity:.75;margin-top:2px;}
-    .grid-wrap{columns:2;column-gap:10px;}
-    .cust-block{border:1.5px solid #dbeafe;border-radius:8px;margin-bottom:8px;overflow:hidden;break-inside:avoid;-webkit-column-break-inside:avoid;}
-    .cust-head{background:#eff6ff;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1.5px solid #dbeafe;}
-    .cust-name{font-size:13px;font-weight:700;color:#1e3a8a;}
-    .cust-count{font-size:10px;color:#3b82f6;font-weight:700;background:#dbeafe;padding:2px 8px;border-radius:20px;}
+    .grand-total .label{font-size:12px;opacity:.8;margin-bottom:1px;}
+    .grand-total .num{font-size:30px;font-weight:800;letter-spacing:1px;line-height:1.1;}
+    .grand-total .sub2{font-size:11px;opacity:.75;margin-top:2px;}
+    .grid-wrap{columns:2;column-gap:12px;}
+    .cust-block{border:2px solid #dbeafe;border-radius:8px;margin-bottom:10px;overflow:hidden;break-inside:avoid;-webkit-column-break-inside:avoid;}
+    .cust-head{background:#dbeafe;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #93c5fd;}
+    .cust-name{font-size:18px;font-weight:800;color:#1e3a8a;letter-spacing:.2px;}
+    .cust-count{font-size:13px;color:#1d4ed8;font-weight:800;background:#eff6ff;padding:3px 12px;border-radius:20px;border:1.5px solid #93c5fd;}
     table{width:100%;border-collapse:collapse;table-layout:fixed;}
-    col.c-name{width:auto;} col.c-qty{width:60px;} col.c-box{width:110px;}
-    th{text-align:left;background:#f1f5f9;padding:4px 8px;font-size:10px;color:#64748b;font-weight:700;letter-spacing:.3px;}
+    col.c-name{width:auto;} col.c-qty{width:66px;} col.c-box{width:120px;}
+    th{text-align:left;background:#f8fafc;padding:5px 10px;font-size:12px;color:#64748b;font-weight:700;letter-spacing:.3px;}
     th.c-qty,td.c-qty{text-align:center;}
-    th.c-box,td.c-box{text-align:left;padding-left:8px;}
-    td{padding:5px 8px;border-bottom:1px solid #f1f5f9;font-size:12px;vertical-align:middle;}
+    th.c-box,td.c-box{text-align:left;padding-left:10px;}
+    td{padding:6px 10px;border-bottom:1px solid #f1f5f9;font-size:14px;vertical-align:middle;}
     tbody tr:last-child td{border-bottom:none;}
-    td.c-qty{font-weight:700;color:#1e40af;font-size:13px;}
+    td.c-qty{font-weight:800;color:#1e40af;font-size:15px;}
     td.c-box{white-space:nowrap;}
-    .pen-box{display:inline-block;width:16px;height:16px;border:1.5px solid #374151;border-radius:2px;margin-right:3px;vertical-align:middle;}
+    .pen-box{display:inline-block;width:18px;height:18px;border:1.5px solid #374151;border-radius:2px;margin-right:3px;vertical-align:middle;}
     .no-print{margin-top:16px;}
     @media print{
-      @page{size:A4 portrait;margin:6mm;}
+      @page{size:A4 portrait;margin:8mm 10mm;}
+      body{padding:0;}
       .no-print{display:none!important;}
       .grand-total,.cust-head{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
     }
@@ -1550,7 +1555,7 @@ function printPendingOrders(ordersInput) {
     <div>
       <div class="label">สรุปยอดรวมทั้งหมด</div>
       <div class="num">${totalPieces} โลง</div>
-      <div class="sub2">${totalCusts} ออเดอร์ — ${list.map(c=>c.name).join(' · ')}</div>
+      <div class="sub2">${totalCusts} ลูกค้า — ${list.map(c=>c.name).join(' · ')}</div>
     </div>
     <div style="font-size:32px;opacity:.3;">📦</div>
   </div>
