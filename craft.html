@@ -25,7 +25,14 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
   padding-top: max(16px, env(safe-area-inset-top, 16px));
 }
 #header h1 { font-size: 17px; font-weight: 700; margin: 0; }
-#header .sub { font-size: 12px; color: #8fa3bf; margin-top: 2px; }
+#header .sub { font-size: 12px; color: #8fa3bf; margin-top: 3px; display: flex; align-items: center; gap: 5px; }
+
+/* ── Live dot ── */
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #22c55e; display: inline-block;
+  animation: livepulse 2s ease-in-out infinite;
+}
+@keyframes livepulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
 
 /* ── Select craftsman bar ── */
 #craft-select-bar {
@@ -36,15 +43,14 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 #craft-select-bar select {
   flex: 1; min-width: 180px; font-size: 15px; font-weight: 600;
   border: 2px solid #2563eb; border-radius: 10px; padding: 8px 12px;
-  background: #fff; color: #1a2332; cursor: pointer;
-  font-family: 'Sarabun', sans-serif;
+  background: #fff; color: #1a2332; cursor: pointer; font-family: 'Sarabun', sans-serif;
 }
 #craft-select-bar select:focus { outline: none; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
 
 /* ── Content ── */
-#craft-content { padding: 16px; padding-bottom: 40px; }
+#craft-content { padding: 16px; padding-bottom: 48px; }
 
-/* ── Order card ── */
+/* ── Customer card ── */
 .order-card {
   background: #fff; border-radius: 14px; margin-bottom: 14px;
   border: 1.5px solid #e8ecf0; overflow: hidden;
@@ -55,21 +61,49 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
   display: flex; align-items: center; justify-content: space-between;
 }
 .order-card-head .cust-name { font-size: 16px; font-weight: 700; color: #1a2332; }
-.order-card-head .order-meta { font-size: 12px; color: #9ca3af; margin-top: 2px; }
-.order-card-body { padding: 10px 16px; }
+.order-card-head .cust-count { font-size: 12px; color: #9ca3af; }
+.order-card-body { padding: 6px 16px; }
 
 /* ── Item row ── */
 .craft-item-row {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10px 0; border-bottom: 1px solid #f1f3f5; gap: 10px;
+  padding: 12px 0; border-bottom: 1px solid #f1f3f5; gap: 12px;
 }
 .craft-item-row:last-child { border-bottom: none; }
-.craft-item-info { flex: 1; }
-.craft-item-name { font-size: 15px; font-weight: 600; color: #1a2332; }
-.craft-item-qty { font-size: 13px; color: #6b7280; margin-top: 2px; }
+.craft-item-info { flex: 1; min-width: 0; }
+.craft-item-name { font-size: 15px; font-weight: 600; color: #1a2332; line-height: 1.3; }
+.craft-item-qty  { font-size: 13px; color: #6b7280; margin-top: 2px; }
 .craft-item-status { flex-shrink: 0; }
 
-/* ── Buttons ── */
+/* ── Progress bar (thin) ── */
+.craft-progress {
+  height: 4px; background: #e5e7eb; border-radius: 99px; margin-top: 7px; overflow: hidden;
+}
+.craft-progress-bar {
+  height: 100%; background: #2563eb; border-radius: 99px; transition: width .35s ease;
+}
+
+/* ── Stepper ── */
+.stepper { display: flex; align-items: center; gap: 6px; }
+.step-count {
+  font-size: 14px; font-weight: 700; color: #1a2332; white-space: nowrap;
+  min-width: 54px; text-align: center;
+}
+.btn-step {
+  border: none; border-radius: 8px; cursor: pointer; font-size: 17px; font-weight: 700;
+  width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+  font-family: 'Sarabun', sans-serif; transition: all .15s; flex-shrink: 0;
+}
+.btn-step-minus { background: #f3f4f6; color: #374151; }
+.btn-step-minus:hover { background: #e5e7eb; }
+.btn-step-plus {
+  background: #2563eb; color: #fff; width: auto; padding: 0 13px; font-size: 13px;
+}
+.btn-step-plus:hover { background: #1d4ed8; }
+.btn-step-plus.last-unit { background: #16a34a; }
+.btn-step-plus.last-unit:hover { background: #15803d; }
+
+/* ── Primary action button (not started) ── */
 .btn-craft-done {
   background: #2563eb; color: #fff; border: none;
   border-radius: 10px; padding: 8px 16px; font-size: 14px; font-weight: 700;
@@ -79,46 +113,56 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .btn-craft-done:hover { background: #1d4ed8; }
 .btn-craft-done:active { transform: scale(.97); }
 
+/* ── Undo button ── */
 .btn-craft-undo {
   background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db;
-  border-radius: 10px; padding: 7px 14px; font-size: 13px; font-weight: 600;
+  border-radius: 10px; padding: 7px 13px; font-size: 13px; font-weight: 600;
   cursor: pointer; font-family: 'Sarabun', sans-serif; transition: all .15s;
-  display: flex; align-items: center; gap: 5px;
+  display: flex; align-items: center; gap: 5px; white-space: nowrap;
 }
 .btn-craft-undo:hover { background: #e5e7eb; }
 
+/* ── Done badge ── */
 .badge-crafted {
   background: #dcfce7; color: #15803d; font-size: 12px; font-weight: 700;
-  padding: 4px 12px; border-radius: 20px;
-  display: flex; align-items: center; gap: 5px; white-space: nowrap;
+  padding: 3px 10px; border-radius: 20px; margin-top: 5px;
+  display: inline-flex; align-items: center; gap: 5px;
 }
 
-/* ── Confirm Modal ── */
+/* ── Done row — faded style ── */
+.craft-item-done .craft-item-name { color: #6b7280; font-weight: 500; }
+
+/* ── Divider between pending/done inside card ── */
+.done-divider {
+  font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: .8px;
+  padding: 8px 0 4px; border-top: 1px dashed #e5e7eb; margin-top: 4px; font-weight: 600;
+}
+
+/* ── Confirm overlay ── */
 .confirm-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 999;
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px;
+  display: flex; align-items: center; justify-content: center; padding: 16px;
 }
 .confirm-box {
   background: #fff; border-radius: 16px; padding: 28px 24px;
   max-width: 360px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,.25);
   animation: slideUp .2s ease;
 }
-@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-.confirm-box .icon { font-size: 40px; text-align: center; margin-bottom: 14px; }
+@keyframes slideUp { from { transform:translateY(20px);opacity:0; } to { transform:translateY(0);opacity:1; } }
+.confirm-box .conf-icon { font-size: 40px; text-align: center; margin-bottom: 14px; }
 .confirm-box h3 { font-size: 18px; font-weight: 700; color: #1a2332; margin: 0 0 8px; text-align: center; }
-.confirm-box p { font-size: 14px; color: #6b7280; margin: 0 0 20px; text-align: center; line-height: 1.6; }
-.confirm-box .item-preview {
+.confirm-box p  { font-size: 14px; color: #6b7280; margin: 0 0 20px; text-align: center; line-height: 1.6; }
+.item-preview {
   background: #eff6ff; border-radius: 10px; padding: 10px 14px;
-  font-size: 14px; font-weight: 600; color: #1e40af; text-align: center;
-  margin-bottom: 20px;
+  font-size: 14px; font-weight: 600; color: #1e40af; text-align: center; margin-bottom: 20px;
 }
 .confirm-actions { display: flex; flex-direction: column; gap: 8px; }
-.confirm-actions button { width: 100%; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: 700; border: none; cursor: pointer; font-family: 'Sarabun', sans-serif; transition: all .15s; }
-.btn-confirm-yes { background: #16a34a; color: #fff; }
-.btn-confirm-yes:hover { background: #15803d; }
-.btn-confirm-cancel { background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db !important; }
-.btn-confirm-cancel:hover { background: #e5e7eb; }
+.confirm-actions button {
+  width: 100%; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: 700;
+  border: none; cursor: pointer; font-family: 'Sarabun', sans-serif; transition: all .15s;
+}
+.btn-conf-cancel { background: #f3f4f6; color: #374151; border: 1.5px solid #d1d5db !important; }
+.btn-conf-cancel:hover { background: #e5e7eb; }
 
 /* ── Empty / Loading ── */
 .empty-craft { text-align: center; padding: 60px 20px; color: #9ca3af; }
@@ -130,8 +174,7 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 #refreshBtn {
   background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.3);
   border-radius: 8px; width: 36px; height: 36px; display: flex; align-items: center;
-  justify-content: center; cursor: pointer; color: #fff; font-size: 15px;
-  transition: all .15s;
+  justify-content: center; cursor: pointer; color: #fff; font-size: 15px; transition: all .15s;
 }
 #refreshBtn:hover { background: rgba(255,255,255,.22); }
 
@@ -146,18 +189,16 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 
 /* ── All done banner ── */
 .all-done-banner {
-  background: linear-gradient(135deg, #14532d, #16a34a);
-  color: #fff; border-radius: 14px; padding: 24px 20px; text-align: center;
-  margin-bottom: 16px;
+  background: linear-gradient(135deg,#14532d,#16a34a); color: #fff;
+  border-radius: 14px; padding: 24px 20px; text-align: center; margin-bottom: 16px;
 }
-.all-done-banner i { font-size: 36px; margin-bottom: 10px; display: block; }
+.all-done-banner i  { font-size: 36px; margin-bottom: 10px; display: block; }
 .all-done-banner h3 { font-size: 18px; font-weight: 700; margin: 0 0 6px; }
-.all-done-banner p { font-size: 14px; opacity: .85; margin: 0; }
+.all-done-banner p  { font-size: 14px; opacity: .85; margin: 0; }
 </style>
 </head>
 <body>
 
-<!-- Firebase config — same as main app -->
 <script>
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAC85V_FLtSDR0BR3tJEvDDpv1hSIx2Zug",
@@ -171,52 +212,79 @@ if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
 
 // ── State ──
-let _craftsman = null;    // { id, name, productTypes }
-let _orders    = [];      // pending orders
-let _craftsmen = [];      // all craftsmen
+let _craftsman   = null;   // { id, name, productTypes }
+let _orders      = [];     // pending orders (kept fresh by onSnapshot)
+let _craftsmen   = [];     // all craftsmen (loaded once)
+let _groups      = [];     // built by buildGroupedData(), used by stepItem()
+let _unsubOrders = null;   // Firestore realtime unsubscribe fn
+let _stepping    = false;  // double-tap guard
 
-// ── Toast ──
+// ── Utilities ──
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 function toast(msg) {
+  document.querySelectorAll('.craft-toast').forEach(e=>e.remove());
   const el = document.createElement('div');
-  el.className = 'craft-toast';
-  el.textContent = msg;
+  el.className = 'craft-toast'; el.textContent = msg;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 2800);
 }
+// encodeURIComponent shorthand for onclick attrs
+function encC(s) { return encodeURIComponent(String(s||'')); }
 
-// ── Firestore helpers ──
-async function getAllDocs(col) {
-  const snap = await db.collection(col).get();
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-async function updateDoc(col, id, data) {
-  await db.collection(col).doc(id).set(data, { merge: true });
+// ── itemKey — MUST match index.html ──
+function itemKey(i) {
+  return `${i.productName}|${i.color||''}|${i.trimColor||''}`;
 }
 
-// ── Load data ──
-async function loadData() {
-  const [craftsmen, orders] = await Promise.all([
-    getAllDocs('craftsmen'),
-    getAllDocs('orders')
-  ]);
-  _craftsmen = craftsmen;
-  // เฉพาะออเดอร์ที่ยังไม่ส่ง หรือส่งแล้วแต่วันนี้
-  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-  _orders = orders.filter(o => !o.isDelivered || (o.deliveredAt && o.deliveredAt >= todayStart.getTime()))
-                  .sort((a,b) => a.createdAt - b.createdAt);
+// ── Build display label from item ──
+function buildLabel(item) {
+  const parts = [
+    item.productName,
+    item.color && item.color !== '-' ? item.color : '',
+    item.trimColor
+  ].filter(Boolean);
+  return parts.join(' ') + (item.extra ? ' ' + item.extra : '');
 }
 
-// ── Init ──
+// ── getCraftedQty: backward-compatible with old isCrafted-only schema ──
+function getCraftedQty(csEntry, orderQty) {
+  if (!csEntry) return 0;
+  if (csEntry.craftedQty !== undefined) return Math.min(csEntry.craftedQty, orderQty);
+  if (csEntry.isCrafted) return orderQty; // legacy: fully done
+  return 0;
+}
+
+// ── Check if this craftsman can work on this item ──
+function craftsmanCanDo(item) {
+  if (!_craftsman) return false;
+  const types = _craftsman.productTypes || [];
+  if (types.length === 0) return true; // ไม่กำหนด = ทำได้ทุกประเภท
+  return types.includes(item.productName);
+}
+
+// ══════════════════════════════════════
+//  INIT & DATA
+// ══════════════════════════════════════
+
 async function init() {
-  document.getElementById('craft-content').innerHTML = `<div class="spinner-wrap"><i class="fa-solid fa-spinner fa-spin" style="font-size:28px;margin-bottom:10px;display:block;"></i>กำลังโหลด...</div>`;
-  await loadData();
+  document.getElementById('craft-content').innerHTML =
+    `<div class="spinner-wrap"><i class="fa-solid fa-spinner fa-spin" style="font-size:28px;margin-bottom:10px;display:block;"></i>กำลังโหลด...</div>`;
 
-  // สร้าง dropdown ช่าง
+  // Load craftsmen list (static, load once)
+  const snap = await db.collection('craftsmen').get();
+  _craftsmen = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  // Start real-time listener for orders immediately
+  startOrdersListener();
+
+  // Populate dropdown
   const sel = document.getElementById('craftsmanSel');
   sel.innerHTML = '<option value="">— เลือกชื่อช่าง —</option>' +
-    _craftsmen.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    _craftsmen.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
 
-  // ถ้าเคยเลือกไว้ใน localStorage
+  // Restore saved craftsman
   const saved = localStorage.getItem('craft_craftsman_id');
   if (saved && _craftsmen.find(c => c.id === saved)) {
     sel.value = saved;
@@ -225,6 +293,21 @@ async function init() {
     document.getElementById('craft-content').innerHTML =
       `<div class="empty-craft"><i class="fa-solid fa-hard-hat"></i><p>เลือกชื่อช่างด้านบนเพื่อดูรายการงาน</p></div>`;
   }
+}
+
+// ── Real-time orders listener ──
+function startOrdersListener() {
+  if (_unsubOrders) _unsubOrders(); // cleanup previous
+  _unsubOrders = db.collection('orders').onSnapshot(snap => {
+    _orders = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(o => !o.isDelivered)
+      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+    if (_craftsman) renderCraftOrders();
+  }, err => {
+    console.error('onSnapshot error:', err);
+    toast('⚠️ เชื่อมต่อ Firestore ไม่ได้ กรุณารีเฟรช');
+  });
 }
 
 function onCraftsmanChange() {
@@ -242,52 +325,69 @@ function onCraftsmanChange() {
   renderCraftOrders();
 }
 
-// ── itemKey (ต้องตรงกับ index.html) ──
-function itemKey(i) {
-  return `${i.productName}|${i.color||''}|${i.trimColor||''}`;
+// ══════════════════════════════════════
+//  BUILD GROUPED DATA
+// ══════════════════════════════════════
+
+/*
+  ผล: array ของลูกค้า แต่ละคนมี items[]
+  แต่ละ item รวม qty และ craftedQty จากทุกออเดอร์ของลูกค้านั้น
+  sources[] เก็บ ref ไปยัง order จริงเพื่อใช้ตอน save Firestore
+*/
+function buildGroupedData() {
+  const custMap   = {};
+  const custOrder = [];
+
+  for (const o of _orders) {
+    const myItems = (o.items || []).filter(i => craftsmanCanDo(i));
+    if (!myItems.length) continue;
+
+    const cust = o.customerName || '?';
+    if (!custMap[cust]) { custMap[cust] = { customerName: cust, items: {} }; custOrder.push(cust); }
+
+    const cs = o.craftStatus || {};
+    for (const item of myItems) {
+      const k         = itemKey(item);
+      const craftedQty = getCraftedQty(cs[k], item.qty);
+
+      if (!custMap[cust].items[k]) {
+        custMap[cust].items[k] = { key: k, label: buildLabel(item), totalQty: 0, craftedQty: 0, sources: [] };
+      }
+      custMap[cust].items[k].totalQty   += item.qty;
+      custMap[cust].items[k].craftedQty += craftedQty;
+      custMap[cust].items[k].sources.push({ orderId: o.id, orderQty: item.qty, craftedQty, item });
+    }
+  }
+
+  return custOrder.map(name => ({
+    customerName: name,
+    items: Object.values(custMap[name].items)
+  }));
 }
 
-// ── กรองว่า item นี้ช่างคนนี้ทำได้ไหม ──
-function craftsmanCanDo(item) {
-  if (!_craftsman) return false;
-  const types = _craftsman.productTypes || [];
-  if (types.length === 0) return true; // ไม่กำหนด = ทำได้ทุกประเภท
-  return types.includes(item.productName);
-}
+// ══════════════════════════════════════
+//  RENDER
+// ══════════════════════════════════════
 
-// ── แสดงรายการงาน ──
 function renderCraftOrders() {
   if (!_craftsman) return;
-
-  // กรองเฉพาะออเดอร์ที่มีอย่างน้อย 1 item ที่ช่างนี้ทำได้
-  const relevant = _orders.filter(o =>
-    (o.items || []).some(i => craftsmanCanDo(i))
-  );
+  _groups = buildGroupedData(); // update global lookup for stepItem()
 
   const el = document.getElementById('craft-content');
 
-  if (!relevant.length) {
+  if (!_groups.length) {
     el.innerHTML = `<div class="empty-craft">
       <i class="fa-solid fa-circle-check" style="color:#16a34a;"></i>
-      <p>ไม่มีรายการงานสำหรับ <strong>${_craftsman.name}</strong></p>
-      <p style="font-size:13px;margin-top:6px;color:#9ca3af;">ทุกงานเสร็จหรือยังไม่มีออเดอร์ที่ตรงกับประเภทที่รับผิดชอบ</p>
+      <p>ไม่มีรายการงานสำหรับ <strong>${esc(_craftsman.name)}</strong></p>
+      <p style="font-size:13px;margin-top:6px;color:#9ca3af;">ยังไม่มีออเดอร์หรือทุกงานเสร็จหมดแล้ว</p>
     </div>`;
     return;
   }
 
-  // เช็คว่าทุก item ที่ช่างทำได้ เสร็จหมดแล้วไหม
-  const allItems = relevant.flatMap(o =>
-    (o.items||[]).filter(i => craftsmanCanDo(i)).map(i => ({
-      orderId: o.id,
-      item: i,
-      crafted: (o.craftStatus||{})[itemKey(i)]?.isCrafted || false
-    }))
-  );
-  const allDone = allItems.length > 0 && allItems.every(x => x.crafted);
-
+  const hasRemaining = _groups.some(g => g.items.some(it => it.craftedQty < it.totalQty));
   let html = '';
 
-  if (allDone) {
+  if (!hasRemaining) {
     html += `<div class="all-done-banner">
       <i class="fa-solid fa-party-horn"></i>
       <h3>เสร็จงานทั้งหมดแล้ว! 🎉</h3>
@@ -295,150 +395,220 @@ function renderCraftOrders() {
     </div>`;
   }
 
-  html += relevant.map(o => {
-    const myItems = (o.items||[]).filter(i => craftsmanCanDo(i));
-    const cs = o.craftStatus || {};
-    const dateStr = new Date(o.createdAt).toLocaleDateString('th-TH-u-ca-buddhist', {
-      day: 'numeric', month: 'short', year: 'numeric'
-    });
-    const itemRows = myItems.map(i => {
-      const k = itemKey(i);
-      const crafted = cs[k]?.isCrafted || false;
-      const parts = [i.productName, i.color&&i.color!=='-'?i.color:'', i.trimColor].filter(Boolean);
-      const label = parts.join(' ') + (i.extra ? ' '+i.extra : '');
-      return `<div class="craft-item-row">
-        <div class="craft-item-info">
-          <div class="craft-item-name">${esc(label)}</div>
-          <div class="craft-item-qty">จำนวน ${i.qty} ใบ</div>
-        </div>
-        <div class="craft-item-status">
-          ${crafted
-            ? `<div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
-                <div class="badge-crafted"><i class="fa-solid fa-circle-check"></i>แต่งเสร็จแล้ว</div>
-                <button class="btn-craft-undo" onclick="confirmUndo('${o.id}','${encodeURIComponent(JSON.stringify(i))}')">
-                  <i class="fa-solid fa-rotate-left"></i>ยกเลิก
-                </button>
-               </div>`
-            : `<button class="btn-craft-done" onclick="confirmDone('${o.id}','${encodeURIComponent(JSON.stringify(i))}')">
-                <i class="fa-solid fa-check"></i>เสร็จแล้ว
-               </button>`
-          }
-        </div>
-      </div>`;
-    }).join('');
-
-    return `<div class="order-card">
-      <div class="order-card-head">
-        <div>
-          <div class="cust-name">${esc(o.customerName||'-')}</div>
-          <div class="order-meta">${esc(o.orderNo||'')} · ${dateStr}</div>
-        </div>
-      </div>
-      <div class="order-card-body">${itemRows}</div>
-    </div>`;
-  }).join('');
-
+  html += _groups.map(g => renderCustomerCard(g)).join('');
   el.innerHTML = html;
 }
 
-// ── Confirm modal — กดเสร็จแล้ว ──
-function confirmDone(orderId, encodedItem) {
-  const item = JSON.parse(decodeURIComponent(encodedItem));
-  const parts = [item.productName, item.color&&item.color!=='-'?item.color:'', item.trimColor].filter(Boolean);
-  const label = parts.join(' ') + (item.extra ? ' '+item.extra : '');
+function renderCustomerCard(group) {
+  const pendingItems = group.items.filter(it => it.craftedQty < it.totalQty);
+  const doneItems    = group.items.filter(it => it.craftedQty >= it.totalQty);
 
-  showConfirm({
-    icon: '🎨',
-    title: 'แต่งเสร็จแล้วใช่ไหม?',
-    desc: 'ยืนยันว่าแต่งรายการนี้เสร็จเรียบร้อยแล้ว',
-    itemLabel: label + ` × ${item.qty} ใบ`,
-    yesLabel: 'ยืนยัน เสร็จแล้ว',
-    yesColor: '#16a34a',
-    onYes: () => markCrafted(orderId, item, true)
-  });
+  const pendingHtml = pendingItems.map(it => renderItemActive(group.customerName, it)).join('');
+  const doneHtml    = doneItems.length
+    ? `<div class="done-divider">✅ เสร็จแล้ว</div>` +
+      doneItems.map(it => renderItemDone(group.customerName, it)).join('')
+    : '';
+
+  const totalRemaining = pendingItems.reduce((s, it) => s + (it.totalQty - it.craftedQty), 0);
+  const countLabel = pendingItems.length
+    ? `<span class="cust-count">ค้างแต่ง ${totalRemaining} ใบ</span>`
+    : `<span class="cust-count" style="color:#16a34a;">✅ ครบหมดแล้ว</span>`;
+
+  return `<div class="order-card">
+    <div class="order-card-head">
+      <div class="cust-name">${esc(group.customerName)}</div>
+      ${countLabel}
+    </div>
+    <div class="order-card-body">
+      ${pendingHtml}
+      ${doneHtml}
+    </div>
+  </div>`;
 }
 
-// ── Confirm modal — ยกเลิก ──
-function confirmUndo(orderId, encodedItem) {
-  const item = JSON.parse(decodeURIComponent(encodedItem));
-  const parts = [item.productName, item.color&&item.color!=='-'?item.color:'', item.trimColor].filter(Boolean);
-  const label = parts.join(' ') + (item.extra ? ' '+item.extra : '');
+// ── Active item row (remaining > 0) ──
+function renderItemActive(custName, it) {
+  const ec = encC(custName), ek = encC(it.key);
 
-  showConfirm({
-    icon: '↩️',
-    title: 'ยกเลิกสถานะใช่ไหม?',
-    desc: 'ยืนยันว่าต้องการยกเลิก "แต่งเสร็จแล้ว" รายการนี้',
-    itemLabel: label + ` × ${item.qty} ใบ`,
-    yesLabel: 'ยืนยัน ยกเลิก',
-    yesColor: '#dc2626',
-    onYes: () => markCrafted(orderId, item, false)
-  });
+  // Not started (craftedQty === 0)
+  if (it.craftedQty === 0) {
+    const isSingle = it.totalQty === 1;
+    return `<div class="craft-item-row">
+      <div class="craft-item-info">
+        <div class="craft-item-name">${esc(it.label)}</div>
+        <div class="craft-item-qty">จำนวน ${it.totalQty} ใบ</div>
+      </div>
+      <div class="craft-item-status">
+        <button class="btn-craft-done" onclick="stepItem('${ec}','${ek}',1)">
+          <i class="fa-solid fa-check"></i>${isSingle ? 'เสร็จแล้ว' : '+1 เสร็จ'}
+        </button>
+      </div>
+    </div>`;
+  }
+
+  // In progress (0 < craftedQty < totalQty)
+  const pct        = Math.round((it.craftedQty / it.totalQty) * 100);
+  const isNextLast = (it.craftedQty + 1) >= it.totalQty;
+  return `<div class="craft-item-row">
+    <div class="craft-item-info">
+      <div class="craft-item-name">${esc(it.label)}</div>
+      <div class="craft-progress">
+        <div class="craft-progress-bar" style="width:${pct}%"></div>
+      </div>
+    </div>
+    <div class="craft-item-status">
+      <div class="stepper">
+        <button class="btn-step btn-step-minus"
+          onclick="stepItem('${ec}','${ek}',-1)" title="ยกเลิก 1 ใบ">−</button>
+        <span class="step-count">${it.craftedQty}/${it.totalQty} ใบ</span>
+        <button class="btn-step btn-step-plus ${isNextLast ? 'last-unit' : ''}"
+          onclick="stepItem('${ec}','${ek}',1)">
+          ${isNextLast ? '✅ ครบ!' : '+1 เสร็จ'}
+        </button>
+      </div>
+    </div>
+  </div>`;
 }
 
-// ── Show confirm popup ──
+// ── Done item row (craftedQty >= totalQty) ──
+function renderItemDone(custName, it) {
+  const ec = encC(custName), ek = encC(it.key);
+  return `<div class="craft-item-row craft-item-done">
+    <div class="craft-item-info">
+      <div class="craft-item-name">${esc(it.label)}</div>
+      <div class="badge-crafted"><i class="fa-solid fa-circle-check"></i>ครบ ${it.totalQty} ใบ</div>
+    </div>
+    <div class="craft-item-status">
+      <button class="btn-craft-undo" onclick="stepItem('${ec}','${ek}',-1)">
+        <i class="fa-solid fa-rotate-left"></i>ยกเลิก 1
+      </button>
+    </div>
+  </div>`;
+}
+
+// ══════════════════════════════════════
+//  STEP LOGIC
+// ══════════════════════════════════════
+
+function stepItem(encodedCust, encodedKey, delta) {
+  const custName = decodeURIComponent(encodedCust);
+  const key      = decodeURIComponent(encodedKey);
+
+  const group = _groups.find(g => g.customerName === custName);
+  if (!group) return;
+  const it = group.items.find(i => i.key === key);
+  if (!it) return;
+
+  if (delta === 1) {
+    if (it.craftedQty >= it.totalQty) return; // already full
+    const wouldComplete = (it.craftedQty + 1) >= it.totalQty;
+    if (wouldComplete) {
+      // Confirm popup for the last unit
+      showConfirm({
+        icon: it.totalQty === 1 ? '🎨' : '🎉',
+        title: it.totalQty === 1 ? 'แต่งเสร็จแล้วใช่ไหม?' : 'แต่งครบทุกใบแล้วใช่ไหม?',
+        desc: `ยืนยันว่าแต่ง "${it.label}" ครบ ${it.totalQty} ใบ`,
+        itemLabel: `${it.label} × ${it.totalQty} ใบ`,
+        yesLabel: it.totalQty === 1 ? '✅ ยืนยัน เสร็จแล้ว' : '🎉 ยืนยัน ครบแล้ว!',
+        yesColor: '#16a34a',
+        onYes: () => doStep(it, 1)
+      });
+    } else {
+      // Intermediate step — no confirm, direct update
+      doStep(it, 1);
+    }
+  } else {
+    // delta === -1: undo, no confirm needed
+    if (it.craftedQty <= 0) return;
+    doStep(it, -1);
+  }
+}
+
+async function doStep(groupItem, delta) {
+  if (_stepping) return;
+  _stepping = true;
+  try {
+    let src;
+    if (delta === 1) {
+      // First source that still has remaining capacity
+      src = groupItem.sources.find(s => s.craftedQty < s.orderQty);
+    } else {
+      // Last source that has craftedQty > 0 (reverse so we undo most recent first)
+      src = [...groupItem.sources].reverse().find(s => s.craftedQty > 0);
+    }
+    if (!src) return;
+
+    const newQty = src.craftedQty + delta;
+    await saveSourceCraftedQty(src, newQty);
+    // onSnapshot will re-render automatically — no manual re-render needed
+    toast(delta === 1 ? '✅ บันทึกแล้ว' : '↩️ ยกเลิก 1 ใบแล้ว');
+  } catch (e) {
+    console.error('doStep error:', e);
+    toast('⚠️ บันทึกไม่สำเร็จ: ' + e.message);
+  } finally {
+    _stepping = false;
+  }
+}
+
+async function saveSourceCraftedQty(src, newCraftedQty) {
+  // Find the live order from _orders (latest state from onSnapshot)
+  const order = _orders.find(o => o.id === src.orderId);
+  if (!order) throw new Error('Order not found');
+
+  const k  = itemKey(src.item);
+  const cs = { ...(order.craftStatus || {}) };
+
+  if (newCraftedQty <= 0) {
+    delete cs[k]; // remove entry entirely when undone to 0
+  } else {
+    cs[k] = {
+      craftedQty:    newCraftedQty,
+      isCrafted:     newCraftedQty >= src.orderQty,
+      craftedBy:     _craftsman.id,
+      craftedByName: _craftsman.name,
+      craftedAt:     Date.now()
+    };
+  }
+  await db.collection('orders').doc(src.orderId).update({ craftStatus: cs });
+}
+
+// ══════════════════════════════════════
+//  CONFIRM POPUP
+// ══════════════════════════════════════
+
 let _confirmCb = null;
 function showConfirm({ icon, title, desc, itemLabel, yesLabel, yesColor, onYes }) {
   _confirmCb = onYes;
   const div = document.createElement('div');
-  div.className = 'confirm-overlay';
-  div.id = 'craft-confirm';
+  div.className = 'confirm-overlay'; div.id = 'craft-confirm';
   div.innerHTML = `<div class="confirm-box">
-    <div class="icon">${icon}</div>
-    <h3>${title}</h3>
-    <p>${desc}</p>
+    <div class="conf-icon">${icon}</div>
+    <h3>${esc(title)}</h3>
+    <p>${esc(desc)}</p>
     <div class="item-preview">${esc(itemLabel)}</div>
     <div class="confirm-actions">
-      <button class="btn-confirm-yes" style="background:${yesColor};" onclick="doConfirm()">
-        <i class="fa-solid fa-check me-1"></i>${yesLabel}
+      <button style="background:${yesColor};color:#fff;" onclick="doConfirm()">
+        ${esc(yesLabel)}
       </button>
-      <button class="btn-confirm-cancel" onclick="closeConfirm()">ยกเลิก</button>
+      <button class="btn-conf-cancel" onclick="closeConfirm()">ยกเลิก</button>
     </div>
   </div>`;
   document.body.appendChild(div);
+  // Allow closing by tapping outside
+  div.addEventListener('click', e => { if (e.target === div) closeConfirm(); });
 }
-function doConfirm() {
-  closeConfirm();
-  if (_confirmCb) { _confirmCb(); _confirmCb = null; }
-}
-function closeConfirm() {
-  document.getElementById('craft-confirm')?.remove();
-}
+function doConfirm()  { closeConfirm(); if (_confirmCb) { _confirmCb(); _confirmCb = null; } }
+function closeConfirm() { document.getElementById('craft-confirm')?.remove(); }
 
-// ── Mark crafted in Firestore ──
-async function markCrafted(orderId, item, done) {
-  const order = _orders.find(o => o.id === orderId);
-  if (!order) return;
-  const k = itemKey(item);
-  const cs = { ...(order.craftStatus || {}) };
-  if (done) {
-    cs[k] = { isCrafted: true, craftedBy: _craftsman.id, craftedByName: _craftsman.name, craftedAt: Date.now() };
-  } else {
-    delete cs[k];
-  }
-  // อัปเดต Firestore
-  await db.collection('orders').doc(orderId).update({ craftStatus: cs });
-  // อัปเดต local cache
-  order.craftStatus = cs;
-  toast(done ? '✅ บันทึก "แต่งเสร็จแล้ว" แล้ว' : '↩️ ยกเลิกสถานะแล้ว');
-  renderCraftOrders();
-}
-
-// ── Refresh ──
-async function refreshData() {
+// ── Manual refresh (onSnapshot already keeps data fresh; this just re-renders) ──
+function refreshData() {
   const btn = document.getElementById('refreshBtn');
-  if (btn) btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-  await loadData();
+  if (btn) { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
   renderCraftOrders();
-  if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i>';
+  setTimeout(() => { if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i>'; }, 400);
   toast('รีเฟรชแล้ว');
 }
 
-// ── XSS escape ──
-function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-// ── Start ──
 window.addEventListener('DOMContentLoaded', init);
 </script>
 
@@ -446,7 +616,9 @@ window.addEventListener('DOMContentLoaded', init);
 <div id="header">
   <div>
     <h1>🔨 หน้าช่างแต่ง</h1>
-    <div class="sub" id="craft-sub">เลือกชื่อช่างเพื่อดูงาน</div>
+    <div class="sub">
+      <span class="live-dot"></span>อัปเดต real-time
+    </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">
     <i class="fa-solid fa-rotate-right"></i>

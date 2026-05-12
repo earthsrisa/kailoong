@@ -444,6 +444,13 @@ const COFFIN_SPEC = {
   'สิงห์ใหญ่ 3 ชั้น (ฝากระบาน)':{colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
   'พิกุล':            {colors:[],            lines:['ทอง','เงิน']},
 };
+// ── getCraftedQty: backward-compatible ─ handles both old {isCrafted} and new {craftedQty} schema ──
+function getCraftedQty(csEntry, orderQty) {
+  if (!csEntry) return 0;
+  if (csEntry.craftedQty !== undefined) return Math.min(csEntry.craftedQty, orderQty);
+  if (csEntry.isCrafted) return orderQty; // legacy schema
+  return 0;
+}
 function todayLocal(){
   const d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -1344,10 +1351,10 @@ function buildPendingHtml(orders) {
           + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
           + (i.extra?' '+i.extra:'');
         const csKey = `${i.productName}|${i.color||''}|${i.trimColor||''}`;
-        const crafted = cs[csKey]?.isCrafted || false;
+        const itemCraftedQty = getCraftedQty(cs[csKey], i.qty);
         const ex = merged.find(m => m.key===label);
-        if (ex) { ex.qty += i.qty; if (crafted) ex.isCrafted = true; }
-        else merged.push({key:label, qty:i.qty, isCrafted:crafted});
+        if (ex) { ex.qty += i.qty; ex.craftedQty = (ex.craftedQty||0) + itemCraftedQty; }
+        else merged.push({key:label, qty:i.qty, craftedQty:itemCraftedQty});
       }
     }
     const ordNos = g.orders.length > 1 ? ` <span style="font-size:10px;opacity:.55;">(${g.orders.length} ออเดอร์)</span>` : '';
@@ -1356,12 +1363,20 @@ function buildPendingHtml(orders) {
       ? `<button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(34,197,94,.25);border:1.5px solid rgba(134,239,172,.5);" onclick="markDeliveredGroup(${JSON.stringify(pendingIds).replace(/"/g,"'")})"><i class="fa-solid fa-truck me-1"></i>จัดส่งแล้ว</button>`
       : '';
     const billBtn = `<button class="btn-card-outline" style="font-size:11px;padding:3px 10px;" onclick="showCreateReceiptModal(null,'${encodeURIComponent(g.customerName||'')}')"><i class="fa-solid fa-file-invoice me-1"></i>ออกบิล</button>`;
-    const itemsHtml = merged.map(({key,qty,isCrafted}) =>
-      `<div class="pend-row" style="display:flex;justify-content:space-between;opacity:.85;align-items:center;">
-        <span>${U.esc(key)}${isCrafted?` <span style="font-size:10px;background:rgba(134,239,172,.3);color:#bbf7d0;border-radius:10px;padding:1px 7px;font-weight:600;">✅ แต่งเสร็จแล้ว</span>`:''}</span>
+    const itemsHtml = merged.map(({key,qty,craftedQty}) => {
+      const cq = craftedQty||0;
+      const isDone    = cq >= qty;
+      const isPartial = cq > 0 && cq < qty;
+      const badge = isDone
+        ? ` <span style="font-size:10px;background:rgba(134,239,172,.3);color:#bbf7d0;border-radius:10px;padding:1px 7px;font-weight:600;">✅ แต่งเสร็จแล้ว</span>`
+        : isPartial
+          ? ` <span style="font-size:10px;background:rgba(251,191,36,.25);color:#fde68a;border-radius:10px;padding:1px 7px;font-weight:600;">🔨 ${cq}/${qty}</span>`
+          : '';
+      return `<div class="pend-row" style="display:flex;justify-content:space-between;opacity:.85;align-items:center;">
+        <span>${U.esc(key)}${badge}</span>
         <span style="font-weight:700;flex-shrink:0;margin-left:8px;">${qty}</span>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
     return `<div style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;${allDone?'opacity:.5;':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;">
         <div>
@@ -3042,7 +3057,8 @@ async function renderCraftsmen(el) {
     for (const it of (o.items || [])) {
       const key = `${it.productName}|${it.color||''}|${it.trimColor||''}`;
       totalCount[key] = (totalCount[key] || 0) + it.qty;
-      if (cs[key]?.isCrafted) craftedCount[key] = (craftedCount[key] || 0) + it.qty;
+      const cqStat = getCraftedQty(cs[key], it.qty);
+      if (cqStat > 0) craftedCount[key] = (craftedCount[key] || 0) + cqStat;
     }
   }
 
@@ -3057,8 +3073,9 @@ async function renderCraftsmen(el) {
       for (const it of (o.items || [])) {
         if (!allTypes && !myTypes.has(it.productName)) continue;
         const key = `${it.productName}|${it.color||''}|${it.trimColor||''}`;
-        if (cs[key]?.isCrafted) done += it.qty;
-        else pending += it.qty;
+        const cqPer = getCraftedQty(cs[key], it.qty);
+        done    += cqPer;
+        pending += (it.qty - cqPer);
       }
     }
     return { ...c, pending, done };
