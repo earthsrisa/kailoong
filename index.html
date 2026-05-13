@@ -701,6 +701,10 @@ if (window.navigator.standalone === true) {
 
 function navigate(page) {
   closeBnavMore();
+  // Cleanup dashboard real-time listener when leaving dashboard
+  if (window._dashUnsubOrders && page !== 'dashboard') {
+    window._dashUnsubOrders(); window._dashUnsubOrders = null;
+  }
   window._currentPage = page;
   document.querySelectorAll('#sidebar .nav-link').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   document.querySelectorAll('#bottom-nav .bnav-item').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
@@ -811,14 +815,12 @@ async function renderDashboard(el) {
     <div class="col-xl-4">
       <div class="today-card" style="height:100%;">
         <h3><i class="fa-solid fa-sun me-2"></i>${new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'})}</h3>
+        <div id="dashTodayItems">
         ${Object.keys(todayItems).length ? Object.entries(todayItems).map(([name,qty])=>`
           <div class="today-item"><span>${U.esc(name)}</span><strong>${qty} ชิ้น</strong></div>`).join('')
+          + `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;"><span style="font-size:13px;opacity:.75;">รวม</span><span style="font-size:32px;font-weight:700;margin:0 6px;">${Object.values(todayItems).reduce((a,v)=>a+v,0)}</span><span style="font-size:13px;opacity:.75;">ชิ้น</span></div>`
           : '<div style="opacity:.6;font-size:13px;text-align:center;padding:12px 0;">ยังไม่มีออเดอร์วันนี้</div>'}
-        ${Object.keys(todayItems).length ? `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;">
-          <span style="font-size:13px;opacity:.75;">รวม</span>
-          <span style="font-size:32px;font-weight:700;margin:0 6px;">${Object.values(todayItems).reduce((a,v)=>a+v,0)}</span>
-          <span style="font-size:13px;opacity:.75;">ชิ้น</span>
-        </div>` : ''}
+        </div>
       </div>
     </div>
 
@@ -828,6 +830,7 @@ async function renderDashboard(el) {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
           <h3 style="margin:0;font-size:15px;font-weight:700;opacity:.85;"><i class="fa-solid fa-truck me-2"></i>รายการรอส่ง
             <span id="pendingCount" style="background:rgba(255,255,255,.2);border-radius:20px;padding:1px 10px;font-size:12px;margin-left:6px;">${pendingOrders.length} รายการ</span>
+            <span title="อัปเดตแบบ real-time" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ade80;margin-left:6px;vertical-align:middle;animation:livepulse 2s ease-in-out infinite;"></span>
           </h3>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input type="date" id="pendingDatePicker" value="${todayLocal()}" onchange="filterPendingByDate(this.value)" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:12px;padding:4px 8px;cursor:pointer;">
@@ -850,7 +853,7 @@ async function renderDashboard(el) {
       <table class="table-clean">
         <colgroup><col style="width:72px"><col style="width:80px"><col><col style="width:90px"><col style="width:36px"></colgroup>
         <thead><tr><th>วันที่/เวลา</th><th>ลูกค้า</th><th>รายการ</th><th>ยอดรวม</th><th></th></tr></thead>
-        <tbody>
+        <tbody id="dashRecentTbody">
           ${[...orders].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6).map(o=>`
           <tr>
             <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
@@ -865,6 +868,56 @@ async function renderDashboard(el) {
       </table>
     </div>
   </div>`;
+
+  // ── Real-time listener: auto-update pending list + today card + recent table ──
+  if (window._dashUnsubOrders) { window._dashUnsubOrders(); window._dashUnsubOrders = null; }
+  window._dashUnsubOrders = DB._fs.collection('orders').onSnapshot(snap => {
+    if (window._currentPage !== 'dashboard') {
+      if (window._dashUnsubOrders) { window._dashUnsubOrders(); window._dashUnsubOrders = null; }
+      return;
+    }
+    const freshOrders = snap.docs.map(d => ({id: d.id, ...d.data()}));
+    window._allOrdersCache = freshOrders;
+
+    // ── Update pending list (respect current date filter) ──
+    const dateStr = document.getElementById('pendingDatePicker')?.value || todayLocal();
+    const isToday = dateStr === todayLocal();
+    const pending = freshOrders.filter(o => !o.isDelivered).sort((a,b) => a.createdAt - b.createdAt);
+    if (isToday) {
+      const listEl = document.getElementById('pendingList');
+      const countEl = document.getElementById('pendingCount');
+      if (listEl) listEl.innerHTML = buildPendingHtml(pending);
+      if (countEl) countEl.textContent = pending.length + ' รายการ';
+      if (window._dashTodayData) window._dashTodayData.pendingOrders = pending;
+    }
+
+    // ── Update today card ──
+    const todayTs2 = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+    const todayOrds = freshOrders.filter(o => o.createdAt >= todayTs2);
+    const todayItms = {};
+    todayOrds.forEach(o => (o.items||[]).forEach(i => { todayItms[i.productName] = (todayItms[i.productName]||0) + i.qty; }));
+    const todayCardEl = document.getElementById('dashTodayItems');
+    if (todayCardEl) {
+      todayCardEl.innerHTML = Object.keys(todayItms).length
+        ? Object.entries(todayItms).map(([n,q]) => `<div class="today-item"><span>${U.esc(n)}</span><strong>${q} ชิ้น</strong></div>`).join('')
+          + `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;"><span style="font-size:13px;opacity:.75;">รวม</span><span style="font-size:32px;font-weight:700;margin:0 6px;">${Object.values(todayItms).reduce((a,v)=>a+v,0)}</span><span style="font-size:13px;opacity:.75;">ชิ้น</span></div>`
+        : '<div style="opacity:.6;font-size:13px;text-align:center;padding:12px 0;">ยังไม่มีออเดอร์วันนี้</div>';
+    }
+
+    // ── Update recent orders table ──
+    const recentEl = document.getElementById('dashRecentTbody');
+    if (recentEl) {
+      const recent = [...freshOrders].sort((a,b) => b.createdAt - a.createdAt).slice(0, 6);
+      recentEl.innerHTML = recent.map(o => `
+        <tr>
+          <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
+          <td style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;">NEW</span>':''}</td>
+          <td style="font-size:12px;color:#374151;word-break:break-word;">${(o.items||[]).map(i=>`<span class="ord-item-d">${U.esc(itemLabel(i))} ×${i.qty}</span>`).join('')||'-'}</td>
+          <td style="font-weight:700;font-size:13px;white-space:nowrap;">฿${U.money(U.orderTotal(o))}</td>
+          <td><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
+        </tr>`).join('') || `<tr><td colspan="5"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-inbox"></i><p>ยังไม่มีออเดอร์</p></div></td></tr>`;
+    }
+  }, err => console.error('dashboard onSnapshot error:', err));
 }
 
 // ═══════════════════════════════════════
@@ -918,7 +971,14 @@ function renderOrderRows(list) {
         const trimBg=i.trimColor==='ทอง'?'#fef3c7':i.trimColor==='เงิน'?'#f1f5f9':'#f8fafc';
         const trimTx=i.trimColor==='ทอง'?'#92400e':i.trimColor==='เงิน'?'#475569':'#6b7280';
         const label=U.esc(i.productName)+(i.color?` <span style="background:${i.color==='แดง'?'#fee2e2':i.color==='ดำ'?'#374151':i.color==='น้ำตาล'?'#fef3c7':'#f1f5f9'};color:${i.color==='ดำ'?'#fff':'inherit'};border-radius:3px;padding:1px 5px;font-size:11px;">${U.esc(i.color)}</span>`:'')+(i.trimColor?` <span style="background:${trimBg};color:${trimTx};border-radius:3px;padding:1px 5px;font-size:11px;">${i.trimColor==='ทอง'?'🟡':'🔘'}เส้น${U.esc(i.trimColor)}</span>`:'')+(i.style&&i.style!=='ธรรมดา'?` <span style="background:#dbeafe;color:#1e40af;border-radius:3px;padding:1px 6px;font-size:11px;font-weight:600;">✝ ${U.esc(i.style)}</span>`:' ')+(i.specialNote?` <em style="color:#9ca3af;font-size:11px;">${U.esc(i.specialNote)}</em>`:'');
-        return `<span class="ord-item" style="background:#f1f5f9;border-radius:4px;padding:2px 8px;font-size:12px;margin:2px 2px 2px 0;">${label} ×${i.qty}</span>`;
+        const csKey=`${i.productName}|${i.color||''}|${i.trimColor||''}`;
+        const csDone=getCraftedQty((o.craftStatus||{})[csKey],i.qty);
+        const craftBadge=csDone>=i.qty
+          ?`<span style="background:#dcfce7;color:#15803d;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700;margin-left:3px;">✅ แต่ง</span>`
+          :csDone>0
+          ?`<span style="background:#fef3c7;color:#92400e;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700;margin-left:3px;">🔨 ${csDone}/${i.qty}</span>`
+          :'';
+        return `<span class="ord-item" style="background:#f1f5f9;border-radius:4px;padding:2px 8px;font-size:12px;margin:2px 2px 2px 0;">${label} ×${i.qty}${craftBadge}</span>`;
       }).join('')||'-'}
     </td>
     <td style="font-weight:700;white-space:nowrap;">฿${U.money(U.orderTotal(o))}</td>
