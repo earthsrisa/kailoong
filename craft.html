@@ -240,10 +240,12 @@ function itemKey(i) {
 
 // ── Build display label from item ──
 function buildLabel(item) {
+  const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
+  const trimLabel = item.trimColor ? (lineIcons[item.trimColor] ? lineIcons[item.trimColor] + ' ' + item.trimColor : item.trimColor) : '';
   const parts = [
     item.productName,
     item.color && item.color !== '-' ? item.color : '',
-    item.trimColor
+    trimLabel
   ].filter(Boolean);
   return parts.join(' ') + (item.extra ? ' ' + item.extra : '');
 }
@@ -268,31 +270,59 @@ function craftsmanCanDo(item) {
 //  INIT & DATA
 // ══════════════════════════════════════
 
+let _unsubCraftsmen = null; // real-time craftsmen unsubscribe
+
 async function init() {
   document.getElementById('craft-content').innerHTML =
     `<div class="spinner-wrap"><i class="fa-solid fa-spinner fa-spin" style="font-size:28px;margin-bottom:10px;display:block;"></i>กำลังโหลด...</div>`;
 
-  // Load craftsmen list (static, load once)
-  const snap = await db.collection('craftsmen').get();
-  _craftsmen = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
   // Start real-time listener for orders immediately
   startOrdersListener();
+
+  // Load craftsmen once (for initial render & restore)
+  const snap = await db.collection('craftsmen').get();
+  _craftsmen = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
   // Populate dropdown
   const sel = document.getElementById('craftsmanSel');
   sel.innerHTML = '<option value="">— เลือกชื่อช่าง —</option>' +
     _craftsmen.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
 
+  // Empty craftsmen state
+  if (!_craftsmen.length) {
+    document.getElementById('craft-content').innerHTML =
+      `<div class="empty-craft"><i class="fa-solid fa-users-slash"></i><p>ยังไม่มีช่างแต่ง</p><p style="font-size:13px;color:#9ca3af;">ให้ผู้ดูแลเพิ่มข้อมูลช่างในระบบก่อน</p></div>`;
+  }
+
   // Restore saved craftsman
   const saved = localStorage.getItem('craft_craftsman_id');
   if (saved && _craftsmen.find(c => c.id === saved)) {
     sel.value = saved;
     onCraftsmanChange();
-  } else {
+  } else if (_craftsmen.length) {
     document.getElementById('craft-content').innerHTML =
       `<div class="empty-craft"><i class="fa-solid fa-hard-hat"></i><p>เลือกชื่อช่างด้านบนเพื่อดูรายการงาน</p></div>`;
   }
+
+  // Real-time craftsmen listener — keeps dropdown fresh when craftsmen are added/removed
+  if (_unsubCraftsmen) _unsubCraftsmen();
+  _unsubCraftsmen = db.collection('craftsmen').onSnapshot(snap => {
+    _craftsmen = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const s = document.getElementById('craftsmanSel');
+    if (!s) return;
+    const currentVal = s.value;
+    s.innerHTML = '<option value="">— เลือกชื่อช่าง —</option>' +
+      _craftsmen.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
+    if (currentVal && _craftsmen.find(c => c.id === currentVal)) {
+      s.value = currentVal; // keep selection
+    } else if (currentVal) {
+      // craftsman was deleted — reset
+      _craftsman = null;
+      localStorage.removeItem('craft_craftsman_id');
+      document.getElementById('craft-content').innerHTML =
+        `<div class="empty-craft"><i class="fa-solid fa-hard-hat"></i><p>เลือกชื่อช่างด้านบนเพื่อดูรายการงาน</p></div>`;
+    }
+  }, err => console.error('craftsmen snapshot error:', err));
 }
 
 // ── Real-time orders listener ──
@@ -527,6 +557,8 @@ function stepItem(encodedCust, encodedKey, delta) {
 async function doStep(groupItem, delta) {
   if (_stepping) return;
   _stepping = true;
+  // Disable all step buttons while saving
+  document.querySelectorAll('.btn-craft-done,.btn-step,.btn-craft-undo').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
   try {
     let src;
     if (delta === 1) {
@@ -545,31 +577,31 @@ async function doStep(groupItem, delta) {
   } catch (e) {
     console.error('doStep error:', e);
     toast('⚠️ บันทึกไม่สำเร็จ: ' + e.message);
+    // Re-enable buttons on error (onSnapshot won't fire to re-render)
+    document.querySelectorAll('.btn-craft-done,.btn-step,.btn-craft-undo').forEach(b => { b.disabled = false; b.style.opacity = ''; });
   } finally {
     _stepping = false;
   }
 }
 
 async function saveSourceCraftedQty(src, newCraftedQty) {
-  // Find the live order from _orders (latest state from onSnapshot)
-  const order = _orders.find(o => o.id === src.orderId);
-  if (!order) throw new Error('Order not found');
-
-  const k  = itemKey(src.item);
-  const cs = { ...(order.craftStatus || {}) };
-
+  const k = itemKey(src.item);
   if (newCraftedQty <= 0) {
-    delete cs[k]; // remove entry entirely when undone to 0
+    // Dot-notation delete — safe for concurrent multi-craftsman writes
+    await db.collection('orders').doc(src.orderId).update({
+      [`craftStatus.${k}`]: firebase.firestore.FieldValue.delete()
+    });
   } else {
-    cs[k] = {
-      craftedQty:    newCraftedQty,
-      isCrafted:     newCraftedQty >= src.orderQty,
-      craftedBy:     _craftsman.id,
-      craftedByName: _craftsman.name,
-      craftedAt:     Date.now()
-    };
+    await db.collection('orders').doc(src.orderId).update({
+      [`craftStatus.${k}`]: {
+        craftedQty:    newCraftedQty,
+        isCrafted:     newCraftedQty >= src.orderQty,
+        craftedBy:     _craftsman.id,
+        craftedByName: _craftsman.name,
+        craftedAt:     Date.now()
+      }
+    });
   }
-  await db.collection('orders').doc(src.orderId).update({ craftStatus: cs });
 }
 
 // ══════════════════════════════════════

@@ -978,13 +978,42 @@ async function showAddItemsModal(orderId) {
 function addItemRow(i, custId, products) {
   const opts=(products||window._addItemsProducts||[]).map(p=>`<option value="${p.id}" data-price="${p.price}" data-name="${U.esc(p.name)}">${U.esc(p.name)}</option>`).join('');
   return `<tr id="airow_${i}">
-    <td><select class="form-select form-select-sm" onchange="onAddItemProdChange(this,${i},${custId})" id="aiprod_${i}">
-      <option value="">-- เลือกสินค้า --</option>${opts}</select></td>
+    <td>
+      <select class="form-select form-select-sm" onchange="onAddItemProdChange(this,${i},${custId})" id="aiprod_${i}">
+        <option value="">-- เลือกสินค้า --</option>${opts}
+      </select>
+      <div id="aispec_${i}" style="display:none;gap:5px;flex-wrap:wrap;margin-top:5px;">
+        <select id="aicolor_${i}" class="form-select form-select-sm" style="min-width:80px;flex:1;"></select>
+        <select id="aitrim_${i}" class="form-select form-select-sm" style="min-width:80px;flex:1;"></select>
+      </div>
+    </td>
     <td><input type="number" class="form-control form-control-sm" id="aiqty_${i}" value="1" min="1" oninput="updateAddItemTotal()"></td>
     <td><input type="number" class="form-control form-control-sm" id="aiprice_${i}" value="0" min="0" oninput="updateAddItemTotal()"></td>
     <td><span id="aitotal_${i}" style="font-size:13px;font-weight:600;">฿0.00</span></td>
     <td><button type="button" class="btn btn-sm btn-outline-danger btn-icon" onclick="document.getElementById('airow_${i}').remove();updateAddItemTotal()"><i class="fa-solid fa-trash"></i></button></td>
   </tr>`;
+}
+
+function updateAddItemSpec(i, prodName) {
+  const _prod=(window._addItemsProducts||[]).find(p=>p.name===prodName);
+  const _isAcc=_prod?((_prod.unit||'โลง').trim()!=='โลง'):['เทพ','มุม','เส้น'].some(k=>(prodName||'').includes(k));
+  const _base=COFFIN_SPEC[prodName]||{colors:['ขาว','แดง'],lines:['ทอง','เงิน','ซีด','ขาว']};
+  const spec=_isAcc?{colors:[],lines:_base.lines}:_base;
+  const hasColor=spec.colors.length>0;
+  const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
+  const colorSel=document.getElementById(`aicolor_${i}`);
+  const trimSel=document.getElementById(`aitrim_${i}`);
+  const specWrap=document.getElementById(`aispec_${i}`);
+  if(!specWrap||!colorSel||!trimSel)return;
+  if(hasColor){
+    colorSel.innerHTML=spec.colors.map(c=>`<option value="${c}">${c==='ขาว'?'⬜':'🟥'} ${c}</option>`).join('');
+    colorSel.style.display='';
+  } else {
+    colorSel.innerHTML='<option value="-">-</option>';
+    colorSel.style.display='none';
+  }
+  trimSel.innerHTML=spec.lines.map(l=>`<option value="${l}">${lineIcons[l]||''} ${l}</option>`).join('');
+  specWrap.style.display='flex';
 }
 
 function appendAddItemRow() {
@@ -995,12 +1024,17 @@ function appendAddItemRow() {
 async function onAddItemProdChange(sel,i,custId) {
   const opt=sel.options[sel.selectedIndex];
   const prodId=sel.value;
-  if (!prodId) return;
+  if (!prodId) {
+    const spec=document.getElementById(`aispec_${i}`);
+    if(spec) spec.style.display='none';
+    return;
+  }
   const defaultPrice=parseFloat(opt.dataset.price||0);
   const price=await DB.getEffectivePrice(custId,prodId,defaultPrice);
   const priceEl=document.getElementById(`aiprice_${i}`);
   if (priceEl) priceEl.value=price;
   updateAddItemTotal();
+  updateAddItemSpec(i, opt.dataset.name||opt.text||'');
 }
 
 function updateAddItemTotal() {
@@ -1031,9 +1065,11 @@ async function saveAddItems(orderId) {
       const qty=parseFloat(document.getElementById(`aiqty_${i}`)?.value||1);
       const price=parseFloat(document.getElementById(`aiprice_${i}`)?.value||0);
       const productName=opt.dataset.name||opt.text||'';
-      const existingIdx=(order.items||[]).findIndex(x=>x.productId===prodId);
+      const color=document.getElementById(`aicolor_${i}`)?.value||'';
+      const trimColor=document.getElementById(`aitrim_${i}`)?.value||'';
+      const existingIdx=(order.items||[]).findIndex(x=>x.productId===prodId&&(x.color||'')===color&&(x.trimColor||'')===trimColor);
       if (existingIdx>=0) { order.items[existingIdx].qty+=qty; }
-      else { newItems.push({productId:prodId,productName,qty,price}); }
+      else { newItems.push({productId:prodId,productName,qty,price,color,trimColor}); }
     });
     if (!newItems.length && !document.querySelectorAll('#addItemsBody tr').length) {
       U.toast('กรุณาเพิ่มรายการสินค้า','error'); return;
@@ -1794,7 +1830,7 @@ async function saveOrder() {
       }).catch(()=>{});
     }
     closeModal('orderModal');
-    navigate('orders');
+    navigate(editId ? 'orders' : 'dashboard');
   } catch(e) {
     U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
   } finally {
