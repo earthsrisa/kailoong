@@ -280,7 +280,11 @@ function itemKey(i) {
 // ── Build display label from item ──
 function buildLabel(item) {
   const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
-  const trimLabel = item.trimColor ? (lineIcons[item.trimColor] ? lineIcons[item.trimColor] + ' ' + item.trimColor : item.trimColor) : '';
+  // รองรับทั้ง trimColor='คริสต์' (UI ใหม่) และ style='คริสต์' (ข้อมูลเก่า)
+  const isChrist = item.style === 'คริสต์' || item.trimColor === 'คริสต์';
+  const trimLabel = isChrist
+    ? '✝ คริสต์'
+    : item.trimColor ? (lineIcons[item.trimColor] ? lineIcons[item.trimColor] + ' ' + item.trimColor : item.trimColor) : '';
   const parts = [
     item.productName,
     item.color && item.color !== '-' ? item.color : '',
@@ -302,7 +306,8 @@ function craftsmanCanDo(item) {
   if (!_craftsman) return false;
   const types = _craftsman.productTypes || [];
   if (types.length === 0) return true; // ไม่กำหนด = ทำได้ทุกประเภท
-  return types.includes(item.productName);
+  const name = (item.productName || '').trim();
+  return types.some(t => (t || '').trim() === name);
 }
 
 // ══════════════════════════════════════
@@ -354,6 +359,12 @@ async function init() {
       _craftsmen.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
     if (currentVal && _craftsmen.find(c => c.id === currentVal)) {
       s.value = currentVal; // keep selection
+      // อัปเดต _craftsman object ด้วย fresh data (เช่น ชื่อหรือ productTypes ถูกแก้ไขโดยแอดมิน)
+      const freshCraftsman = _craftsmen.find(c => c.id === currentVal);
+      if (freshCraftsman && _craftsman && freshCraftsman.id === _craftsman.id) {
+        _craftsman = freshCraftsman;
+        renderCraftOrders(); // re-render ด้วยข้อมูลใหม่
+      }
     } else if (currentVal) {
       // craftsman was deleted — reset
       _craftsman = null;

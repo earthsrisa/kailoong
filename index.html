@@ -628,8 +628,9 @@ const U = {
     return {sub,disc,base,tax,total:base+tax};
   },
   isToday(ts) {
-    const d=new Date(ts), n=new Date();
-    return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth()&&d.getDate()===n.getDate();
+    const d=new Date(ts).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
+    const n=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
+    return d===n;
   },
   toast(msg,type='success') {
     const el=document.createElement('div');
@@ -883,16 +884,17 @@ async function renderDashboard(el) {
     const dateStr = document.getElementById('pendingDatePicker')?.value || todayLocal();
     const isToday = dateStr === todayLocal();
     const pending = freshOrders.filter(o => !o.isDelivered).sort((a,b) => a.createdAt - b.createdAt);
+    // badge count อัปเดตเสมอ (แสดงยอด pending รวม ไม่ขึ้นกับ date filter)
+    const countEl = document.getElementById('pendingCount');
+    if (countEl) countEl.textContent = pending.length + ' รายการ';
     if (isToday) {
       const listEl = document.getElementById('pendingList');
-      const countEl = document.getElementById('pendingCount');
       if (listEl) listEl.innerHTML = buildPendingHtml(pending);
-      if (countEl) countEl.textContent = pending.length + ' รายการ';
       if (window._dashTodayData) window._dashTodayData.pendingOrders = pending;
     }
 
-    // ── Update today card ──
-    const todayTs2 = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+    // ── Update today card (Bangkok timezone) ──
+    const todayTs2 = (() => { const bkk=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}); return new Date(bkk+'T00:00:00+07:00').getTime(); })();
     const todayOrds = freshOrders.filter(o => o.createdAt >= todayTs2);
     const todayItms = {};
     todayOrds.forEach(o => (o.items||[]).forEach(i => { todayItms[i.productName] = (todayItms[i.productName]||0) + i.qty; }));
@@ -1017,6 +1019,7 @@ function applyOrderFilter() {
 
 // ── เพิ่มรายการใหม่เข้าออเดอร์เดิม ──
 async function showAddItemsModal(orderId) {
+  window._addItemsOriginPage = window._currentPage; // จำหน้าที่เปิด modal เพื่อ navigate กลับ
   const [order, products, customers] = await Promise.all([DB.getOrder(orderId), DB.getProducts(), DB.getCustomers()]);
   if (!order) return;
   window._addItemsOrder   = order;
@@ -1168,7 +1171,7 @@ async function saveAddItems(orderId) {
       }).catch(()=>{});
     }
     closeModal('addItemsModal');
-    navigate('orders');
+    navigate(window._addItemsOriginPage || 'orders');
   } catch(e) {
     U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
   } finally {
@@ -1782,8 +1785,8 @@ function calcOrderTotal() {
 //                    ถ้าไม่ส่ง (new order) → tag ทุก item ในออเดอร์นั้น
 async function getTodayOrdersSummary({ currentOrderId, actionType, actionItemKeys } = {}) {
   const all = await DB.getOrders();
-  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-  const ts = todayStart.getTime();
+  // Bangkok timezone midnight
+  const ts = new Date(new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'})+'T00:00:00+07:00').getTime();
   const keySet = actionItemKeys ? new Set(actionItemKeys) : null;
   return all
     .filter(o => o.createdAt >= ts)
@@ -1834,7 +1837,10 @@ async function saveOrder() {
 
     const editId=document.getElementById('of_editId')?.value||'';
     const dateStr=document.getElementById('of_date')?.value;
-    const createdAt=dateStr?new Date(dateStr).setHours(new Date().getHours(),new Date().getMinutes(),0,0):Date.now();
+    // Bangkok timezone: ประกอบ timestamp จาก date picker + เวลา Bangkok ปัจจุบัน
+    const createdAt=dateStr
+      ?new Date(dateStr+'T'+new Date().toLocaleTimeString('sv-SE',{timeZone:'Asia/Bangkok'}).slice(0,5)+':00+07:00').getTime()
+      :Date.now();
 
     const data={
       customerId:custId, customerName:cust?.name||'',
