@@ -259,17 +259,104 @@ function orderDateLocal(o) {
 // ── Date filter toggle ──
 function setDateFilter(type) {
   _dateFilter = type;
-  // update button styles
   document.getElementById('btnFilterToday')?.classList.toggle('filter-btn-active', type === 'today');
   document.getElementById('btnFilterAll')?.classList.toggle('filter-btn-active', type === 'all');
-  // update label
+  document.getElementById('btnFilterHistory')?.classList.toggle('filter-btn-active', type === 'history');
   const lbl = document.getElementById('dateFilterLabel');
   if (lbl) {
     lbl.textContent = type === 'today'
       ? new Date().toLocaleDateString('th-TH', {timeZone:'Asia/Bangkok', weekday:'short', day:'numeric', month:'short'})
+      : type === 'history' ? 'ย้อนหลัง 30 วัน'
       : `ทั้งหมด ${_orders.length} ออเดอร์`;
   }
-  if (_craftsman) renderCraftOrders();
+  if (_craftsman) {
+    if (type === 'history') renderHistory();
+    else renderCraftOrders();
+  }
+}
+
+// ── ประวัติงานช่าง: โหลดออเดอร์ที่เสร็จแล้วและแสดงงานที่ช่างคนนี้ทำ ──
+async function renderHistory() {
+  if (!_craftsman) return;
+  const el = document.getElementById('craft-content');
+  el.innerHTML = `<div class="spinner-wrap"><i class="fa-solid fa-spinner fa-spin" style="font-size:24px;display:block;margin-bottom:8px;"></i>โหลดประวัติ...</div>`;
+
+  try {
+    // โหลด 30 วันย้อนหลัง (Bangkok midnight)
+    const cutoff = new Date(todayLocal()+'T00:00:00+07:00').getTime() - 29 * 86400000;
+    const snap = await db.collection('orders')
+      .where('createdAt', '>=', cutoff)
+      .get();
+    const allOrders = snap.docs.map(d => ({id:d.id,...d.data()}));
+
+    // เก็บเฉพาะ items ที่ช่างคนนี้ทำ
+    const byDate = {}; // { 'YYYY-MM-DD': [{label, qty, craftedAt, customerName}] }
+    for (const o of allOrders) {
+      const cs = o.craftStatus || {};
+      for (const [k, entry] of Object.entries(cs)) {
+        if ((entry.craftedBy||'') !== _craftsman.id) continue;
+        // หา item จาก key
+        const matchItem = (o.items||[]).find(i => itemKey(i) === k);
+        if (!matchItem) continue;
+        const dateKey = new Date(entry.craftedAt||o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
+        if (!byDate[dateKey]) byDate[dateKey] = [];
+        byDate[dateKey].push({
+          label: buildLabel(matchItem),
+          qty: matchItem.qty,
+          craftedQty: entry.craftedQty||matchItem.qty,
+          customerName: o.customerName||'?',
+          craftedAt: entry.craftedAt||0,
+        });
+      }
+    }
+
+    const dates = Object.keys(byDate).sort().reverse();
+    if (!dates.length) {
+      el.innerHTML = `<div class="empty-craft">
+        <i class="fa-solid fa-calendar-xmark" style="color:#9ca3af;"></i>
+        <p>ไม่พบประวัติงานใน 30 วันที่ผ่านมา</p>
+        <p style="font-size:13px;color:#9ca3af;">สำหรับ ${esc(_craftsman.name)}</p>
+      </div>`;
+      return;
+    }
+
+    let totalItems = 0, totalQty = 0;
+    const cards = dates.map(d => {
+      const items = byDate[d];
+      totalItems += items.length;
+      totalQty += items.reduce((s,i) => s+i.craftedQty, 0);
+      const thDate = new Date(d+'T12:00:00+07:00').toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',weekday:'short',day:'numeric',month:'short',year:'2-digit'});
+      const rows = items.map(it => `
+        <div class="craft-item-row" style="opacity:.85;">
+          <div class="craft-item-info">
+            <div class="craft-item-name">${esc(it.label)}</div>
+            <div class="craft-item-qty" style="font-size:12px;color:#9ca3af;">${esc(it.customerName)}</div>
+          </div>
+          <div class="craft-item-status">
+            <span style="background:#dcfce7;color:#15803d;border-radius:8px;padding:4px 12px;font-size:13px;font-weight:700;">
+              ✅ ${it.craftedQty} ใบ
+            </span>
+          </div>
+        </div>`).join('');
+      return `<div class="order-card">
+        <div class="order-card-head">
+          <div class="cust-name" style="font-size:14px;">${thDate}</div>
+          <span class="cust-count">${items.length} รายการ · ${items.reduce((s,i)=>s+i.craftedQty,0)} ใบ</span>
+        </div>
+        <div class="order-card-body">${rows}</div>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="background:#1a2332;color:#fff;border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;gap:20px;flex-wrap:wrap;">
+        <div><div style="font-size:11px;opacity:.6;">30 วันที่ผ่านมา</div><div style="font-size:22px;font-weight:700;">${totalQty} ใบ</div></div>
+        <div><div style="font-size:11px;opacity:.6;">รายการ</div><div style="font-size:22px;font-weight:700;">${totalItems}</div></div>
+        <div><div style="font-size:11px;opacity:.6;">วันที่มีงาน</div><div style="font-size:22px;font-weight:700;">${dates.length} วัน</div></div>
+      </div>
+      ${cards}`;
+  } catch(e) {
+    el.innerHTML = `<div class="empty-craft"><i class="fa-solid fa-circle-exclamation" style="color:#ef4444;"></i><p>โหลดประวัติไม่สำเร็จ</p><p style="font-size:13px;color:#9ca3af;">${esc(e.message)}</p></div>`;
+  }
 }
 
 // ── itemKey — MUST match index.html ──
@@ -731,6 +818,7 @@ window.addEventListener('DOMContentLoaded', init);
   <span>แสดง:</span>
   <button id="btnFilterToday" class="filter-btn filter-btn-active" onclick="setDateFilter('today')">📅 วันนี้</button>
   <button id="btnFilterAll" class="filter-btn" onclick="setDateFilter('all')">📋 ทั้งหมด</button>
+  <button id="btnFilterHistory" class="filter-btn" onclick="setDateFilter('history')">📂 ประวัติ</button>
   <span id="dateFilterLabel" style="font-size:12px;color:#9ca3af;margin-left:4px;"></span>
 </div>
 

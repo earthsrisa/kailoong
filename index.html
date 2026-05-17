@@ -452,8 +452,7 @@ function getCraftedQty(csEntry, orderQty) {
   return 0;
 }
 function todayLocal(){
-  const d=new Date();
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
 }
 const DB = {
   _fs: null,
@@ -927,11 +926,14 @@ async function renderDashboard(el) {
 // ═══════════════════════════════════════
 async function renderOrders(el) {
   document.getElementById('topbarActions').innerHTML =
-    `<button class="btn btn-primary" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>`;
+    `<button class="btn btn-outline-secondary me-2" onclick="exportOrdersCSV()"><i class="fa-solid fa-download me-1"></i>Export CSV</button>
+     <button class="btn btn-primary" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>`;
 
   const [orders, customers] = await Promise.all([DB.getOrders(), DB.getCustomers()]);
   const sorted = [...orders].sort((a,b)=>b.createdAt-a.createdAt).map(o=>({...o,_total:U.orderTotal(o)}));
   const custOpts = customers.map(c=>`<option value="${c.id}">${U.esc(c.name)}</option>`).join('');
+  // phone map สำหรับค้นหาออเดอร์ด้วยเบอร์ลูกค้า
+  window._custPhoneMap = Object.fromEntries(customers.map(c=>[String(c.id), c.phone||'']));
 
   el.innerHTML=`
   <div class="card-box">
@@ -943,7 +945,7 @@ async function renderOrders(el) {
         </select>
         <input type="date" class="form-control form-control-sm" id="filterDate" onchange="applyOrderFilter()" style="width:auto;">
         <div class="search-box"><i class="fa-solid fa-search"></i>
-          <input type="text" class="form-control form-control-sm" id="filterSearch" placeholder="ค้นหา..." style="min-width:160px;" oninput="applyOrderFilter()">
+          <input type="text" class="form-control form-control-sm" id="filterSearch" placeholder="ค้นหาชื่อ / เบอร์ / สินค้า..." style="min-width:180px;" oninput="applyOrderFilter()">
         </div>
       </div>
     </div>
@@ -1013,8 +1015,34 @@ function applyOrderFilter() {
   let list = window._allOrders||[];
   if (custId)  list = list.filter(o=>String(o.customerId)===custId);
   if (date)    list = list.filter(o=>new Date(o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'})===date);
-  if (search)  list = list.filter(o=>o.orderNo?.toLowerCase().includes(search)||o.customerName?.toLowerCase().includes(search)||(o.items||[]).some(i=>i.productName?.toLowerCase().includes(search)));
+  if (search)  list = list.filter(o=>{
+    const phone=(window._custPhoneMap||{})[String(o.customerId)]||'';
+    return o.orderNo?.toLowerCase().includes(search)||o.customerName?.toLowerCase().includes(search)||(o.items||[]).some(i=>i.productName?.toLowerCase().includes(search))||phone.includes(search);
+  });
   document.getElementById('ordersTbody').innerHTML = renderOrderRows(list);
+}
+
+function exportOrdersCSV() {
+  const list = window._allOrders || [];
+  if (!list.length) { U.toast('ไม่มีข้อมูลออเดอร์','error'); return; }
+  const header = ['วันที่','เลขออเดอร์','ลูกค้า','รายการสินค้า','ยอดรวม','ส่วนลด','หมายเหตุ','สถานะ'];
+  const rows = list.map(o => [
+    new Date(o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}),
+    o.orderNo||'',
+    o.customerName||'',
+    (o.items||[]).map(i=>`${i.productName}${i.color&&i.color!=='-'?' '+i.color:''} ×${i.qty}`).join('; '),
+    U.orderTotal(o).toFixed(2),
+    (o.discount||0).toFixed(2),
+    o.notes||'',
+    o.isDelivered?'ส่งแล้ว':'รอส่ง'
+  ]);
+  const csv = [header,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href=url; a.download=`orders_${todayLocal()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  U.toast(`Export ${list.length} ออเดอร์แล้ว ✓`);
 }
 
 // ── เพิ่มรายการใหม่เข้าออเดอร์เดิม ──
@@ -1062,6 +1090,9 @@ function addItemRow(i, custId, products) {
         <select id="aicolor_${i}" class="form-select form-select-sm" style="min-width:80px;flex:1;"></select>
         <select id="aitrim_${i}" class="form-select form-select-sm" style="min-width:80px;flex:1;"></select>
       </div>
+      <div id="aiextra_wrap_${i}" style="display:none;margin-top:4px;">
+        <select id="aiextra_${i}" class="form-select form-select-sm"></select>
+      </div>
     </td>
     <td><input type="number" class="form-control form-control-sm" id="aiqty_${i}" value="1" min="1" oninput="updateAddItemTotal()"></td>
     <td><input type="number" class="form-control form-control-sm" id="aiprice_${i}" value="0" min="0" oninput="updateAddItemTotal()"></td>
@@ -1090,6 +1121,17 @@ function updateAddItemSpec(i, prodName) {
   }
   trimSel.innerHTML=spec.lines.map(l=>`<option value="${l}">${lineIcons[l]||''} ${l}</option>`).join('');
   specWrap.style.display='flex';
+  // extra (ขนาด) — แสดงเฉพาะสินค้าที่มี spec.extra
+  const extraWrap=document.getElementById(`aiextra_wrap_${i}`);
+  const extraSel=document.getElementById(`aiextra_${i}`);
+  if(extraWrap&&extraSel){
+    if(spec.extra?.length){
+      extraSel.innerHTML='<option value="">-- ไม่ระบุขนาด --</option>'+spec.extra.map(e=>`<option value="${e}">${e}</option>`).join('');
+      extraWrap.style.display='';
+    } else {
+      extraWrap.style.display='none';
+    }
+  }
 }
 
 function appendAddItemRow() {
@@ -1131,7 +1173,7 @@ async function saveAddItems(orderId) {
   if (window._saving){return;} window._saving=true;
   try {
     const order=await DB.getOrder(orderId); if(!order)return;
-    const newItems=[];
+    const newItems=[]; let addQtyErr=false;
     document.querySelectorAll('#addItemsBody tr').forEach(row=>{
       const m=row.id?.match(/airow_(\d+)/); if(!m)return;
       const i=m[1];
@@ -1139,14 +1181,18 @@ async function saveAddItems(orderId) {
       const prodId=sel?.value; if(!prodId)return;
       const opt=sel.options[sel.selectedIndex];
       const qty=parseFloat(document.getElementById(`aiqty_${i}`)?.value||1);
+      if(qty<1){addQtyErr=true;return;}
       const price=parseFloat(document.getElementById(`aiprice_${i}`)?.value||0);
       const productName=opt.dataset.name||opt.text||'';
       const color=document.getElementById(`aicolor_${i}`)?.value||'';
       const trimColor=document.getElementById(`aitrim_${i}`)?.value||'';
-      const existingIdx=(order.items||[]).findIndex(x=>x.productId===prodId&&(x.color||'')===color&&(x.trimColor||'')===trimColor);
+      const extra=document.getElementById(`aiextra_${i}`)?.value||'';
+      // duplicate check รวม extra ด้วย (โลงขนาดต่างกัน = คนละรายการ)
+      const existingIdx=(order.items||[]).findIndex(x=>x.productId===prodId&&(x.color||'')===color&&(x.trimColor||'')===trimColor&&(x.extra||'')===extra);
       if (existingIdx>=0) { order.items[existingIdx].qty+=qty; }
-      else { newItems.push({productId:prodId,productName,qty,price,color,trimColor}); }
+      else { newItems.push({productId:prodId,productName,qty,price,color,trimColor,extra}); }
     });
+    if(addQtyErr){U.toast('จำนวนต้องมากกว่า 0','error');return;}
     if (!newItems.length && !document.querySelectorAll('#addItemsBody tr').length) {
       U.toast('กรุณาเพิ่มรายการสินค้า','error'); return;
     }
@@ -1413,14 +1459,10 @@ async function filterPendingByDate(dateStr) {
   const isToday = dateStr === todayLocal();
 
   const filtered = allOrders.filter(o => {
-    const created = new Date(o.createdAt); created.setHours(0,0,0,0);
-    const createdTs = created.getTime();
-    const delivTs = o.deliveredAt ? (() => { const dd=new Date(o.deliveredAt);dd.setHours(0,0,0,0);return dd.getTime(); })() : null;
-    if (isToday) {
-      return !o.isDelivered;
-    } else {
-      return createdTs === selTs;
-    }
+    if (isToday) return !o.isDelivered;
+    // เปรียบเทียบวันที่ด้วย Bangkok timezone (ป้องกัน timezone drift)
+    const createdBkk = new Date(o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
+    return createdBkk === dateStr;
   }).sort((a,b)=>a.createdAt-b.createdAt);
 
   d.pendingOrders = filtered;
@@ -1817,7 +1859,7 @@ async function saveOrder() {
     if (!custId){U.toast('กรุณาเลือกลูกค้า','error');return;}
     const cust=await DB.getCustomer(custId);
 
-    const items=[]; let anyItem=false;
+    const items=[]; let anyItem=false; let qtyErr=false;
     document.querySelectorAll('#orderItemsBody tr').forEach(row=>{
       const m=row.id?.match(/oirow_(\d+)/); if(!m)return;
       const i=m[1];
@@ -1825,6 +1867,7 @@ async function saveOrder() {
       const prodId=sel?.value; if(!prodId)return;
       const opt=sel.options[sel.selectedIndex];
       const qty=parseFloat(document.getElementById(`oiqty_${i}`)?.value||1);
+      if(qty<1){qtyErr=true;return;}
       const price=parseFloat(document.getElementById(`oiprice_${i}`)?.value||0);
       const color      = document.getElementById(`oicolor_${i}`)?.value||'';
       const trimColor  = document.getElementById(`oitrim_${i}`)?.value||'';
@@ -1833,6 +1876,7 @@ async function saveOrder() {
       items.push({productId:prodId,productName:opt.dataset.name||opt.text,qty,price,color,trimColor,extra,specialNote});
       anyItem=true;
     });
+    if(qtyErr){U.toast('จำนวนสินค้าต้องมากกว่า 0','error');return;}
     if (!anyItem){U.toast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','error');return;}
 
     const editId=document.getElementById('of_editId')?.value||'';
