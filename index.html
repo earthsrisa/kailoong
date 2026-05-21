@@ -1570,7 +1570,7 @@ function buildDashCustContent(pendingOrders) {
 
   // Chips HTML
   const chipsHtml = `<button class="cust-chip${activeKey===''?' active':''}" onclick="filterDashCust('')">ทั้งหมด <span style="opacity:.65;font-size:11px;">${totalQty}</span></button>`
-    + custList.map(c => `<button class="cust-chip${activeKey===c.key?' active':''}" onclick="filterDashCust(${JSON.stringify(c.key)})">${U.esc(c.name)} <span style="opacity:.65;font-size:11px;">${c.qty}</span></button>`).join('');
+    + custList.map(c => `<button class="cust-chip${activeKey===c.key?' active':''}" data-ckey="${U.esc(c.key)}" onclick="filterDashCust(this.dataset.ckey)">${U.esc(c.name)} <span style="opacity:.65;font-size:11px;">${c.qty}</span></button>`).join('');
 
   // Filter orders by selected customer
   const filtered = activeKey ? pendingOrders.filter(o => (o.customerId||o.customerName) === activeKey) : pendingOrders;
