@@ -232,7 +232,7 @@ let _craftsmen   = [];     // all craftsmen (loaded once)
 let _groups      = [];     // built by buildGroupedData(), used by stepItem()
 let _unsubOrders = null;   // Firestore realtime unsubscribe fn
 let _stepping    = false;  // double-tap guard
-let _dateFilter  = 'today'; // 'today' | 'all'
+let _dateFilter  = 'all'; // 'today' | 'all'
 
 // ── Utilities ──
 function esc(s) {
@@ -816,8 +816,8 @@ window.addEventListener('DOMContentLoaded', init);
 <!-- Date filter -->
 <div id="date-filter-bar">
   <span>แสดง:</span>
-  <button id="btnFilterToday" class="filter-btn filter-btn-active" onclick="setDateFilter('today')">📅 วันนี้</button>
-  <button id="btnFilterAll" class="filter-btn" onclick="setDateFilter('all')">📋 ทั้งหมด</button>
+  <button id="btnFilterToday" class="filter-btn" onclick="setDateFilter('today')">📅 วันนี้</button>
+  <button id="btnFilterAll" class="filter-btn filter-btn-active" onclick="setDateFilter('all')">📋 ทั้งหมด</button>
   <button id="btnFilterHistory" class="filter-btn" onclick="setDateFilter('history')">📂 ประวัติ</button>
   <span id="dateFilterLabel" style="font-size:12px;color:#9ca3af;margin-left:4px;"></span>
 </div>
