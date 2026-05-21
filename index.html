@@ -811,7 +811,7 @@ async function renderDashboard(el) {
   window._allOrdersCache = orders;
   window._allProductsCache = Object.fromEntries(products.map(p=>[p.name, p]));
   window._dashTodayData={pendingOrders,custTodayList,todayOrders,dateLabel};
-  if (window._dashCustFilter === undefined) window._dashCustFilter = '';
+  if (!window._dashCustSet) window._dashCustSet = new Set();
   const initDashCust = buildDashCustContent(pendingOrders);
 
   el.innerHTML=`
@@ -1563,17 +1563,19 @@ function buildDashCustContent(pendingOrders) {
   }
   const custList = [...custMap.values()];
 
-  // Validate current filter (reset if customer no longer has pending)
-  if (window._dashCustFilter && !custMap.has(window._dashCustFilter)) window._dashCustFilter = '';
-  const activeKey = window._dashCustFilter || '';
+  // Multi-select set — remove keys for customers that no longer have pending orders
+  if (!window._dashCustSet) window._dashCustSet = new Set();
+  for (const k of [...window._dashCustSet]) { if (!custMap.has(k)) window._dashCustSet.delete(k); }
+  const sel = window._dashCustSet;
+  const showAll = sel.size === 0;
   const totalQty = pendingOrders.reduce((a,o) => (o.items||[]).reduce((b,i) => b+i.qty, 0)+a, 0);
 
-  // Chips HTML
-  const chipsHtml = `<button class="cust-chip${activeKey===''?' active':''}" onclick="filterDashCust('')">ทั้งหมด <span style="opacity:.65;font-size:11px;">${totalQty}</span></button>`
-    + custList.map(c => `<button class="cust-chip${activeKey===c.key?' active':''}" data-ckey="${U.esc(c.key)}" onclick="filterDashCust(this.dataset.ckey)">${U.esc(c.name)} <span style="opacity:.65;font-size:11px;">${c.qty}</span></button>`).join('');
+  // Chips HTML — "ทั้งหมด" active when nothing selected
+  const chipsHtml = `<button class="cust-chip${showAll?' active':''}" onclick="filterDashCust('')">ทั้งหมด <span style="opacity:.65;font-size:11px;">${totalQty}</span></button>`
+    + custList.map(c => `<button class="cust-chip${sel.has(c.key)?' active':''}" data-ckey="${U.esc(c.key)}" onclick="filterDashCust(this.dataset.ckey)">${U.esc(c.name)} <span style="opacity:.65;font-size:11px;">${c.qty}</span></button>`).join('');
 
-  // Filter orders by selected customer
-  const filtered = activeKey ? pendingOrders.filter(o => (o.customerId||o.customerName) === activeKey) : pendingOrders;
+  // Filter orders by selected set (empty set = show all)
+  const filtered = showAll ? pendingOrders : pendingOrders.filter(o => sel.has(o.customerId||o.customerName));
 
   // Aggregate items
   const itemMap = {};
@@ -1599,7 +1601,15 @@ function buildDashCustContent(pendingOrders) {
 }
 
 function filterDashCust(custKey) {
-  window._dashCustFilter = custKey;
+  if (!window._dashCustSet) window._dashCustSet = new Set();
+  if (custKey === '') {
+    // "ทั้งหมด" → clear all
+    window._dashCustSet.clear();
+  } else {
+    // toggle: กดซ้ำ = deselect
+    if (window._dashCustSet.has(custKey)) window._dashCustSet.delete(custKey);
+    else window._dashCustSet.add(custKey);
+  }
   const pending = (window._allOrdersCache||[]).filter(o => !o.isDelivered).sort((a,b) => a.createdAt-b.createdAt);
   const {chipsHtml, itemsHtml} = buildDashCustContent(pending);
   const chipsEl = document.getElementById('dashCustFilter');
