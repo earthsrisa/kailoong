@@ -144,6 +144,9 @@ body { background: #f0f2f5; margin: 0; }
 .today-card h3 { font-size: 15px; font-weight: 700; margin: 0 0 14px; opacity: .85; }
 .today-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.12); font-size: 14px; }
 .today-item:last-child { border-bottom: none; }
+.cust-chip { background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;border-radius:20px;padding:3px 11px;font-size:12px;cursor:pointer;font-weight:500;transition:all .15s;white-space:nowrap;line-height:1.4; }
+.cust-chip:hover { background:rgba(255,255,255,.28); }
+.cust-chip.active { background:rgba(255,255,255,.32);border-color:rgba(255,255,255,.8);font-weight:700; }
 
 /* ── Scrollable ── */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; display: block; width: 100%; }
@@ -808,18 +811,23 @@ async function renderDashboard(el) {
   window._allOrdersCache = orders;
   window._allProductsCache = Object.fromEntries(products.map(p=>[p.name, p]));
   window._dashTodayData={pendingOrders,custTodayList,todayOrders,dateLabel};
+  if (window._dashCustFilter === undefined) window._dashCustFilter = '';
+  const initDashCust = buildDashCustContent(pendingOrders);
 
   el.innerHTML=`
   <div class="row g-3 mb-3">
-    <!-- สรุปยอดวันนี้ทั้งหมด -->
+    <!-- ออเดอร์ค้างส่ง + customer filter -->
     <div class="col-xl-4">
-      <div class="today-card" style="height:100%;">
-        <h3><i class="fa-solid fa-sun me-2"></i>${new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'})}</h3>
-        <div id="dashTodayItems">
-        ${Object.keys(todayItems).length ? Object.entries(todayItems).map(([name,qty])=>`
-          <div class="today-item"><span>${U.esc(name)}</span><strong>${qty} ชิ้น</strong></div>`).join('')
-          + `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;"><span style="font-size:13px;opacity:.75;">รวม</span><span style="font-size:32px;font-weight:700;margin:0 6px;">${Object.values(todayItems).reduce((a,v)=>a+v,0)}</span><span style="font-size:13px;opacity:.75;">ชิ้น</span></div>`
-          : '<div style="opacity:.6;font-size:13px;text-align:center;padding:12px 0;">ยังไม่มีออเดอร์วันนี้</div>'}
+      <div class="today-card" style="height:100%;overflow-y:auto;max-height:420px;">
+        <h3 style="margin:0 0 10px;font-size:15px;font-weight:700;opacity:.85;">
+          <i class="fa-solid fa-box-open me-2"></i>ออเดอร์ค้างส่ง
+          <span id="dashPendCountBlue" style="background:rgba(255,255,255,.2);border-radius:20px;padding:1px 10px;font-size:12px;margin-left:6px;">${pendingOrders.length} รายการ</span>
+        </h3>
+        <div id="dashCustFilter" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;">
+          ${initDashCust.chipsHtml}
+        </div>
+        <div id="dashCustItems">
+          ${initDashCust.itemsHtml}
         </div>
       </div>
     </div>
@@ -892,18 +900,14 @@ async function renderDashboard(el) {
       if (window._dashTodayData) window._dashTodayData.pendingOrders = pending;
     }
 
-    // ── Update today card (Bangkok timezone) ──
-    const todayTs2 = (() => { const bkk=new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}); return new Date(bkk+'T00:00:00+07:00').getTime(); })();
-    const todayOrds = freshOrders.filter(o => o.createdAt >= todayTs2);
-    const todayItms = {};
-    todayOrds.forEach(o => (o.items||[]).forEach(i => { todayItms[i.productName] = (todayItms[i.productName]||0) + i.qty; }));
-    const todayCardEl = document.getElementById('dashTodayItems');
-    if (todayCardEl) {
-      todayCardEl.innerHTML = Object.keys(todayItms).length
-        ? Object.entries(todayItms).map(([n,q]) => `<div class="today-item"><span>${U.esc(n)}</span><strong>${q} ชิ้น</strong></div>`).join('')
-          + `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;"><span style="font-size:13px;opacity:.75;">รวม</span><span style="font-size:32px;font-weight:700;margin:0 6px;">${Object.values(todayItms).reduce((a,v)=>a+v,0)}</span><span style="font-size:13px;opacity:.75;">ชิ้น</span></div>`
-        : '<div style="opacity:.6;font-size:13px;text-align:center;padding:12px 0;">ยังไม่มีออเดอร์วันนี้</div>';
-    }
+    // ── Update blue card (pending by customer filter) ──
+    const {chipsHtml: rtChipsHtml, itemsHtml: rtItemsHtml} = buildDashCustContent(pending);
+    const blueCountEl = document.getElementById('dashPendCountBlue');
+    if (blueCountEl) blueCountEl.textContent = pending.length + ' รายการ';
+    const chipsEl = document.getElementById('dashCustFilter');
+    const cItemsEl = document.getElementById('dashCustItems');
+    if (chipsEl) chipsEl.innerHTML = rtChipsHtml;
+    if (cItemsEl) cItemsEl.innerHTML = rtItemsHtml;
 
     // ── Update recent orders table ──
     const recentEl = document.getElementById('dashRecentTbody');
@@ -1546,6 +1550,62 @@ function buildPendingHtml(orders) {
         <div style="display:flex;gap:5px;flex-shrink:0;">${deliverBtn}${billBtn}</div>
       </div>${itemsHtml}</div>`;
   }).join('');
+}
+
+// ── build blue card content: chips + items ──
+function buildDashCustContent(pendingOrders) {
+  // Build customer map
+  const custMap = new Map();
+  for (const o of pendingOrders) {
+    const k = o.customerId || o.customerName;
+    if (!custMap.has(k)) custMap.set(k, {name: o.customerName, key: k, qty: 0});
+    (o.items||[]).forEach(i => { custMap.get(k).qty += i.qty; });
+  }
+  const custList = [...custMap.values()];
+
+  // Validate current filter (reset if customer no longer has pending)
+  if (window._dashCustFilter && !custMap.has(window._dashCustFilter)) window._dashCustFilter = '';
+  const activeKey = window._dashCustFilter || '';
+  const totalQty = pendingOrders.reduce((a,o) => (o.items||[]).reduce((b,i) => b+i.qty, 0)+a, 0);
+
+  // Chips HTML
+  const chipsHtml = `<button class="cust-chip${activeKey===''?' active':''}" onclick="filterDashCust('')">ทั้งหมด <span style="opacity:.65;font-size:11px;">${totalQty}</span></button>`
+    + custList.map(c => `<button class="cust-chip${activeKey===c.key?' active':''}" onclick="filterDashCust(${JSON.stringify(c.key)})">${U.esc(c.name)} <span style="opacity:.65;font-size:11px;">${c.qty}</span></button>`).join('');
+
+  // Filter orders by selected customer
+  const filtered = activeKey ? pendingOrders.filter(o => (o.customerId||o.customerName) === activeKey) : pendingOrders;
+
+  // Aggregate items
+  const itemMap = {};
+  for (const o of filtered) {
+    for (const i of (o.items||[])) {
+      const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
+      const label = i.productName
+        + (i.color&&i.color!=='-'?' ('+i.color+')':'')
+        + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
+        + (i.extra?' '+i.extra:'');
+      itemMap[label] = (itemMap[label]||0) + i.qty;
+    }
+  }
+  const entries = Object.entries(itemMap);
+  const totalCount = entries.reduce((a,[,v]) => a+v, 0);
+
+  const itemsHtml = entries.length
+    ? entries.map(([name,qty]) => `<div class="today-item"><span>${U.esc(name)}</span><strong>${qty} ชิ้น</strong></div>`).join('')
+      + `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;"><span style="font-size:13px;opacity:.75;">รวม</span><span style="font-size:32px;font-weight:700;margin:0 6px;">${totalCount}</span><span style="font-size:13px;opacity:.75;">ชิ้น</span></div>`
+    : `<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;"><i class="fa-solid fa-circle-check me-2"></i>ไม่มีออเดอร์ค้างส่ง</div>`;
+
+  return {chipsHtml, itemsHtml};
+}
+
+function filterDashCust(custKey) {
+  window._dashCustFilter = custKey;
+  const pending = (window._allOrdersCache||[]).filter(o => !o.isDelivered).sort((a,b) => a.createdAt-b.createdAt);
+  const {chipsHtml, itemsHtml} = buildDashCustContent(pending);
+  const chipsEl = document.getElementById('dashCustFilter');
+  const cItemsEl = document.getElementById('dashCustItems');
+  if (chipsEl) chipsEl.innerHTML = chipsHtml;
+  if (cItemsEl) cItemsEl.innerHTML = itemsHtml;
 }
 
 function markDeliveredGroup(ids) {
