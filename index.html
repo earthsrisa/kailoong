@@ -6,7 +6,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ไคลุง">
+<meta name="apple-mobile-web-app-title" content="ขายโลง">
 <meta name="theme-color" content="#1a2332">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
@@ -3943,18 +3943,4 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('sidebarBizName').textContent = CFG.businessName;
     navigate('dashboard');
   } catch(e) {
-    console.error(e);
-    document.getElementById('page-content').innerHTML=`<div class="empty-state"><i class="fa-solid fa-triangle-exclamation text-danger" style="font-size:40px;"></i><p style="color:#dc2626;">เกิดข้อผิดพลาด: ${e.message}</p></div>`;
-  }
-});
-</script>
-
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  });
-}
-</script>
-</body>
-</html>
+    console.erro
