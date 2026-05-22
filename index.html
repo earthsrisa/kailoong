@@ -2562,13 +2562,9 @@ async function showCreateReceiptModal(editId, prefillCustName) {
         <option value="">-- เลือกลูกค้า --</option>${custOpts}
       </select>
     </div>
-    <div class="col-sm-4">
-      <label class="form-label">ดึงออเดอร์ของวันที่</label>
-      <input type="date" class="form-control" id="rc_pullDate" value="${todayLocal()}">
-    </div>
-    <div class="col-sm-3 d-flex align-items-end">
+    <div class="col-sm-4 d-flex align-items-end">
       <button type="button" class="btn btn-success w-100" onclick="pullOrdersToReceipt()">
-        <i class="fa-solid fa-wand-magic-sparkles me-1"></i>ดึงออเดอร์
+        <i class="fa-solid fa-wand-magic-sparkles me-1"></i>ดึงออเดอร์ที่ยังไม่ได้จัดส่ง
       </button>
     </div>
     <div class="col-12">
@@ -2661,20 +2657,13 @@ function _forceNewInvoice(encodedName) {
 function pullOrdersToReceipt() {
   const custId=window._rcCustId;
   if (!custId){U.toast('กรุณาเลือกลูกค้าก่อน','error');return;}
-  const dateStr=document.getElementById('rc_pullDate')?.value;
-  if (!dateStr){U.toast('กรุณาเลือกวันที่','error');return;}
-  const date=new Date(dateStr);
 
-  const orders=(window._rcAllOrders||[]).filter(o=>{
-    const d=new Date(o.createdAt);
-    return o.customerId===custId &&
-      d.getFullYear()===date.getFullYear() &&
-      d.getMonth()===date.getMonth() &&
-      d.getDate()===date.getDate();
-  });
+  const orders=(window._rcAllOrders||[]).filter(o=>
+    o.customerId===custId && !o.isDelivered
+  );
 
   if (!orders.length){
-    U.toast(`ไม่พบออเดอร์ของลูกค้านี้ในวันที่ ${date.toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'})}`, 'error');
+    U.toast('ไม่พบออเดอร์ค้างส่งของลูกค้านี้', 'error');
     return;
   }
 
@@ -2690,7 +2679,7 @@ function pullOrdersToReceipt() {
   window._rcItemIdx=items.length;
   document.getElementById('rcItemsBody').innerHTML=items.map((item,i)=>rcItemRow(i,item)).join('');
   calcRcTotal();
-  U.toast(`✓ ดึง ${items.length} รายการ จาก ${orders.length} ออเดอร์ของวันนี้`);
+  U.toast(`✓ ดึง ${items.length} รายการ จาก ${orders.length} ออเดอร์ค้างส่ง`);
 }
 
 function itemLabel(i) {
