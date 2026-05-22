@@ -49,7 +49,6 @@ export default async function handler(req, res) {
 
   let message;
   if (type === 'delete') {
-    // รายการที่ถูกลบ — แสดงสีโลง + สีเส้นด้วย
     const deleteItemLines = itemList.map(i => {
       const parts = [i.name, i.color, i.trimColor].filter(Boolean);
       return `❌ ${parts.join(' ')} × ${i.qty} ใบ`;
@@ -57,7 +56,6 @@ export default async function handler(req, res) {
 
     message =
       `${header}\n` +
-      `${divider}\n` +
       `👤 ลูกค้า: ${customerName}\n` +
       `📅 วันที่: ${dateStr}\n` +
       `${divider}\n` +
@@ -67,7 +65,6 @@ export default async function handler(req, res) {
     const sectionLabel = type === 'edit' ? 'รายการที่เปลี่ยนแปลง:' : 'รายการสินค้า:';
     message =
       `${header}\n` +
-      `${divider}\n` +
       `👤 ลูกค้า: ${customerName}\n` +
       `📅 วันที่: ${dateStr}\n` +
       `${divider}\n` +
@@ -101,8 +98,8 @@ export default async function handler(req, res) {
       (sum, o) => sum + (o.items || []).reduce((s, i) => s + Number(i.qty), 0), 0
     );
     daySummary =
-      `${divider}\n` +
-      `สรุปรายการทั้งหมด\n\n` +
+      `\n${divider}\n` +
+      `สรุปยอดค้างส่งทั้งหมด\n\n` +
       `${custBlocks.join('\n\n')}\n\n` +
       `รวม ${grandTotal} ใบ`;
   }

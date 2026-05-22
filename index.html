@@ -1897,11 +1897,9 @@ function calcOrderTotal() {
 //                    ถ้าไม่ส่ง (new order) → tag ทุก item ในออเดอร์นั้น
 async function getTodayOrdersSummary({ currentOrderId, actionType, actionItemKeys } = {}) {
   const all = await DB.getOrders();
-  // Bangkok timezone midnight
-  const ts = new Date(new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'})+'T00:00:00+07:00').getTime();
   const keySet = actionItemKeys ? new Set(actionItemKeys) : null;
   return all
-    .filter(o => o.createdAt >= ts)
+    .filter(o => !o.isDelivered)
     .map(o => {
       const isCurrent = currentOrderId && String(o.id) === String(currentOrderId);
       return {
@@ -3470,9 +3468,10 @@ async function renderSettings(el) {
             <button class="btn btn-primary" onclick="saveSettings()">
               <i class="fa-solid fa-floppy-disk me-1"></i>บันทึกการตั้งค่า
             </button>
-
-    </div><!-- /col -->
-  </div><!-- /row form -->
+          </div><!-- /mt-4 -->
+        </div><!-- /modal-body -->
+      </div><!-- /card-box -->
+    </div><!-- /col-lg-6 -->
 
     <!-- สถิติ & Backup -->
     <div class="col-lg-6">
