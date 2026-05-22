@@ -3943,4 +3943,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('sidebarBizName').textContent = CFG.businessName;
     navigate('dashboard');
   } catch(e) {
-    console.erro
+    console.error('init error', e);
+    document.getElementById('page-content').innerHTML =
+      `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i><p>โหลดข้อมูลไม่ได้ กรุณารีเฟรช</p><button onclick="location.reload()" class="btn btn-primary mt-2">รีเฟรช</button></div>`;
+  }
+});
+</script>
+</body>
+</html>
