@@ -1556,10 +1556,14 @@ function buildPendingHtml(orders) {
 function buildDashCustContent(pendingOrders) {
   // Build customer map
   const custMap = new Map();
+  const _pc = window._allProductsCache || {};
+  const _isAcc = name => { const p=_pc[name]; return p ? (p.unit||'โลง').trim()!=='โลง' : ['เทพ','มุม','เส้น'].some(k=>(name||'').includes(k)); };
+
   for (const o of pendingOrders) {
     const k = o.customerId || o.customerName;
     if (!custMap.has(k)) custMap.set(k, {name: o.customerName, key: k, qty: 0});
-    (o.items||[]).forEach(i => { custMap.get(k).qty += i.qty; });
+    // นับเฉพาะโลง ไม่นับ accessory
+    (o.items||[]).forEach(i => { if (!_isAcc(i.productName)) custMap.get(k).qty += i.qty; });
   }
   const custList = [...custMap.values()];
 
@@ -1568,7 +1572,8 @@ function buildDashCustContent(pendingOrders) {
   for (const k of [...window._dashCustSet]) { if (!custMap.has(k)) window._dashCustSet.delete(k); }
   const sel = window._dashCustSet;
   const showAll = sel.size === 0;
-  const totalQty = pendingOrders.reduce((a,o) => (o.items||[]).reduce((b,i) => b+i.qty, 0)+a, 0);
+  // นับรวมเฉพาะโลง
+  const totalQty = pendingOrders.reduce((a,o) => (o.items||[]).filter(i=>!_isAcc(i.productName)).reduce((b,i)=>b+i.qty,0)+a, 0);
 
   // Chips HTML — "ทั้งหมด" active when nothing selected
   const chipsHtml = `<button class="cust-chip${showAll?' active':''}" onclick="filterDashCust('')">ทั้งหมด <span style="opacity:.65;font-size:11px;">${totalQty}</span></button>`
@@ -1577,8 +1582,16 @@ function buildDashCustContent(pendingOrders) {
   // Filter orders by selected set (empty set = show all)
   const filtered = showAll ? pendingOrders : pendingOrders.filter(o => sel.has(o.customerId||o.customerName));
 
-  // Aggregate items
-  const itemMap = {};
+  // helper: ตรวจว่าเป็น accessory (ไม่ใช่โลง)
+  const prodCache = window._allProductsCache || {};
+  function isAccessory(productName) {
+    const p = prodCache[productName];
+    if (p) return (p.unit||'โลง').trim() !== 'โลง';
+    return ['เทพ','มุม','เส้น'].some(k => (productName||'').includes(k));
+  }
+
+  // Aggregate items — แยก coffin vs accessory
+  const coffinMap = {}, accMap = {};
   for (const o of filtered) {
     for (const i of (o.items||[])) {
       const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
@@ -1586,15 +1599,24 @@ function buildDashCustContent(pendingOrders) {
         + (i.color&&i.color!=='-'?' ('+i.color+')':'')
         + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
         + (i.extra?' '+i.extra:'');
-      itemMap[label] = (itemMap[label]||0) + i.qty;
+      if (isAccessory(i.productName)) {
+        accMap[label] = (accMap[label]||0) + i.qty;
+      } else {
+        coffinMap[label] = (coffinMap[label]||0) + i.qty;
+      }
     }
   }
-  const entries = Object.entries(itemMap);
-  const totalCount = entries.reduce((a,[,v]) => a+v, 0);
 
-  const itemsHtml = entries.length
-    ? entries.map(([name,qty]) => `<div class="today-item"><span>${U.esc(name)}</span><strong>${qty} ชิ้น</strong></div>`).join('')
-      + `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;"><span style="font-size:13px;opacity:.75;">รวม</span><span style="font-size:32px;font-weight:700;margin:0 6px;">${totalCount}</span><span style="font-size:13px;opacity:.75;">ชิ้น</span></div>`
+  const coffinEntries = Object.entries(coffinMap);
+  const accEntries    = Object.entries(accMap);
+  const totalCoffins  = coffinEntries.reduce((a,[,v]) => a+v, 0);
+  const hasAny = coffinEntries.length || accEntries.length;
+
+  const itemsHtml = hasAny
+    ? coffinEntries.map(([name,qty]) => `<div class="today-item"><span>${U.esc(name)}</span><strong>${qty} ชิ้น</strong></div>`).join('')
+      + (coffinEntries.length ? `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;"><span style="font-size:13px;opacity:.75;">รวมโลง</span><span style="font-size:32px;font-weight:700;margin:0 6px;">${totalCoffins}</span><span style="font-size:13px;opacity:.75;">ชิ้น</span></div>` : '')
+      + (accEntries.length ? `<div style="border-top:1px solid rgba(255,255,255,.15);margin-top:10px;padding-top:8px;margin-bottom:4px;font-size:11px;opacity:.6;letter-spacing:.5px;">อุปกรณ์เสริม</div>`
+        + accEntries.map(([name,qty]) => `<div class="today-item" style="opacity:.75;"><span>${U.esc(name)}</span><strong>${qty}</strong></div>`).join('') : '')
     : `<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;"><i class="fa-solid fa-circle-check me-2"></i>ไม่มีออเดอร์ค้างส่ง</div>`;
 
   return {chipsHtml, itemsHtml};
@@ -1800,12 +1822,13 @@ function printPendingOrders(ordersInput) {
     </div>`;
   }).join('');
 
-  const win = window.open('','_blank','width=820,height=1050');
+  const win = window.open('','_blank','width=794,height=1123');
   win.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
   <title>รายการออเดอร์วันนี้</title>
   <style>
+    @page{size:A4 portrait;margin:10mm 12mm;}
     *{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
-    body{font-family:'Sarabun',sans-serif;padding:10mm 10mm 8mm;color:#111;font-size:14px;margin:0;}
+    body{font-family:'Sarabun',sans-serif;padding:10mm 12mm 8mm;color:#111;font-size:14px;margin:0;max-width:210mm;}
     h1{font-size:20px;font-weight:800;margin:0 0 2px;}
     .sub{font-size:13px;color:#555;margin-bottom:10px;}
     .grand-total{background:#1e3a8a;color:#fff;border-radius:8px;padding:10px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
@@ -1813,7 +1836,7 @@ function printPendingOrders(ordersInput) {
     .grand-total .num{font-size:30px;font-weight:800;letter-spacing:1px;line-height:1.1;}
     .grand-total .sub2{font-size:11px;opacity:.75;margin-top:2px;}
     .grid-wrap{columns:1;}
-    .cust-block{border:2px solid #dbeafe;border-radius:8px;margin-bottom:10px;overflow:hidden;break-inside:avoid;-webkit-column-break-inside:avoid;}
+    .cust-block{border:2px solid #dbeafe;border-radius:8px;margin-bottom:10px;overflow:hidden;break-inside:avoid;page-break-inside:avoid;}
     .cust-head{background:#dbeafe;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #93c5fd;}
     .cust-name{font-size:18px;font-weight:800;color:#1e3a8a;letter-spacing:.2px;}
     .cust-count{font-size:13px;color:#1d4ed8;font-weight:800;background:#eff6ff;padding:3px 12px;border-radius:20px;border:1.5px solid #93c5fd;}
@@ -1829,7 +1852,6 @@ function printPendingOrders(ordersInput) {
     .pen-box{display:inline-block;width:18px;height:18px;border:1.5px solid #374151;border-radius:2px;margin-right:3px;vertical-align:middle;}
     .no-print{margin-top:16px;}
     @media print{
-      @page{size:A4 portrait;margin:8mm 10mm;}
       body{padding:0;}
       .no-print{display:none!important;}
       .grand-total,.cust-head{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
