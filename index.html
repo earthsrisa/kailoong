@@ -1105,6 +1105,15 @@ function addItemRow(i, custId, products) {
   </tr>`;
 }
 
+// ── helper: รวม spec.lines + custom lines จาก priceMap ──
+function getProductLines(prodName, prodList) {
+  const prod=(prodList||[]).find(p=>p.name===prodName);
+  const specLines=COFFIN_SPEC[prodName]?.lines||['ทอง','เงิน','ซีด','ขาว'];
+  const pmKeys=Object.keys(prod?.priceMap||{}).filter(k=>k!=='__default'&&(prod?.priceMap[k]||0)>0);
+  const extra=pmKeys.filter(k=>!specLines.includes(k));
+  return [...specLines,...extra];
+}
+
 function updateAddItemSpec(i, prodName) {
   const _prod=(window._addItemsProducts||[]).find(p=>p.name===prodName);
   const _isAcc=_prod?((_prod.unit||'โลง').trim()!=='โลง'):['เทพ','มุม','เส้น'].some(k=>(prodName||'').includes(k));
@@ -1123,7 +1132,8 @@ function updateAddItemSpec(i, prodName) {
     colorSel.innerHTML='<option value="-">-</option>';
     colorSel.style.display='none';
   }
-  trimSel.innerHTML=spec.lines.map(l=>`<option value="${l}">${lineIcons[l]||''} ${l}</option>`).join('');
+  const _aiLines=getProductLines(prodName,window._addItemsProducts||[]);
+  trimSel.innerHTML=_aiLines.map(l=>`<option value="${l}">${lineIcons[l]||''} ${l}</option>`).join('');
   specWrap.style.display='flex';
   // extra (ขนาด) — แสดงเฉพาะสินค้าที่มี spec.extra
   const extraWrap=document.getElementById(`aiextra_wrap_${i}`);
@@ -1321,9 +1331,10 @@ function orderItemRow(i, products, item={}, custId) {
     : '<option value="-">-</option>';
 
   // สีเส้น options
-  const lineVal = item.trimColor || spec.lines[0] || 'ทอง';
+  const _oiLines=getProductLines(pName,products||[]);
+  const lineVal = item.trimColor || _oiLines[0] || 'ทอง';
   const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
-  const lineOpts = spec.lines.map(l=>`<option value="${l}" ${lineVal===l?'selected':''}>${lineIcons[l]||''} ${l}</option>`).join('');
+  const lineOpts = _oiLines.map(l=>`<option value="${l}" ${lineVal===l?'selected':''}>${lineIcons[l]||''} ${l}</option>`).join('');
 
   // extra options (กลาง)
   const extraVal = item.extra||'';
@@ -1380,7 +1391,8 @@ function updateItemSpec(i, prodName) {
   const hasColor = spec.colors.length > 0;
   const SS='font-size:15px;font-weight:600;border:2px solid #d1d5db;border-radius:8px;padding:7px 10px;width:100%;background:#fff;cursor:pointer;';
   const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
-  const lineOpts = spec.lines.map(l=>`<option value="${l}">${lineIcons[l]||''} ${l}</option>`).join('');
+  const _uiLines=getProductLines(prodName,window._orderProds||[]);
+  const lineOpts = _uiLines.map(l=>`<option value="${l}">${lineIcons[l]||''} ${l}</option>`).join('');
   const colorOpts = hasColor
     ? spec.colors.map(c=>`<option value="${c}">${c==='ขาว'?'⬜':'🟥'} ${c}</option>`).join('')
     : '<option value="-">-</option>';
