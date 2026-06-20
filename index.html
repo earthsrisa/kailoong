@@ -2440,6 +2440,7 @@ async function deleteProduct(id) {
 async function renderInvoices(el) {
   document.getElementById('topbarActions').innerHTML=
     `<button class="btn btn-primary" onclick="showCreateReceiptModal()"><i class="fa-solid fa-plus me-1"></i>ออกใบเสร็จรับเงิน</button>
+     <button class="btn btn-outline-warning" onclick="showBulkInvoiceModal()" style="font-weight:600;"><i class="fa-solid fa-bolt me-1"></i>ออกบิลทีเดียว</button>
      <button class="btn btn-outline-success" onclick="exportExcel()"><i class="fa-solid fa-file-excel me-1"></i>Export Excel</button>`;
   const [invAll, invCusts] = await Promise.all([DB.getInvoices(), DB.getCustomers()]);
   const invoices = invAll.sort((a,b)=>b.createdAt-a.createdAt);
@@ -2817,6 +2818,242 @@ async function saveReceipt(andPrint=false) {
   }
 }
 
+
+// ══════════════════════════════════════════════════════════
+//  BULK INVOICE — ออกบิลทีเดียวหลายลูกค้า
+// ══════════════════════════════════════════════════════════
+async function showBulkInvoiceModal() {
+  const [allOrders, allInvoices] = await Promise.all([DB.getOrders(), DB.getInvoices()]);
+  const pending = allOrders.filter(o => !o.isDelivered);
+
+  if (!pending.length) {
+    U.toast('ไม่มีออเดอร์ค้างส่ง', 'info'); return;
+  }
+
+  // จัดกลุ่มตาม customerId
+  const custMap = new Map();
+  for (const o of pending) {
+    const k = o.customerId || o.customerName;
+    if (!custMap.has(k)) custMap.set(k, { id: o.customerId, name: o.customerName, orders: [] });
+    custMap.get(k).orders.push(o);
+  }
+
+  // ตรวจบิลวันนี้แล้วหรือยัง
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const billedTodaySet = new Set(
+    allInvoices.filter(i => i.createdAt >= todayStart.getTime()).map(i => i.customerId)
+  );
+
+  const rows = [...custMap.values()].map(c => {
+    const totalQty = c.orders.reduce((s,o)=>(o.items||[]).reduce((ss,i)=>ss+i.qty,0)+s, 0);
+    const ordCount = c.orders.length;
+    const alreadyBilled = billedTodaySet.has(c.id);
+    const warnBadge = alreadyBilled
+      ? `<span style="font-size:11px;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;margin-left:6px;">มีบิลวันนี้แล้ว</span>` : '';
+    return `<tr>
+      <td style="width:36px;text-align:center;">
+        <input type="checkbox" class="bulk-inv-chk" value="${U.esc(c.id||c.name)}"
+          data-cname="${U.esc(c.name)}" ${alreadyBilled?'':'checked'}>
+      </td>
+      <td style="padding:8px 6px;font-weight:600;">${U.esc(c.name)}${warnBadge}</td>
+      <td style="padding:8px 6px;text-align:center;color:#6b7280;font-size:13px;">${ordCount} ออเดอร์</td>
+      <td style="padding:8px 6px;text-align:center;font-weight:700;color:#1e40af;">${totalQty} ชิ้น</td>
+    </tr>`;
+  }).join('');
+
+  const body = `
+    <div style="margin-bottom:10px;font-size:13px;color:#6b7280;">
+      เลือกลูกค้าที่ต้องการออกบิล ระบบจะรวมออเดอร์ค้างส่งทั้งหมดของแต่ละคนเป็น 1 บิล
+    </div>
+    <div style="margin-bottom:8px;display:flex;gap:8px;">
+      <button class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('.bulk-inv-chk').forEach(c=>c.checked=true)">เลือกทั้งหมด</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('.bulk-inv-chk').forEach(c=>c.checked=false)">ล้างทั้งหมด</button>
+    </div>
+    <table style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:2px solid #e5e7eb;">
+          <th style="width:36px;"></th>
+          <th style="padding:6px;text-align:left;font-size:13px;color:#374151;">ลูกค้า</th>
+          <th style="padding:6px;text-align:center;font-size:13px;color:#374151;">ออเดอร์</th>
+          <th style="padding:6px;text-align:center;font-size:13px;color:#374151;">จำนวนรวม</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <input type="hidden" id="bulkInvOrdersJson" value="${U.esc(JSON.stringify([...custMap.values()]))}">`;
+
+  showModal('bulkInvModal', '<i class="fa-solid fa-bolt me-2 text-warning"></i>ออกบิลทีเดียว', body,
+    `<button class="btn btn-primary" onclick="bulkCreateInvoices(false)"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึกบิลทั้งหมด</button>
+     <button class="btn btn-outline-primary" onclick="bulkCreateInvoices(true)"><i class="fa-solid fa-print me-1"></i>บันทึก & พิมพ์ทั้งหมด</button>
+     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,
+    'modal-lg');
+}
+
+async function bulkCreateInvoices(andPrint = false) {
+  const checked = [...document.querySelectorAll('.bulk-inv-chk:checked')].map(c => c.value);
+  if (!checked.length) { U.toast('กรุณาเลือกลูกค้าอย่างน้อย 1 คน', 'error'); return; }
+
+  const raw = document.getElementById('bulkInvOrdersJson')?.value;
+  if (!raw) return;
+  const custList = JSON.parse(raw);
+  const selectedList = custList.filter(c => checked.includes(c.id || c.name));
+
+  closeModal('bulkInvModal');
+  U.toast(`กำลังสร้าง ${selectedList.length} ใบเสร็จ...`);
+
+  const createdInvs = [];
+  for (const c of selectedList) {
+    // รวมรายการ (เหมือน pullOrdersToReceipt)
+    const merged = {};
+    for (const o of c.orders) {
+      for (const i of (o.items || [])) {
+        const key = i.productName+'|'+i.price+'|'+(i.color||'')+'|'+(i.trimColor||'')+'|'+(i.style||'')+'|'+(i.specialNote||'');
+        if (merged[key]) merged[key].qty += i.qty;
+        else merged[key] = { name: itemLabel(i), qty: i.qty, price: i.price };
+      }
+    }
+    const items = Object.values(merged);
+    if (!items.length) continue;
+
+    const data = {
+      type: 'receipt',
+      customerId: c.id,
+      customerName: c.name,
+      customerAddress: '',
+      customerPhone: '',
+      customerTaxId: '',
+      items,
+      discount: 0,
+      taxRate: 0,
+      notes: '',
+      invoiceNo: await DB.nextReceiptNo(),
+    };
+    const savedId = await DB.addInvoice(data);
+    const saved = await DB.getInvoice(savedId);
+    if (saved) createdInvs.push(saved);
+  }
+
+  U.toast(`✓ ออกบิลแล้ว ${createdInvs.length} ใบ`);
+  navigate('invoices');
+
+  if (andPrint && createdInvs.length) {
+    setTimeout(() => printMultipleReceipts(createdInvs), 600);
+  }
+}
+
+function printMultipleReceipts(invList) {
+  function buildInvHtml(inv) {
+    const t = U.invTotal(inv);
+    const rows = (inv.items || []).map((item, idx) => `
+      <tr>
+        <td style="text-align:center;">${idx+1}</td>
+        <td>${U.esc(item.name)}</td>
+        <td style="text-align:center;">${item.qty}</td>
+        <td style="text-align:right;">${U.money(item.price)}</td>
+        <td style="text-align:right;">${U.money(item.qty * item.price)}</td>
+      </tr>`).join('');
+    const discRow = t.disc ? `<tr><td>ส่วนลด</td><td style="text-align:right;">-${U.money(t.disc)}</td></tr>` : '';
+    const taxRow  = t.tax  ? `<tr><td>VAT ${inv.taxRate}%</td><td style="text-align:right;">${U.money(t.tax)}</td></tr>` : '';
+
+    return `<div class="inv-page">
+      <div class="inv-header">
+        <div class="inv-company">
+          <h1>${U.esc(CFG.businessName)}</h1>
+          ${CFG.sellerName ? `<p>ผู้ขาย: ${U.esc(CFG.sellerName)}</p>` : ''}
+          ${CFG.businessAddress ? `<p>${U.esc(CFG.businessAddress)}</p>` : ''}
+          ${CFG.businessPhone ? `<p>โทร: ${U.esc(CFG.businessPhone)}</p>` : ''}
+        </div>
+        <div class="inv-doc-info">
+          <div class="doc-type">ใบเสร็จรับเงิน</div>
+          <table>
+            <tr><td>เลขที่</td><td>${U.esc(inv.invoiceNo)}</td></tr>
+            <tr><td>วันที่</td><td>${U.date(inv.createdAt)}</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="inv-parties">
+        <div class="inv-party">
+          <h3>ลูกค้า / ผู้ซื้อ</h3>
+          <p><strong>${U.esc(inv.customerName || '-')}</strong></p>
+          ${inv.customerAddress ? `<p style="font-size:10px;">${U.esc(inv.customerAddress)}</p>` : ''}
+        </div>
+        <div class="inv-party">
+          <h3>ผู้ขาย</h3>
+          <p><strong>${U.esc(CFG.sellerName || CFG.businessName)}</strong></p>
+          ${CFG.businessPhone ? `<p>โทร: ${U.esc(CFG.businessPhone)}</p>` : ''}
+        </div>
+      </div>
+      <div class="inv-items">
+        <table>
+          <thead><tr>
+            <th style="width:5%;text-align:center;">#</th>
+            <th>รายการสินค้า</th>
+            <th style="width:10%;text-align:center;">จำนวน</th>
+            <th style="width:15%;text-align:right;">ราคา/หน่วย</th>
+            <th style="width:15%;text-align:right;">จำนวนเงิน</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="inv-totals">
+        <table>
+          <tr><td>รวมก่อนส่วนลด</td><td style="text-align:right;">${U.money(t.sub)}</td></tr>
+          ${discRow}${taxRow}
+          <tr class="grand-row"><td><strong>รวมทั้งสิ้น</strong></td><td style="text-align:right;"><strong>${U.money(t.total)}</strong></td></tr>
+        </table>
+      </div>
+    </div>`;
+  }
+
+  const win = window.open('', '_blank', 'width=620,height=900');
+  win.document.write(`<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<title>ใบเสร็จรับเงิน (${invList.length} ใบ)</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;}
+@page{size:A5 portrait;margin:8mm 10mm;}
+@media print{
+  .page-break{page-break-after:always;break-after:page;}
+  .page-break:last-child{page-break-after:avoid;break-after:avoid;}
+  .no-print{display:none!important;}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+}
+.inv-page{padding:10mm 12mm;max-width:148mm;margin:0 auto;}
+.inv-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:2px solid #000;margin-bottom:10px;}
+.inv-company h1{font-size:19px;font-weight:800;margin:0 0 2px;}
+.inv-company p{font-size:12px;color:#333;margin:1px 0;}
+.inv-doc-info{text-align:right;}
+.inv-doc-info .doc-type{font-size:20px;font-weight:800;margin-bottom:3px;}
+.inv-doc-info table{margin-left:auto;font-size:12px;}
+.inv-doc-info td{padding:1px 4px;color:#000;}
+.inv-doc-info td:first-child{color:#555;padding-right:6px;}
+.inv-doc-info td:last-child{font-weight:700;}
+.inv-parties{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
+.inv-party{border:1px solid #ccc;border-radius:4px;padding:6px 10px;}
+.inv-party h3{font-size:10px;text-transform:uppercase;color:#555;margin:0 0 3px;letter-spacing:1px;border-bottom:1px solid #ddd;padding-bottom:2px;}
+.inv-party p{font-size:13px;margin:1px 0;}
+.inv-items table{width:100%;border-collapse:collapse;margin-bottom:10px;}
+.inv-items th{font-size:13px;font-weight:700;padding:6px 10px;border-top:2px solid #000;border-bottom:1px solid #000;}
+.inv-items td{padding:6px 10px;border-bottom:1px solid #ddd;font-size:14px;}
+.inv-totals{display:flex;justify-content:flex-end;margin-bottom:10px;}
+.inv-totals table{font-size:14px;min-width:220px;border-top:1px solid #ccc;}
+.inv-totals td{padding:2px 6px;}
+.grand-row td{font-size:17px;font-weight:800;border-top:2px solid #000;padding-top:5px;}
+.page-break{border-top:2px dashed #ccc;margin:0;}
+.no-print{padding:12px;text-align:center;background:#f1f5f9;}
+</style></head><body>
+<div class="no-print">
+  <button onclick="window.print()" style="padding:10px 26px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ พิมพ์ทั้ง ${invList.length} ใบ</button>
+  <span style="margin-left:12px;font-size:13px;color:#6b7280;">${invList.map(i=>i.invoiceNo).join(' · ')}</span>
+</div>
+${invList.map((inv, idx) =>
+  `<div class="page-break">${buildInvHtml(inv)}</div>`
+).join('')}
+</body></html>`);
+  win.document.close();
+}
 
 function _promptpayPayload(rawId, amount) {
   function crc16(s){
