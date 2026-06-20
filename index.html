@@ -2316,10 +2316,12 @@ async function renderProducts(el) {
 
 function prodRow(p,i) {
   const spec=COFFIN_SPEC[p.name];
-  const lines=spec?.lines||Object.keys(p.priceMap||{});
+  const specLines=spec?.lines||[];
+  const pm=p.priceMap||{};
+  const extraKeys=Object.keys(pm).filter(k=>!specLines.includes(k)&&(pm[k]||0)>0);
+  const lines=specLines.length?[...specLines,...extraKeys]:Object.keys(pm);
   const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   let priceCell;
-  const pm=p.priceMap||{};
   const hasPm=lines.length&&Object.keys(pm).some(k=>pm[k]>0);
   if(hasPm){
     priceCell=lines.filter(l=>pm[l]!=null).map(l=>
@@ -2349,9 +2351,12 @@ function filterProdTable(val) {
 
 function buildPriceFields(prodName, existingPm) {
   const spec=COFFIN_SPEC[prodName];
-  const pmKeys=Object.keys(existingPm||{}).filter(k=>k!=='__default'&&existingPm[k]>0);
+  const pmKeys=Object.keys(existingPm||{}).filter(k=>k!=='__default'&&(existingPm[k]||0)>0);
   const DEFAULT_LINES=['ทอง','เงิน'];
-  const lines=spec?.lines?.length?spec.lines:(pmKeys.length?pmKeys:DEFAULT_LINES);
+  const specLines=spec?.lines||[];
+  // รวม specLines + สีเส้น custom ที่ save ไว้ใน priceMap (ไม่ซ้ำกัน)
+  const extraKeys=pmKeys.filter(k=>!specLines.includes(k));
+  const lines=specLines.length?[...specLines,...extraKeys]:(pmKeys.length?pmKeys:DEFAULT_LINES);
   const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   const rows=lines.map(l=>`
     <div class="pf-line-row" style="display:grid;grid-template-columns:1fr 1fr 34px;gap:8px;align-items:center;">
