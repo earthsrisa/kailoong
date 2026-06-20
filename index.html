@@ -2349,20 +2349,38 @@ function filterProdTable(val) {
 
 function buildPriceFields(prodName, existingPm) {
   const spec=COFFIN_SPEC[prodName];
-  // ถ้า COFFIN_SPEC ไม่มี ให้ดูจาก priceMap ที่มีอยู่แล้ว
-  const pmKeys = Object.keys(existingPm||{}).filter(k=>k!=='__default'&&existingPm[k]>0);
-  // default เสมอ: อย่างน้อยต้องมี ทอง + เงิน
-  const DEFAULT_LINES = ['ทอง','เงิน'];
-  const lines = spec?.lines?.length ? spec.lines : (pmKeys.length ? pmKeys : DEFAULT_LINES);
+  const pmKeys=Object.keys(existingPm||{}).filter(k=>k!=='__default'&&existingPm[k]>0);
+  const DEFAULT_LINES=['ทอง','เงิน'];
+  const lines=spec?.lines?.length?spec.lines:(pmKeys.length?pmKeys:DEFAULT_LINES);
   const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
-  return `<div class="col-12"><label class="form-label fw-semibold">✨ ราคาตามสีเส้น (บาท)</label>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;">
-      ${lines.map(l=>`<div style="background:#f8fafc;border-radius:8px;padding:8px 10px;">
-        <div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:4px;">${lineIcons[l]||''} ${l}</div>
-        <input type="number" class="form-control form-control-sm" id="pf_pm_${l}" min="0" placeholder="ราคา..." value="${existingPm?.[l]||''}">
-      </div>`).join('')}
-    </div></div>
+  const rows=lines.map(l=>`
+    <div class="pf-line-row" style="display:grid;grid-template-columns:1fr 1fr 34px;gap:8px;align-items:center;">
+      <input type="text" class="form-control form-control-sm pf-line-name" value="${U.esc(l)}" placeholder="ชื่อสีเส้น">
+      <input type="number" class="form-control form-control-sm pf-line-price" min="0" placeholder="ราคา..." value="${existingPm?.[l]||''}">
+      <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.pf-line-row').remove()" style="padding:4px 7px;"><i class="fa-solid fa-trash"></i></button>
+    </div>`).join('');
+  return `<div class="col-12">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <label class="form-label fw-semibold mb-0">✨ ราคาตามสีเส้น (บาท)</label>
+      <button type="button" class="btn btn-sm btn-outline-primary" onclick="addPriceLineRow()"><i class="fa-solid fa-plus me-1"></i>เพิ่มสีเส้น</button>
+    </div>
+    <div id="pf_lines_wrap" style="display:flex;flex-direction:column;gap:8px;">${rows}</div>
+  </div>
   <input type="hidden" id="pf_price" value="0">`;
+}
+
+function addPriceLineRow() {
+  const wrap=document.getElementById('pf_lines_wrap');
+  if(!wrap) return;
+  const row=document.createElement('div');
+  row.className='pf-line-row';
+  row.style.cssText='display:grid;grid-template-columns:1fr 1fr 34px;gap:8px;align-items:center;';
+  row.innerHTML=`
+    <input type="text" class="form-control form-control-sm pf-line-name" placeholder="ชื่อสีเส้น เช่น ม่วง">
+    <input type="number" class="form-control form-control-sm pf-line-price" min="0" placeholder="ราคา...">
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.pf-line-row').remove()" style="padding:4px 7px;"><i class="fa-solid fa-trash"></i></button>`;
+  wrap.appendChild(row);
+  row.querySelector('.pf-line-name').focus();
 }
 async function showProductModal(id) {
   const p=id?await DB.getProduct(id):null;
@@ -2398,15 +2416,11 @@ async function saveProduct() {
     const name=document.getElementById('pf_name')?.value.trim();
     if (!name){U.toast('กรุณากรอกชื่อสินค้า','error');return;}
     const id=document.getElementById('pf_id')?.value||'';
-    const spec=COFFIN_SPEC[name];
-    const DEFAULT_LINES=['ทอง','เงิน'];
-    const pmKeys=id?(Object.keys((await DB.getProduct(id))?.priceMap||{}).filter(k=>k!=='__default')):[];
-    const lines=spec?.lines?.length?spec.lines:(pmKeys.length?pmKeys:DEFAULT_LINES);
     const priceMap={};
-    document.querySelectorAll('[id^="pf_pm_"]').forEach(el=>{
-      const l=el.id.replace('pf_pm_','');
-      const v=parseFloat(el.value||'');
-      if(!isNaN(v)&&v>0) priceMap[l]=v;
+    document.querySelectorAll('.pf-line-row').forEach(row=>{
+      const l=row.querySelector('.pf-line-name')?.value.trim();
+      const v=parseFloat(row.querySelector('.pf-line-price')?.value||'');
+      if(l&&!isNaN(v)&&v>0) priceMap[l]=v;
     });
     const defaultPrice=parseFloat(document.getElementById('pf_price')?.value||0)||0;
     const data={code:document.getElementById('pf_code')?.value.trim()||'',name,
