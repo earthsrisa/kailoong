@@ -454,6 +454,33 @@ function getCraftedQty(csEntry, orderQty) {
   if (csEntry.isCrafted) return orderQty; // legacy schema
   return 0;
 }
+// ── getDeliveredQty: อ่านจำนวนที่จัดส่งไปแล้วของ item นั้น ──
+// backward-compatible: ออเดอร์เก่าที่ isDelivered=true แต่ไม่มี deliveryStatus → ถือว่าส่งครบ
+function getDeliveredQty(dsEntry, orderQty, orderIsDelivered) {
+  if (!dsEntry) return orderIsDelivered ? orderQty : 0;
+  if (dsEntry.deliveredQty !== undefined) return Math.min(dsEntry.deliveredQty, orderQty);
+  return orderIsDelivered ? orderQty : 0;
+}
+// ── getBilledQty: อ่านจำนวนที่ออกบิลไปแล้วของ item นั้น ──
+function getBilledQty(bsEntry, orderQty) {
+  if (!bsEntry) return 0;
+  if (bsEntry.billedQty !== undefined) return Math.min(bsEntry.billedQty, orderQty);
+  return 0;
+}
+// ── isOrderFullyDelivered: เช็คว่าทุก item ในออเดอร์ส่งครบหรือยัง ──
+function isOrderFullyDelivered(order) {
+  const ds = order.deliveryStatus || {};
+  const items = order.items || [];
+  if (!items.length) return !!order.isDelivered;
+  return items.every(i => {
+    const k = `${i.productName}|${i.color||''}|${i.trimColor||''}|${i.extra||''}`;
+    return getDeliveredQty(ds[k], i.qty, order.isDelivered) >= i.qty;
+  });
+}
+// ── deliverKey: key สำหรับ deliveryStatus/billedStatus (รวม extra ต่างจาก craftStatus) ──
+function deliverKey(i) {
+  return `${i.productName}|${i.color||''}|${i.trimColor||''}|${i.extra||''}`;
+}
 function todayLocal(){
   return new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
 }
@@ -804,7 +831,7 @@ async function renderDashboard(el) {
 
   // รายการรอส่ง: ยังไม่ส่ง หรือ ส่งแล้วแต่ยังเป็นวันนี้
   const pendingOrders = orders.filter(o=>
-    !o.isDelivered
+    !isOrderFullyDelivered(o)
   ).sort((a,b)=>a.createdAt-b.createdAt);
 
   const dateLabel=new Date().toLocaleDateString('th-TH-u-ca-buddhist',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -890,7 +917,7 @@ async function renderDashboard(el) {
     // ── Update pending list (respect current date filter) ──
     const dateStr = document.getElementById('pendingDatePicker')?.value || todayLocal();
     const isToday = dateStr === todayLocal();
-    const pending = freshOrders.filter(o => !o.isDelivered).sort((a,b) => a.createdAt - b.createdAt);
+    const pending = freshOrders.filter(o => !isOrderFullyDelivered(o)).sort((a,b) => a.createdAt - b.createdAt);
     // badge count อัปเดตเสมอ (แสดงยอด pending รวม ไม่ขึ้นกับ date filter)
     const countEl = document.getElementById('pendingCount');
     if (countEl) countEl.textContent = pending.length + ' รายการ';
@@ -1475,7 +1502,7 @@ async function filterPendingByDate(dateStr) {
   const isToday = dateStr === todayLocal();
 
   const filtered = allOrders.filter(o => {
-    if (isToday) return !o.isDelivered;
+    if (isToday) return !isOrderFullyDelivered(o);
     // เปรียบเทียบวันที่ด้วย Bangkok timezone (ป้องกัน timezone drift)
     const createdBkk = new Date(o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
     return createdBkk === dateStr;
@@ -1506,14 +1533,20 @@ function buildPendingHtml(orders) {
     if (!map.has(key)) map.set(key, {customerName:o.customerName, custId:o.customerId, orders:[]});
     map.get(key).orders.push(o);
   }
-  return [...map.values()].map(g => {
-    const allDone   = g.orders.every(o => o.isDelivered && o.deliveredAt);
-    const pendingIds= g.orders.filter(o => !o.isDelivered).map(o => o.id);
+  // เก็บ state การเลือกไว้ที่ window เพื่อให้ re-render แล้วไม่หาย
+  if (!window._pendSel) window._pendSel = {};
+  window._pendGroups = {};
+
+  return [...map.values()].map((g, gi) => {
+    const gid = 'g' + gi;
+    const allDone   = g.orders.every(o => isOrderFullyDelivered(o));
     const latestTs  = Math.max(...g.orders.map(o => o.createdAt));
-    // merge items across all orders in group
+
+    // merge items across all orders — เก็บ sources ไว้กระจายกลับตอนบันทึก
     const merged = [];
     for (const o of g.orders) {
       const cs = o.craftStatus || {};
+      const ds = o.deliveryStatus || {};
       for (const i of (o.items||[])) {
         const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
         const label = i.productName
@@ -1521,24 +1554,45 @@ function buildPendingHtml(orders) {
           + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
           + (i.extra?' '+i.extra:'');
         const csKey = `${i.productName}|${i.color||''}|${i.trimColor||''}`;
-        const itemCraftedQty = getCraftedQty(cs[csKey], i.qty);
+        const dKey  = deliverKey(i);
+        const craftedRaw   = getCraftedQty(cs[csKey], i.qty);
+        const deliveredRaw = getDeliveredQty(ds[dKey], i.qty, o.isDelivered);
+        // คงเหลือ = สั่ง − ส่งแล้ว ; แต่งเสร็จคงเหลือ = แต่งแล้ว − ส่งแล้ว
+        const remainQty    = i.qty - deliveredRaw;
+        const remainCraft  = Math.max(0, craftedRaw - deliveredRaw);
+        if (remainQty <= 0) continue; // ส่งครบแล้ว ไม่ต้องแสดง
+        const src = {orderId:o.id, dKey, orderQty:i.qty, delivered:deliveredRaw, remainQty, remainCraft,
+                     productName:i.productName, price:i.price, color:i.color||'', trimColor:i.trimColor||'',
+                     extra:i.extra||'', specialNote:i.specialNote||'', label};
         const ex = merged.find(m => m.key===label);
-        if (ex) { ex.qty += i.qty; ex.craftedQty = (ex.craftedQty||0) + itemCraftedQty; }
-        else merged.push({key:label, qty:i.qty, craftedQty:itemCraftedQty});
+        if (ex) { ex.qty += remainQty; ex.craftedQty += remainCraft; ex.delivered += deliveredRaw; ex.sources.push(src); }
+        else merged.push({key:label, qty:remainQty, craftedQty:remainCraft, delivered:deliveredRaw, sources:[src]});
       }
     }
+
+    window._pendGroups[gid] = {customerName:g.customerName, custId:g.custId, merged};
+    if (!window._pendSel[gid]) window._pendSel[gid] = {};
+    const sel = window._pendSel[gid];
+    // ล้าง selection ที่เกินจำนวนคงเหลือ (เช่นมีคนอื่นส่งไปแล้ว)
+    for (const k of Object.keys(sel)) {
+      const mi = merged[k];
+      if (!mi || sel[k] > mi.qty) delete sel[k];
+    }
+
     const ordNos = g.orders.length > 1 ? ` <span style="font-size:10px;opacity:.55;">(${g.orders.length} ออเดอร์)</span>` : '';
     const doneTag = allDone ? '<span style="font-size:11px;background:rgba(134,239,172,.25);border-radius:10px;padding:1px 8px;margin-left:5px;">✅ ส่งแล้ว</span>' : '';
-    // "พร้อมส่ง" badge — แสดงเมื่อทุก item แต่งครบแล้ว แต่ยังไม่ได้จัดส่ง
     const allCrafted = merged.length > 0 && merged.every(({qty,craftedQty}) => (craftedQty||0) >= qty);
     const readyTag = (!allDone && allCrafted)
       ? `<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;background:rgba(250,204,21,.3);color:#fef08a;border:1.5px solid rgba(250,204,21,.5);border-radius:10px;padding:2px 10px;margin-left:6px;animation:livepulse 2s ease-in-out infinite;">🎨 พร้อมส่งแล้ว!</span>`
       : '';
-    const deliverBtn = !allDone
-      ? `<button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(34,197,94,.25);border:1.5px solid rgba(134,239,172,.5);" onclick="markDeliveredGroup(${JSON.stringify(pendingIds).replace(/"/g,"'")})"><i class="fa-solid fa-truck me-1"></i>จัดส่งแล้ว</button>`
+
+    const craftedTotal = merged.reduce((a,m)=>a+(m.craftedQty||0),0);
+    const pickBtn = (!allDone && craftedTotal > 0)
+      ? `<button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(250,204,21,.22);border:1.5px solid rgba(250,204,21,.45);color:#fef9c3;" onclick="pendPickCrafted('${gid}')"><i class="fa-solid fa-check-double me-1"></i>เลือกที่แต่งเสร็จ (${craftedTotal})</button>`
       : '';
-    const billBtn = `<button class="btn-card-outline" style="font-size:11px;padding:3px 10px;" onclick="showCreateReceiptModal(null,'${encodeURIComponent(g.customerName||'')}')"><i class="fa-solid fa-file-invoice me-1"></i>ออกบิล</button>`;
-    const itemsHtml = merged.map(({key,qty,craftedQty}) => {
+
+    const itemsHtml = merged.map((m, idx) => {
+      const {key, qty, craftedQty, delivered} = m;
       const cq = craftedQty||0;
       const isDone    = cq >= qty;
       const isPartial = cq > 0 && cq < qty;
@@ -1546,12 +1600,38 @@ function buildPendingHtml(orders) {
         ? ` <span style="font-size:10px;background:rgba(134,239,172,.3);color:#bbf7d0;border-radius:10px;padding:1px 7px;font-weight:600;">✅ แต่งเสร็จแล้ว</span>`
         : isPartial
           ? ` <span style="font-size:10px;background:rgba(251,191,36,.25);color:#fde68a;border-radius:10px;padding:1px 7px;font-weight:600;">🔨 ${cq}/${qty}</span>`
-          : '';
-      return `<div class="pend-row" style="display:flex;justify-content:space-between;opacity:.85;align-items:center;">
-        <span>${U.esc(key)}${badge}</span>
-        <span style="font-weight:700;flex-shrink:0;margin-left:8px;">${qty}</span>
+          : ` <span style="font-size:10px;background:rgba(255,255,255,.12);color:#cbd5e1;border-radius:10px;padding:1px 7px;font-weight:600;">ยังไม่แต่ง</span>`;
+      const delTag = delivered > 0
+        ? ` <span style="font-size:10px;background:rgba(59,130,246,.25);color:#bfdbfe;border-radius:10px;padding:1px 7px;font-weight:600;">🚚 ส่งแล้ว ${delivered}</span>`
+        : '';
+      const picked  = sel[idx] || 0;
+      const canPick = cq > 0 && !allDone;
+      const stepper = (picked > 0 && qty > 1)
+        ? `<span style="display:inline-flex;align-items:center;gap:5px;margin-left:7px;background:rgba(0,0,0,.28);border-radius:7px;padding:1px 4px;vertical-align:middle;">
+             <button onclick="pendBump('${gid}',${idx},-1)" style="width:20px;height:20px;padding:0;border-radius:5px;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:700;cursor:pointer;line-height:1;">−</button>
+             <span style="font-size:12px;font-weight:700;min-width:28px;text-align:center;">${picked}/${qty}</span>
+             <button onclick="pendBump('${gid}',${idx},1)" style="width:20px;height:20px;padding:0;border-radius:5px;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:700;cursor:pointer;line-height:1;">+</button>
+           </span>`
+        : '';
+      return `<div class="pend-row" style="display:flex;gap:8px;align-items:center;${canPick?'':'opacity:.45;'}">
+        <input type="checkbox" ${picked>0?'checked':''} ${canPick?'':'disabled'} onchange="pendToggle('${gid}',${idx})" style="width:17px;height:17px;flex-shrink:0;accent-color:#22c55e;cursor:${canPick?'pointer':'not-allowed'};">
+        <span style="flex:1;min-width:0;">${U.esc(key)}${badge}${delTag}${stepper}</span>
+        <span style="font-weight:700;flex-shrink:0;">${qty}</span>
       </div>`;
     }).join('');
+
+    const selRows = Object.values(sel).filter(v=>v>0).length;
+    const selPcs  = Object.values(sel).reduce((a,b)=>a+b,0);
+    const hasSel  = selRows > 0;
+    const actionBar = allDone ? '' : `
+      <div style="background:rgba(0,0,0,.22);border-radius:9px;padding:8px 11px;margin-top:9px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:600;opacity:${hasSel?'1':'.6'};">${hasSel?`เลือก ${selRows} รายการ · รวม ${selPcs} ชิ้น`:'ยังไม่ได้เลือกรายการ'}</span>
+        <div style="display:flex;gap:5px;">
+          <button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(34,197,94,.28);border:1.5px solid rgba(134,239,172,.55);${hasSel?'':'opacity:.4;pointer-events:none;'}" onclick="pendDeliver('${gid}')"><i class="fa-solid fa-truck me-1"></i>จัดส่งที่เลือก</button>
+          <button class="btn-card-outline" style="font-size:11px;padding:3px 10px;${hasSel?'':'opacity:.4;pointer-events:none;'}" onclick="pendBill('${gid}')"><i class="fa-solid fa-file-invoice me-1"></i>ออกบิลที่เลือก</button>
+        </div>
+      </div>`;
+
     return `<div style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;${allDone?'opacity:.5;':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;">
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;">
@@ -1559,9 +1639,40 @@ function buildPendingHtml(orders) {
           <span style="font-size:11px;opacity:.65;margin-left:3px;">${U.date(latestTs)}</span>
           ${doneTag}${readyTag}
         </div>
-        <div style="display:flex;gap:5px;flex-shrink:0;">${deliverBtn}${billBtn}</div>
-      </div>${itemsHtml}</div>`;
+        <div style="display:flex;gap:5px;flex-shrink:0;">${pickBtn}</div>
+      </div>${itemsHtml}${actionBar}</div>`;
   }).join('');
+}
+
+// ── ควบคุมการเลือกในรายการรอส่ง ──
+function _pendRerender() {
+  const orders = (window._allOrdersCache||[]).filter(o => !isOrderFullyDelivered(o)).sort((a,b)=>a.createdAt-b.createdAt);
+  const el = document.getElementById('pendingList');
+  if (el) el.innerHTML = buildPendingHtml(orders);
+}
+function pendToggle(gid, idx) {
+  const m = window._pendGroups?.[gid]?.merged?.[idx]; if (!m) return;
+  const sel = window._pendSel[gid] || (window._pendSel[gid] = {});
+  if (sel[idx] > 0) delete sel[idx];
+  else sel[idx] = Math.min(m.craftedQty||0, m.qty) || 0;
+  if (!sel[idx]) delete sel[idx];
+  _pendRerender();
+}
+function pendBump(gid, idx, d) {
+  const m = window._pendGroups?.[gid]?.merged?.[idx]; if (!m) return;
+  const sel = window._pendSel[gid] || (window._pendSel[gid] = {});
+  const v = (sel[idx]||0) + d;
+  const max = Math.min(m.craftedQty||0, m.qty);
+  if (v < 1 || v > max) return;
+  sel[idx] = v;
+  _pendRerender();
+}
+function pendPickCrafted(gid) {
+  const grp = window._pendGroups?.[gid]; if (!grp) return;
+  const sel = {};
+  grp.merged.forEach((m, i) => { const v = Math.min(m.craftedQty||0, m.qty); if (v > 0) sel[i] = v; });
+  window._pendSel[gid] = sel;
+  _pendRerender();
 }
 
 // ── build blue card content: chips + items ──
@@ -1571,11 +1682,14 @@ function buildDashCustContent(pendingOrders) {
   const _pc = window._allProductsCache || {};
   const _isAcc = name => { const p=_pc[name]; return p ? (p.unit||'โลง').trim()!=='โลง' : ['เทพ','มุม','เส้น'].some(k=>(name||'').includes(k)); };
 
+  // helper: จำนวนคงเหลือของ item (หักที่จัดส่งแล้ว)
+  const _remainOf = (o, i) => i.qty - getDeliveredQty((o.deliveryStatus||{})[deliverKey(i)], i.qty, o.isDelivered);
+
   for (const o of pendingOrders) {
     const k = o.customerId || o.customerName;
     if (!custMap.has(k)) custMap.set(k, {name: o.customerName, key: k, qty: 0});
-    // นับเฉพาะโลง ไม่นับ accessory
-    (o.items||[]).forEach(i => { if (!_isAcc(i.productName)) custMap.get(k).qty += i.qty; });
+    // นับเฉพาะโลง ไม่นับ accessory + หักที่ส่งแล้ว
+    (o.items||[]).forEach(i => { if (!_isAcc(i.productName)) custMap.get(k).qty += Math.max(0, _remainOf(o, i)); });
   }
   const custList = [...custMap.values()];
 
@@ -1585,7 +1699,7 @@ function buildDashCustContent(pendingOrders) {
   const sel = window._dashCustSet;
   const showAll = sel.size === 0;
   // นับรวมเฉพาะโลง
-  const totalQty = pendingOrders.reduce((a,o) => (o.items||[]).filter(i=>!_isAcc(i.productName)).reduce((b,i)=>b+i.qty,0)+a, 0);
+  const totalQty = pendingOrders.reduce((a,o) => (o.items||[]).filter(i=>!_isAcc(i.productName)).reduce((b,i)=>b+Math.max(0,_remainOf(o,i)),0)+a, 0);
 
   // Chips HTML — "ทั้งหมด" active when nothing selected
   const chipsHtml = `<button class="cust-chip${showAll?' active':''}" onclick="filterDashCust('')">ทั้งหมด <span style="opacity:.65;font-size:11px;">${totalQty}</span></button>`
@@ -1605,16 +1719,20 @@ function buildDashCustContent(pendingOrders) {
   // Aggregate items — แยก coffin vs accessory
   const coffinMap = {}, accMap = {};
   for (const o of filtered) {
+    const ds = o.deliveryStatus || {};
     for (const i of (o.items||[])) {
+      // หักจำนวนที่จัดส่งไปแล้วออก
+      const remain = i.qty - getDeliveredQty(ds[deliverKey(i)], i.qty, o.isDelivered);
+      if (remain <= 0) continue;
       const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
       const label = i.productName
         + (i.color&&i.color!=='-'?' ('+i.color+')':'')
         + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
         + (i.extra?' '+i.extra:'');
       if (isAccessory(i.productName)) {
-        accMap[label] = (accMap[label]||0) + i.qty;
+        accMap[label] = (accMap[label]||0) + remain;
       } else {
-        coffinMap[label] = (coffinMap[label]||0) + i.qty;
+        coffinMap[label] = (coffinMap[label]||0) + remain;
       }
     }
   }
@@ -1644,12 +1762,76 @@ function filterDashCust(custKey) {
     if (window._dashCustSet.has(custKey)) window._dashCustSet.delete(custKey);
     else window._dashCustSet.add(custKey);
   }
-  const pending = (window._allOrdersCache||[]).filter(o => !o.isDelivered).sort((a,b) => a.createdAt-b.createdAt);
+  const pending = (window._allOrdersCache||[]).filter(o => !isOrderFullyDelivered(o)).sort((a,b) => a.createdAt-b.createdAt);
   const {chipsHtml, itemsHtml} = buildDashCustContent(pending);
   const chipsEl = document.getElementById('dashCustFilter');
   const cItemsEl = document.getElementById('dashCustItems');
   if (chipsEl) chipsEl.innerHTML = chipsHtml;
   if (cItemsEl) cItemsEl.innerHTML = itemsHtml;
+}
+
+// ── จัดส่งเฉพาะรายการที่เลือก ──
+function pendDeliver(gid) {
+  const grp = window._pendGroups?.[gid]; if (!grp) return;
+  const sel = window._pendSel?.[gid] || {};
+  const picks = Object.entries(sel).filter(([,v]) => v > 0);
+  if (!picks.length) { U.toast('กรุณาเลือกรายการก่อน','error'); return; }
+  const rows = picks.length;
+  const pcs  = picks.reduce((a,[,v]) => a+v, 0);
+
+  U_confirm(`ยืนยันจัดส่ง ${rows} รายการ รวม ${pcs} ชิ้น ให้ ${grp.customerName} ใช่ไหม?`, async () => {
+    // กระจายจำนวนที่เลือกกลับไปยังออเดอร์ต้นทาง
+    const updates = {}; // orderId → { dKey: newDeliveredQty }
+    for (const [idxStr, want] of picks) {
+      const m = grp.merged[Number(idxStr)]; if (!m) continue;
+      let left = want;
+      // ส่งได้เฉพาะของที่แต่งเสร็จแล้ว → cap ด้วย remainCraft ไม่ใช่ remainQty
+      for (const s of m.sources) {
+        if (left <= 0) break;
+        const take = Math.min(left, s.remainCraft, s.remainQty);
+        if (take <= 0) continue;
+        if (!updates[s.orderId]) updates[s.orderId] = {};
+        updates[s.orderId][s.dKey] = (updates[s.orderId][s.dKey] ?? s.delivered) + take;
+        left -= take;
+      }
+      if (left > 0) { U.toast('จำนวนที่เลือกเกินของที่แต่งเสร็จ','error'); return; }
+    }
+    try {
+      const deliveredAt = Date.now();
+      await Promise.all(Object.entries(updates).map(async ([orderId, keyMap]) => {
+        const o = await DB.getOrder(orderId); if (!o) return;
+        const ds = {...(o.deliveryStatus||{})};
+        for (const [k, qty] of Object.entries(keyMap)) ds[k] = {deliveredQty: qty, deliveredAt};
+        const next = {...o, deliveryStatus: ds};
+        // ตั้ง isDelivered เมื่อส่งครบทุก item ในออเดอร์
+        const full = (o.items||[]).every(i => (ds[deliverKey(i)]?.deliveredQty ?? 0) >= i.qty);
+        if (full) { next.isDelivered = true; next.deliveredAt = deliveredAt; }
+        await DB.putOrder(next);
+      }));
+      delete window._pendSel[gid];
+      U.toast(`บันทึกจัดส่ง ${pcs} ชิ้นแล้ว ✓`);
+      navigate('dashboard');
+    } catch (e) {
+      U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
+    }
+  }, {title:'ยืนยันการจัดส่ง', yesLabel:'ส่งแล้ว', yesCls:'btn-success', icon:'fa-truck', iconColor:'#16a34a'});
+}
+
+// ── ออกบิลเฉพาะรายการที่เลือก ──
+async function pendBill(gid) {
+  const grp = window._pendGroups?.[gid]; if (!grp) return;
+  const sel = window._pendSel?.[gid] || {};
+  const picks = Object.entries(sel).filter(([,v]) => v > 0);
+  if (!picks.length) { U.toast('กรุณาเลือกรายการก่อน','error'); return; }
+
+  const items = [];
+  for (const [idxStr, want] of picks) {
+    const m = grp.merged[Number(idxStr)]; if (!m) continue;
+    const s0 = m.sources[0];
+    items.push({name: m.key, qty: want, price: s0?.price || 0});
+  }
+  window._pendBillItems = items;
+  await showCreateReceiptModal(null, encodeURIComponent(grp.customerName||''));
 }
 
 function markDeliveredGroup(ids) {
@@ -1931,12 +2113,16 @@ async function getTodayOrdersSummary({ currentOrderId, actionType, actionItemKey
   const all = await DB.getOrders();
   const keySet = actionItemKeys ? new Set(actionItemKeys) : null;
   return all
-    .filter(o => !o.isDelivered)
+    .filter(o => !isOrderFullyDelivered(o))
     .map(o => {
       const isCurrent = currentOrderId && String(o.id) === String(currentOrderId);
+      const ds = o.deliveryStatus || {};
       return {
         customerName: o.customerName,
         items: (o.items||[]).map(it => {
+          // แสดงเฉพาะจำนวนคงเหลือ (หักที่จัดส่งไปแล้ว)
+          const remain = it.qty - getDeliveredQty(ds[deliverKey(it)], it.qty, o.isDelivered);
+          if (remain <= 0) return null;
           let action = '';
           if (isCurrent) {
             if (actionType === 'new') {
@@ -1946,10 +2132,11 @@ async function getTodayOrdersSummary({ currentOrderId, actionType, actionItemKey
               if (keySet.has(k)) action = 'edit';
             }
           }
-          return { name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', action };
-        })
+          return { name: it.productName, qty: remain, color: it.color||'', trimColor: it.trimColor||'', action };
+        }).filter(Boolean)
       };
-    });
+    })
+    .filter(o => o.items.length > 0);
 }
 
 async function saveOrder() {
@@ -2564,7 +2751,8 @@ async function showCreateReceiptModal(editId, prefillCustName) {
   const [customers,products,allOrders]=await Promise.all([DB.getCustomers(),DB.getProducts(),DB.getOrders()]);
   const edit=editId?await DB.getInvoice(editId):null;
   window._rcCustList=customers; window._rcProdList=products; window._rcAllOrders=allOrders;
-  window._rcCustId=edit?.customerId||null; window._rcItemIdx=edit?(edit.items||[]).length:1;
+  window._rcCustId=edit?.customerId||null;
+  window._rcItemIdx=edit?(edit.items||[]).length:(window._pendBillItems?window._pendBillItems.length:1);
 
   // Pre-select customer from dashboard button + ตรวจใบซ้ำวันนี้
   let prefillCustId = null;
@@ -2605,7 +2793,9 @@ async function showCreateReceiptModal(editId, prefillCustName) {
   }
 
   const custOpts=customers.map(c=>`<option value="${c.id}" ${(edit?.customerId===c.id||c.id===prefillCustId)?'selected':''}>${U.esc(c.name)}</option>`).join('');
-  const initItems=edit?.items||[{name:'',qty:1,price:0}];
+  // รายการที่เลือกมาจากรายการรอส่ง (ปุ่ม "ออกบิลที่เลือก")
+  const pendItems = window._pendBillItems; window._pendBillItems = null;
+  const initItems=edit?.items || pendItems || [{name:'',qty:1,price:0}];
 
   const body=`<form class="row g-3">
     <div class="col-sm-5">
@@ -2711,7 +2901,7 @@ function pullOrdersToReceipt() {
   if (!custId){U.toast('กรุณาเลือกลูกค้าก่อน','error');return;}
 
   const orders=(window._rcAllOrders||[]).filter(o=>
-    o.customerId===custId && !o.isDelivered
+    o.customerId===custId && !isOrderFullyDelivered(o)
   );
 
   if (!orders.length){
@@ -2719,12 +2909,14 @@ function pullOrdersToReceipt() {
     return;
   }
 
-  // รวมรายการทั้งหมดจากทุกออเดอร์
+  // รวมรายการทั้งหมดจากทุกออเดอร์ (หักจำนวนที่จัดส่งไปแล้ว)
   const merged = {};
   orders.forEach(o=>(o.items||[]).forEach(i=>{
+    const remain = i.qty - getDeliveredQty((o.deliveryStatus||{})[deliverKey(i)], i.qty, o.isDelivered);
+    if (remain <= 0) return;
     const key = i.productName+'|'+i.price+'|'+(i.color||'')+'|'+(i.trimColor||'')+'|'+(i.style||'')+'|'+(i.specialNote||'');
-    if (merged[key]) { merged[key].qty+=i.qty; }
-    else { merged[key]={name:itemLabel(i),qty:i.qty,price:i.price}; }
+    if (merged[key]) { merged[key].qty+=remain; }
+    else { merged[key]={name:itemLabel(i),qty:remain,price:i.price}; }
   }));
 
   const items=Object.values(merged);
@@ -2855,7 +3047,7 @@ async function saveReceipt(andPrint=false) {
 // ══════════════════════════════════════════════════════════
 async function showBulkInvoiceModal() {
   const [allOrders, allInvoices] = await Promise.all([DB.getOrders(), DB.getInvoices()]);
-  const pending = allOrders.filter(o => !o.isDelivered);
+  const pending = allOrders.filter(o => !isOrderFullyDelivered(o));
 
   if (!pending.length) {
     U.toast('ไม่มีออเดอร์ค้างส่ง', 'info'); return;
@@ -3561,7 +3753,7 @@ async function renderCraftsmen(el) {
   const craftedCount = {};
   const totalCount   = {};
   for (const o of orders) {
-    if (o.isDelivered) continue;
+    if (isOrderFullyDelivered(o)) continue;
     const cs = o.craftStatus || {};
     for (const it of (o.items || [])) {
       const key = `${it.productName}|${it.color||''}|${it.trimColor||''}`;
@@ -3577,7 +3769,7 @@ async function renderCraftsmen(el) {
     const allTypes = !c.productTypes?.length;
     let pending = 0, done = 0;
     for (const o of orders) {
-      if (o.isDelivered) continue;
+      if (isOrderFullyDelivered(o)) continue;
       const cs = o.craftStatus || {};
       for (const it of (o.items || [])) {
         if (!allTypes && !myTypes.has(it.productName)) continue;

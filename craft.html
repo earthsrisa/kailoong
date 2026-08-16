@@ -390,6 +390,22 @@ function getCraftedQty(csEntry, orderQty) {
   return 0;
 }
 
+// ── deliveryStatus helpers (ตรงกับ index.html) ──
+function deliverKey(i) {
+  return `${i.productName}|${i.color||''}|${i.trimColor||''}|${i.extra||''}`;
+}
+function getDeliveredQty(dsEntry, orderQty, orderIsDelivered) {
+  if (!dsEntry) return orderIsDelivered ? orderQty : 0;
+  if (dsEntry.deliveredQty !== undefined) return Math.min(dsEntry.deliveredQty, orderQty);
+  return orderIsDelivered ? orderQty : 0;
+}
+function isOrderFullyDelivered(order) {
+  const ds = order.deliveryStatus || {};
+  const items = order.items || [];
+  if (!items.length) return !!order.isDelivered;
+  return items.every(i => getDeliveredQty(ds[deliverKey(i)], i.qty, order.isDelivered) >= i.qty);
+}
+
 // ── Check if this craftsman can work on this item ──
 function craftsmanCanDo(item) {
   if (!_craftsman) return false;
@@ -487,7 +503,7 @@ function startOrdersListener() {
   _unsubOrders = db.collection('orders').onSnapshot(snap => {
     _orders = snap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      .filter(o => !o.isDelivered)
+      .filter(o => !isOrderFullyDelivered(o))
       .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     if (_craftsman) renderCraftOrders();
   }, err => {
@@ -538,16 +554,22 @@ function buildGroupedData() {
     if (!custMap[cust]) { custMap[cust] = { customerName: cust, items: {} }; custOrder.push(cust); }
 
     const cs = o.craftStatus || {};
+    const ds = o.deliveryStatus || {};
     for (const item of myItems) {
       const k         = itemKey(item);
-      const craftedQty = getCraftedQty(cs[k], item.qty);
+      const craftedRaw   = getCraftedQty(cs[k], item.qty);
+      const deliveredRaw = getDeliveredQty(ds[deliverKey(item)], item.qty, o.isDelivered);
+      // หักของที่จัดส่งออกไปแล้ว (ส่งได้เฉพาะที่แต่งเสร็จ → หักทั้งสองฝั่ง)
+      const remainQty   = item.qty - deliveredRaw;
+      const craftedQty  = Math.max(0, craftedRaw - deliveredRaw);
+      if (remainQty <= 0) continue;
 
       if (!custMap[cust].items[k]) {
         custMap[cust].items[k] = { key: k, label: buildLabel(item), totalQty: 0, craftedQty: 0, sources: [] };
       }
-      custMap[cust].items[k].totalQty   += item.qty;
+      custMap[cust].items[k].totalQty   += remainQty;
       custMap[cust].items[k].craftedQty += craftedQty;
-      custMap[cust].items[k].sources.push({ orderId: o.id, orderQty: item.qty, craftedQty, item });
+      custMap[cust].items[k].sources.push({ orderId: o.id, orderQty: item.qty, craftedQty: craftedRaw, item });
     }
   }
 
