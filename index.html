@@ -454,6 +454,17 @@ function getCraftedQty(csEntry, orderQty) {
   if (csEntry.isCrafted) return orderQty; // legacy schema
   return 0;
 }
+// ── craftKey: คีย์ craftStatus (รวมขนาด extra เพื่อไม่ให้ "กลาง 24 นิ้ว" กับ "28 นิ้ว" ชนกัน) ──
+function craftKey(i)       { return `${i.productName}|${i.color||''}|${i.trimColor||''}|${i.extra||''}`; }
+function craftKeyLegacy(i) { return `${i.productName}|${i.color||''}|${i.trimColor||''}`; }
+// อ่าน craftStatus โดยลองคีย์ใหม่ก่อน ถ้าไม่มีค่อย fallback คีย์เก่า (ข้อมูลก่อนอัปเดตไม่หาย)
+function readCraftEntry(cs, i) {
+  if (!cs) return undefined;
+  const k = craftKey(i);
+  if (cs[k] !== undefined) return cs[k];
+  return cs[craftKeyLegacy(i)];
+}
+function getCraftedFor(cs, i) { return getCraftedQty(readCraftEntry(cs, i), i.qty); }
 // ── getDeliveredQty: อ่านจำนวนที่จัดส่งไปแล้วของ item นั้น ──
 // backward-compatible: ออเดอร์เก่าที่ isDelivered=true แต่ไม่มี deliveryStatus → ถือว่าส่งครบ
 function getDeliveredQty(dsEntry, orderQty, orderIsDelivered) {
@@ -1019,8 +1030,7 @@ function renderOrderRows(list) {
         const trimBg=i.trimColor==='ทอง'?'#fef3c7':i.trimColor==='เงิน'?'#f1f5f9':'#f8fafc';
         const trimTx=i.trimColor==='ทอง'?'#92400e':i.trimColor==='เงิน'?'#475569':'#6b7280';
         const label=U.esc(i.productName)+(i.color?` <span style="background:${i.color==='แดง'?'#fee2e2':i.color==='ดำ'?'#374151':i.color==='น้ำตาล'?'#fef3c7':'#f1f5f9'};color:${i.color==='ดำ'?'#fff':'inherit'};border-radius:3px;padding:1px 5px;font-size:11px;">${U.esc(i.color)}</span>`:'')+(i.trimColor?` <span style="background:${trimBg};color:${trimTx};border-radius:3px;padding:1px 5px;font-size:11px;">${i.trimColor==='ทอง'?'🟡':'🔘'}เส้น${U.esc(i.trimColor)}</span>`:'')+(i.style&&i.style!=='ธรรมดา'?` <span style="background:#dbeafe;color:#1e40af;border-radius:3px;padding:1px 6px;font-size:11px;font-weight:600;">✝ ${U.esc(i.style)}</span>`:' ')+(i.specialNote?` <em style="color:#9ca3af;font-size:11px;">${U.esc(i.specialNote)}</em>`:'');
-        const csKey=`${i.productName}|${i.color||''}|${i.trimColor||''}`;
-        const csDone=getCraftedQty((o.craftStatus||{})[csKey],i.qty);
+        const csDone=getCraftedFor(o.craftStatus||{}, i);
         const craftBadge=csDone>=i.qty
           ?`<span style="background:#dcfce7;color:#15803d;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700;margin-left:3px;">✅ แต่ง</span>`
           :csDone>0
@@ -1553,9 +1563,8 @@ function buildPendingHtml(orders) {
           + (i.color&&i.color!=='-'?' ('+i.color+')':'')
           + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
           + (i.extra?' '+i.extra:'');
-        const csKey = `${i.productName}|${i.color||''}|${i.trimColor||''}`;
         const dKey  = deliverKey(i);
-        const craftedRaw   = getCraftedQty(cs[csKey], i.qty);
+        const craftedRaw   = getCraftedFor(cs, i);
         const deliveredRaw = getDeliveredQty(ds[dKey], i.qty, o.isDelivered);
         // คงเหลือ = สั่ง − ส่งแล้ว ; แต่งเสร็จคงเหลือ = แต่งแล้ว − ส่งแล้ว
         const remainQty    = i.qty - deliveredRaw;
@@ -3773,9 +3782,9 @@ async function renderCraftsmen(el) {
     if (isOrderFullyDelivered(o)) continue;
     const cs = o.craftStatus || {};
     for (const it of (o.items || [])) {
-      const key = `${it.productName}|${it.color||''}|${it.trimColor||''}`;
+      const key = craftKey(it);
       totalCount[key] = (totalCount[key] || 0) + it.qty;
-      const cqStat = getCraftedQty(cs[key], it.qty);
+      const cqStat = getCraftedFor(cs, it);
       if (cqStat > 0) craftedCount[key] = (craftedCount[key] || 0) + cqStat;
     }
   }
@@ -3790,8 +3799,7 @@ async function renderCraftsmen(el) {
       const cs = o.craftStatus || {};
       for (const it of (o.items || [])) {
         if (!allTypes && !myTypes.has(it.productName)) continue;
-        const key = `${it.productName}|${it.color||''}|${it.trimColor||''}`;
-        const cqPer = getCraftedQty(cs[key], it.qty);
+        const cqPer = getCraftedFor(cs, it);
         done    += cqPer;
         pending += (it.qty - cqPer);
       }

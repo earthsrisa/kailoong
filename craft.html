@@ -211,6 +211,59 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .all-done-banner i  { font-size: 36px; margin-bottom: 10px; display: block; }
 .all-done-banner h3 { font-size: 18px; font-weight: 700; margin: 0 0 6px; }
 .all-done-banner p  { font-size: 14px; opacity: .85; margin: 0; }
+
+/* ── สรุปหีบทั้งร้าน ── */
+.sum-card { background:#fff; border-radius:14px; margin-bottom:14px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.sum-head { padding:12px 14px; display:flex; align-items:center; justify-content:space-between;
+  cursor:pointer; background:#1a2332; color:#fff; user-select:none; }
+.sum-head-l { display:flex; align-items:center; gap:8px; font-size:14.5px; font-weight:700; }
+.sum-tag { font-size:10.5px; background:rgba(255,255,255,.18); border-radius:10px; padding:1.5px 8px; font-weight:600; }
+.sum-stats { display:grid; grid-template-columns:1fr 1fr 1fr; border-bottom:1.5px solid #f1f5f9; }
+.sum-stat { padding:13px 8px; text-align:center; border-right:1px solid #f1f5f9; }
+.sum-stat:last-child { border-right:none; }
+.sum-stat b { font-size:28px; font-weight:800; line-height:1; display:block; }
+.sum-stat span { font-size:10.5px; color:#6b7280; margin-top:4px; display:block; }
+.sum-prog { padding:11px 14px; border-bottom:1.5px solid #f1f5f9; }
+.sum-prog-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.sum-prog-top span { font-size:11.5px; color:#6b7280; font-weight:600; }
+.sum-prog-top b { font-size:12.5px; font-weight:800; }
+.sum-bar { height:7px; background:#e5e7eb; border-radius:99px; overflow:hidden; }
+.sum-bar i { display:block; height:100%; border-radius:99px; }
+.sum-sec { padding:11px 14px 4px; }
+.sum-sec-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; }
+.sum-sec-head .t { font-size:11px; font-weight:700; letter-spacing:.3px; }
+.sum-sec-head .n { font-size:10.5px; color:#9ca3af; }
+.sum-row { margin-bottom:10px; }
+.sum-row-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; gap:8px; }
+.sum-row-nm { font-size:13px; font-weight:600; color:#1a2332; word-break:break-word; }
+.sum-row-lf { font-size:12px; font-weight:700; color:#ea580c; white-space:nowrap; }
+.sum-row-bar { display:flex; align-items:center; gap:7px; }
+.sum-row-bar .b { flex:1; height:5px; background:#e5e7eb; border-radius:99px; overflow:hidden; }
+.sum-row-bar .b i { display:block; height:100%; background:#2563eb; }
+.sum-row-bar .c { font-size:10.5px; color:#9ca3af; white-space:nowrap; }
+.sum-done-row { display:flex; justify-content:space-between; align-items:center; gap:8px;
+  padding:7px 10px; background:#f0fdf4; border-radius:8px; margin-bottom:5px; }
+.sum-done-row .nm { font-size:12.5px; font-weight:600; color:#166534; word-break:break-word; }
+.sum-done-row .q  { font-size:11px; font-weight:700; color:#16a34a; white-space:nowrap; }
+.sum-age { display:inline-block; font-size:10px; font-weight:700; border-radius:9px;
+  padding:1px 7px; margin-left:5px; white-space:nowrap; vertical-align:1px; }
+.sum-age-hot  { background:#fee2e2; color:#b91c1c; }
+.sum-age-warn { background:#fef3c7; color:#92400e; }
+.sum-other-toggle { display:flex; justify-content:space-between; align-items:center; cursor:pointer;
+  padding:11px 14px; border-top:1px dashed #e5e7eb; user-select:none; }
+.sum-other-toggle .t { font-size:11.5px; color:#6b7280; font-weight:700; }
+.sum-other-toggle .r { font-size:11px; color:#9ca3af; display:flex; align-items:center; gap:6px; }
+.sum-other-body { padding:0 14px 10px; opacity:.72; }
+.sum-empty { padding:16px 14px; text-align:center; font-size:13px; color:#9ca3af; }
+.hist-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #f3f4f6; }
+.hist-row:last-child { border-bottom:none; }
+.hist-av { width:34px; height:34px; border-radius:9px; background:#e0e7ff; color:#3730a3;
+  display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0; }
+.hist-av.me { background:#dbeafe; color:#1e40af; }
+.hist-nm { flex:1; min-width:0; font-size:14px; font-weight:700; color:#1a2332; }
+.hist-sub { font-size:11px; color:#9ca3af; font-weight:400; margin-top:1px; }
+.hist-q { font-size:17px; font-weight:800; color:#1a2332; white-space:nowrap; }
+.hist-q span { font-size:11px; font-weight:600; color:#9ca3af; }
 </style>
 </head>
 <body>
@@ -293,12 +346,26 @@ async function renderHistory() {
 
     // เก็บเฉพาะ items ที่ช่างคนนี้ทำ
     const byDate = {}; // { 'YYYY-MM-DD': [{label, qty, craftedAt, customerName}] }
+    const byCraftsman = {}; // สถิติของทุกช่าง (สำหรับการ์ดสรุป)
     for (const o of allOrders) {
       const cs = o.craftStatus || {};
       for (const [k, entry] of Object.entries(cs)) {
+        // ── สะสมสถิติของช่างทุกคนก่อนกรอง ──
+        const who = entry.craftedByName || 'ไม่ระบุชื่อ';
+        const whoId = entry.craftedBy || '';
+        const mItem = (o.items||[]).find(i => itemKey(i) === k)
+                   || (o.items||[]).find(i => itemKeyLegacy(i) === k);
+        const q = entry.craftedQty ?? (mItem ? mItem.qty : 0);
+        if (q > 0) {
+          if (!byCraftsman[who]) byCraftsman[who] = {name: who, id: whoId, qty: 0, lines: 0, days: new Set()};
+          byCraftsman[who].qty += q;
+          byCraftsman[who].lines++;
+          byCraftsman[who].days.add(new Date(entry.craftedAt||o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}));
+        }
         if ((entry.craftedBy||'') !== _craftsman.id) continue;
-        // หา item จาก key
-        const matchItem = (o.items||[]).find(i => itemKey(i) === k);
+        // หา item จาก key (รองรับทั้งคีย์ใหม่และคีย์เก่า)
+        const matchItem = (o.items||[]).find(i => itemKey(i) === k)
+                       || (o.items||[]).find(i => itemKeyLegacy(i) === k);
         if (!matchItem) continue;
         const dateKey = new Date(entry.craftedAt||o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
         if (!byDate[dateKey]) byDate[dateKey] = [];
@@ -312,11 +379,41 @@ async function renderHistory() {
       }
     }
 
+    // ── การ์ดสรุป: ใครแต่งไปกี่ใบ (แทนแถบคืบหน้าที่ไม่มีประโยชน์ในโหมดนี้) ──
+    const cmList = Object.values(byCraftsman).sort((a,b) => b.qty - a.qty);
+    const cmTotal = cmList.reduce((a,c) => a + c.qty, 0);
+    const summaryHtml = cmList.length ? `<div class="sum-card">
+      <div class="sum-head" onclick="toggleSumCard()">
+        <span class="sum-head-l"><i class="fa-solid fa-trophy"></i>สรุปผลงานช่าง
+          <span class="sum-tag">30 วัน</span></span>
+        <i id="sumChev" class="fa-solid fa-chevron-${localStorage.getItem('craft_sum_open')!=='0'?'up':'down'}"></i>
+      </div>
+      <div id="sumBody" style="display:${localStorage.getItem('craft_sum_open')!=='0'?'block':'none'};">
+        <div class="sum-stats">
+          <div class="sum-stat"><b style="color:#1a2332;">${cmTotal}</b><span>แต่งไปทั้งหมด</span></div>
+          <div class="sum-stat"><b style="color:#2563eb;">${cmList.length}</b><span>ช่างที่มีงาน</span></div>
+        </div>
+        <div style="padding:6px 14px 12px;">
+          ${cmList.map(c => {
+            const isMe = c.id === _craftsman.id;
+            const initial = (c.name||'?').trim().slice(0,2);
+            const pct = cmTotal ? Math.round(c.qty/cmTotal*100) : 0;
+            return `<div class="hist-row">
+              <div class="hist-av${isMe?' me':''}">${esc(initial)}</div>
+              <div class="hist-nm">${esc(c.name)}${isMe?' <span style="font-size:10px;background:#dbeafe;color:#1e40af;border-radius:9px;padding:1px 7px;font-weight:700;">ฉัน</span>':''}
+                <div class="hist-sub">${c.lines} รายการ · ${c.days.size} วัน · ${pct}%</div></div>
+              <div class="hist-q">${c.qty} <span>ใบ</span></div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>` : '';
+
     const dates = Object.keys(byDate).sort().reverse();
     if (!dates.length) {
-      el.innerHTML = `<div class="empty-craft">
+      el.innerHTML = summaryHtml + `<div class="empty-craft">
         <i class="fa-solid fa-calendar-xmark" style="color:#9ca3af;"></i>
-        <p>ไม่พบประวัติงานใน 30 วันที่ผ่านมา</p>
+        <p>ไม่พบประวัติงานของคุณใน 30 วันที่ผ่านมา</p>
         <p style="font-size:13px;color:#9ca3af;">สำหรับ ${esc(_craftsman.name)}</p>
       </div>`;
       return;
@@ -349,9 +446,9 @@ async function renderHistory() {
       </div>`;
     }).join('');
 
-    el.innerHTML = `
+    el.innerHTML = summaryHtml + `
       <div style="background:#1a2332;color:#fff;border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;gap:20px;flex-wrap:wrap;">
-        <div><div style="font-size:11px;opacity:.6;">30 วันที่ผ่านมา</div><div style="font-size:22px;font-weight:700;">${totalQty} ใบ</div></div>
+        <div><div style="font-size:11px;opacity:.6;">ผลงานของฉัน</div><div style="font-size:22px;font-weight:700;">${totalQty} ใบ</div></div>
         <div><div style="font-size:11px;opacity:.6;">รายการ</div><div style="font-size:22px;font-weight:700;">${totalItems}</div></div>
         <div><div style="font-size:11px;opacity:.6;">วันที่มีงาน</div><div style="font-size:22px;font-weight:700;">${dates.length} วัน</div></div>
       </div>
@@ -362,8 +459,19 @@ async function renderHistory() {
 }
 
 // ── itemKey — MUST match index.html ──
+// คีย์ craftStatus — รวมขนาด (extra) เพื่อไม่ให้ "กลาง 24 นิ้ว" กับ "28 นิ้ว" ชนกัน
 function itemKey(i) {
+  return `${i.productName}|${i.color||''}|${i.trimColor||''}|${i.extra||''}`;
+}
+function itemKeyLegacy(i) {
   return `${i.productName}|${i.color||''}|${i.trimColor||''}`;
+}
+// อ่านค่าโดยลองคีย์ใหม่ก่อน แล้ว fallback คีย์เก่า (ข้อมูลก่อนอัปเดตไม่หาย)
+function readCraftEntry(cs, i) {
+  if (!cs) return undefined;
+  const k = itemKey(i);
+  if (cs[k] !== undefined) return cs[k];
+  return cs[itemKeyLegacy(i)];
 }
 
 // ── Build display label from item ──
@@ -528,6 +636,142 @@ function onCraftsmanChange() {
 }
 
 // ══════════════════════════════════════
+//  สรุปหีบทั้งร้าน
+// ══════════════════════════════════════
+
+// นับทุกชิ้นในร้าน (ไม่กรองตามช่าง) แยกเป็น "งานของฉัน" กับ "ช่างคนอื่น"
+function buildShopSummary() {
+  const today = todayLocal();
+  const visibleOrders = _dateFilter === 'today'
+    ? _orders.filter(o => orderDateLocal(o) === today)
+    : _orders;
+
+  const mine = {}, other = {};
+  for (const o of visibleOrders) {
+    const cs = o.craftStatus || {};
+    const ds = o.deliveryStatus || {};
+    for (const item of (o.items || [])) {
+      const craftedRaw   = getCraftedQty(readCraftEntry(cs, item), item.qty);
+      const deliveredRaw = getDeliveredQty(ds[deliverKey(item)], item.qty, o.isDelivered);
+      const remainQty  = item.qty - deliveredRaw;              // คงเหลือหลังหักที่ส่งแล้ว
+      const craftedQty = Math.max(0, craftedRaw - deliveredRaw); // แต่งเสร็จที่ยังไม่ได้ส่ง
+      if (remainQty <= 0) continue;
+
+      const bucket = craftsmanCanDo(item) ? mine : other;
+      const k = itemKey(item);
+      if (!bucket[k]) bucket[k] = { label: buildLabel(item), total: 0, done: 0, oldest: o.createdAt || 0 };
+      bucket[k].total += remainQty;
+      bucket[k].done  += craftedQty;
+      if ((o.createdAt || 0) < bucket[k].oldest) bucket[k].oldest = o.createdAt || 0;
+    }
+  }
+  const srt = obj => Object.values(obj).sort((a, b) => (b.total - b.done) - (a.total - a.done));
+  return { mine: srt(mine), other: srt(other) };
+}
+
+// ป้ายเตือนงานค้างนาน (นับจากวันที่รับออเดอร์)
+function ageBadge(oldestTs, isDone) {
+  if (isDone || !oldestTs) return '';
+  const days = Math.floor((Date.now() - oldestTs) / 86400000);
+  if (days >= 5) return `<span class="sum-age sum-age-hot">🔴 ค้าง ${days} วัน</span>`;
+  if (days >= 3) return `<span class="sum-age sum-age-warn">⏳ ค้าง ${days} วัน</span>`;
+  return '';
+}
+
+function sumRows(list) {
+  if (!list.length) return `<div style="font-size:12px;color:#9ca3af;padding:2px 0 10px;">ไม่มีรายการ</div>`;
+  return list.map(it => {
+    const left = it.total - it.done;
+    const pct  = it.total ? Math.round(it.done / it.total * 100) : 0;
+    if (left <= 0) {
+      return `<div class="sum-done-row">
+        <span class="nm">${esc(it.label)}</span>
+        <span class="q">เสร็จ ${it.done}/${it.total}</span></div>`;
+    }
+    return `<div class="sum-row">
+      <div class="sum-row-top">
+        <span class="sum-row-nm">${esc(it.label)}${ageBadge(it.oldest, false)}</span>
+        <span class="sum-row-lf">เหลือ ${left}</span>
+      </div>
+      <div class="sum-row-bar">
+        <span class="b"><i style="width:${pct}%;"></i></span>
+        <span class="c">${it.done}/${it.total}</span>
+      </div></div>`;
+  }).join('');
+}
+
+function renderSummaryCard() {
+  const { mine, other } = buildShopSummary();
+  const all  = mine.concat(other);
+  const tot  = all.reduce((a, x) => a + x.total, 0);
+  const done = all.reduce((a, x) => a + x.done, 0);
+  const left = tot - done;
+  const pct  = tot ? Math.round(done / tot * 100) : 0;
+  const col  = pct >= 100 ? '#16a34a' : '#2563eb';
+  const mineLeft = mine.reduce((a, x) => a + (x.total - x.done), 0);
+  const othLeft  = other.reduce((a, x) => a + (x.total - x.done), 0);
+  const tag  = _dateFilter === 'today' ? 'วันนี้' : 'ทั้งหมด';
+  const open = localStorage.getItem('craft_sum_open') !== '0';
+  const othOpen = localStorage.getItem('craft_sum_other') === '1';
+
+  const body = !tot
+    ? `<div class="sum-empty">ไม่มีรายการในช่วงนี้</div>`
+    : `<div class="sum-stats">
+        <div class="sum-stat"><b style="color:${left ? '#ea580c' : '#16a34a'};">${left}</b><span>เหลือต้องแต่ง</span></div>
+        <div class="sum-stat"><b style="color:#16a34a;">${done}</b><span>แต่งเสร็จแล้ว</span></div>
+        <div class="sum-stat"><b style="color:#1a2332;">${tot}</b><span>ทั้งหมด</span></div>
+      </div>
+      <div class="sum-prog">
+        <div class="sum-prog-top"><span>ความคืบหน้ารวม</span><b style="color:${col};">${pct}%</b></div>
+        <div class="sum-bar"><i style="width:${pct}%;background:${col};"></i></div>
+      </div>
+      <div class="sum-sec">
+        <div class="sum-sec-head">
+          <span class="t" style="color:#2563eb;">งานของฉัน</span>
+          <span class="n">${mineLeft ? 'เหลือ ' + mineLeft + ' ใบ' : 'เสร็จหมดแล้ว'}</span>
+        </div>
+        ${sumRows(mine)}
+      </div>
+      ${other.length ? `
+      <div class="sum-other-toggle" onclick="toggleSumOther()">
+        <span class="t">ช่างคนอื่น · ${othLeft ? 'เหลือ ' + othLeft + ' ใบ' : 'เสร็จหมดแล้ว'}</span>
+        <span class="r"><span id="sumOtherLbl">${othOpen ? 'ซ่อน' : 'ดู'}</span>
+          <i id="sumOtherChev" class="fa-solid fa-chevron-${othOpen ? 'up' : 'down'}"></i></span>
+      </div>
+      <div class="sum-other-body" id="sumOtherBody" style="display:${othOpen ? 'block' : 'none'};">
+        ${sumRows(other)}
+      </div>` : ''}`;
+
+  return `<div class="sum-card">
+    <div class="sum-head" onclick="toggleSumCard()">
+      <span class="sum-head-l"><i class="fa-solid fa-clipboard-list"></i>สรุปหีบทั้งร้าน
+        <span class="sum-tag">${tag}</span></span>
+      <i id="sumChev" class="fa-solid fa-chevron-${open ? 'up' : 'down'}"></i>
+    </div>
+    <div id="sumBody" style="display:${open ? 'block' : 'none'};">${body}</div>
+  </div>`;
+}
+
+function toggleSumCard() {
+  const b = document.getElementById('sumBody'); if (!b) return;
+  const open = b.style.display === 'none';
+  b.style.display = open ? 'block' : 'none';
+  localStorage.setItem('craft_sum_open', open ? '1' : '0');
+  const c = document.getElementById('sumChev');
+  if (c) c.className = 'fa-solid fa-chevron-' + (open ? 'up' : 'down');
+}
+function toggleSumOther() {
+  const b = document.getElementById('sumOtherBody'); if (!b) return;
+  const open = b.style.display === 'none';
+  b.style.display = open ? 'block' : 'none';
+  localStorage.setItem('craft_sum_other', open ? '1' : '0');
+  const c = document.getElementById('sumOtherChev');
+  const l = document.getElementById('sumOtherLbl');
+  if (c) c.className = 'fa-solid fa-chevron-' + (open ? 'up' : 'down');
+  if (l) l.textContent = open ? 'ซ่อน' : 'ดู';
+}
+
+// ══════════════════════════════════════
 //  BUILD GROUPED DATA
 // ══════════════════════════════════════
 
@@ -557,7 +801,7 @@ function buildGroupedData() {
     const ds = o.deliveryStatus || {};
     for (const item of myItems) {
       const k         = itemKey(item);
-      const craftedRaw   = getCraftedQty(cs[k], item.qty);
+      const craftedRaw   = getCraftedQty(readCraftEntry(cs, item), item.qty);
       const deliveredRaw = getDeliveredQty(ds[deliverKey(item)], item.qty, o.isDelivered);
       // หักของที่จัดส่งออกไปแล้ว (ส่งได้เฉพาะที่แต่งเสร็จ → หักทั้งสองฝั่ง)
       const remainQty   = item.qty - deliveredRaw;
@@ -596,8 +840,10 @@ function renderCraftOrders() {
 
   const el = document.getElementById('craft-content');
 
+  const summaryHtml = renderSummaryCard();
+
   if (!_groups.length) {
-    el.innerHTML = `<div class="empty-craft">
+    el.innerHTML = summaryHtml + `<div class="empty-craft">
       <i class="fa-solid fa-circle-check" style="color:#16a34a;"></i>
       <p>ไม่มีรายการงานสำหรับ <strong>${esc(_craftsman.name)}</strong></p>
       <p style="font-size:13px;margin-top:6px;color:#9ca3af;">ยังไม่มีออเดอร์หรือทุกงานเสร็จหมดแล้ว</p>
@@ -606,7 +852,7 @@ function renderCraftOrders() {
   }
 
   const hasRemaining = _groups.some(g => g.items.some(it => it.craftedQty < it.totalQty));
-  let html = '';
+  let html = summaryHtml;
 
   if (!hasRemaining) {
     html += `<div class="all-done-banner">
@@ -776,14 +1022,17 @@ async function doStep(groupItem, delta) {
 }
 
 async function saveSourceCraftedQty(src, newCraftedQty) {
-  const k = itemKey(src.item);
+  const k    = itemKey(src.item);
+  const kOld = itemKeyLegacy(src.item);
+  const ref  = db.collection('orders').doc(src.orderId);
+  const DEL  = firebase.firestore.FieldValue.delete();
   if (newCraftedQty <= 0) {
-    // Dot-notation delete — safe for concurrent multi-craftsman writes
-    await db.collection('orders').doc(src.orderId).update({
-      [`craftStatus.${k}`]: firebase.firestore.FieldValue.delete()
-    });
+    // ลบทั้งคีย์ใหม่และคีย์เก่า ไม่งั้น fallback จะอ่านค่าเก่ากลับมา
+    const patch = {[`craftStatus.${k}`]: DEL};
+    if (kOld !== k) patch[`craftStatus.${kOld}`] = DEL;
+    await ref.update(patch);
   } else {
-    await db.collection('orders').doc(src.orderId).update({
+    const patch = {
       [`craftStatus.${k}`]: {
         craftedQty:    newCraftedQty,
         isCrafted:     newCraftedQty >= src.orderQty,
@@ -791,7 +1040,10 @@ async function saveSourceCraftedQty(src, newCraftedQty) {
         craftedByName: _craftsman.name,
         craftedAt:     Date.now()
       }
-    });
+    };
+    // เขียนคีย์ใหม่แล้วลบคีย์เก่าทิ้ง (migrate ทีละรายการตอนใช้งานจริง)
+    if (kOld !== k) patch[`craftStatus.${kOld}`] = DEL;
+    await ref.update(patch);
   }
 }
 
