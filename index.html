@@ -1546,9 +1546,12 @@ function buildPendingHtml(orders) {
   // เก็บ state การเลือกไว้ที่ window เพื่อให้ re-render แล้วไม่หาย
   if (!window._pendSel) window._pendSel = {};
   window._pendGroups = {};
+  // ล้าง selection ของลูกค้าที่ไม่อยู่ในรายการแล้ว (ส่งครบ/ถูกลบ)
+  for (const k of Object.keys(window._pendSel)) { if (!map.has(k)) delete window._pendSel[k]; }
 
-  return [...map.values()].map((g, gi) => {
-    const gid = 'g' + gi;
+  return [...map.entries()].map(([gkey, g]) => {
+    // ผูก selection กับ customerId ไม่ใช่ลำดับ — กันที่ติ๊กไว้เด้งไปผิดลูกค้าเวลา real-time อัปเดต
+    const gid = String(gkey);
     const allDone   = g.orders.every(o => isOrderFullyDelivered(o));
     const latestTs  = Math.max(...g.orders.map(o => o.createdAt));
 
@@ -1557,6 +1560,7 @@ function buildPendingHtml(orders) {
     for (const o of g.orders) {
       const cs = o.craftStatus || {};
       const ds = o.deliveryStatus || {};
+      const bs = o.billedStatus || {};
       for (const i of (o.items||[])) {
         const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
         const label = i.productName
@@ -1566,16 +1570,19 @@ function buildPendingHtml(orders) {
         const dKey  = deliverKey(i);
         const craftedRaw   = getCraftedFor(cs, i);
         const deliveredRaw = getDeliveredQty(ds[dKey], i.qty, o.isDelivered);
+        const billedRaw    = getBilledQty(bs[dKey], i.qty);
         // คงเหลือ = สั่ง − ส่งแล้ว ; แต่งเสร็จคงเหลือ = แต่งแล้ว − ส่งแล้ว
         const remainQty    = i.qty - deliveredRaw;
         const remainCraft  = Math.max(0, craftedRaw - deliveredRaw);
+        const billedOpen   = Math.max(0, billedRaw - deliveredRaw); // ออกบิลแล้วแต่ยังไม่ได้ส่ง
         if (remainQty <= 0) continue; // ส่งครบแล้ว ไม่ต้องแสดง
         const src = {orderId:o.id, dKey, orderQty:i.qty, delivered:deliveredRaw, remainQty, remainCraft,
+                     billed:billedRaw, billedOpen,
                      productName:i.productName, price:i.price, color:i.color||'', trimColor:i.trimColor||'',
                      extra:i.extra||'', specialNote:i.specialNote||'', label};
         const ex = merged.find(m => m.key===label);
-        if (ex) { ex.qty += remainQty; ex.craftedQty += remainCraft; ex.delivered += deliveredRaw; ex.sources.push(src); }
-        else merged.push({key:label, qty:remainQty, craftedQty:remainCraft, delivered:deliveredRaw, sources:[src]});
+        if (ex) { ex.qty += remainQty; ex.craftedQty += remainCraft; ex.delivered += deliveredRaw; ex.billedOpen += billedOpen; ex.sources.push(src); }
+        else merged.push({key:label, qty:remainQty, craftedQty:remainCraft, delivered:deliveredRaw, billedOpen, sources:[src]});
       }
     }
 
@@ -1597,11 +1604,11 @@ function buildPendingHtml(orders) {
 
     const craftedTotal = merged.reduce((a,m)=>a+(m.craftedQty||0),0);
     const pickBtn = (!allDone && craftedTotal > 0)
-      ? `<button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(250,204,21,.22);border:1.5px solid rgba(250,204,21,.45);color:#fef9c3;" onclick="pendPickCrafted('${gid}')"><i class="fa-solid fa-check-double me-1"></i>เลือกที่แต่งเสร็จ (${craftedTotal})</button>`
+      ? `<button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(250,204,21,.22);border:1.5px solid rgba(250,204,21,.45);color:#fef9c3;" onclick="pendPickCrafted(this)"><i class="fa-solid fa-check-double me-1"></i>เลือกที่แต่งเสร็จ (${craftedTotal})</button>`
       : '';
 
     const itemsHtml = merged.map((m, idx) => {
-      const {key, qty, craftedQty, delivered} = m;
+      const {key, qty, craftedQty, delivered, billedOpen} = m;
       const cq = craftedQty||0;
       const isDone    = cq >= qty;
       const isPartial = cq > 0 && cq < qty;
@@ -1613,18 +1620,21 @@ function buildPendingHtml(orders) {
       const delTag = delivered > 0
         ? ` <span style="font-size:10px;background:rgba(59,130,246,.25);color:#bfdbfe;border-radius:10px;padding:1px 7px;font-weight:600;">🚚 ส่งแล้ว ${delivered}</span>`
         : '';
+      const billTag = (billedOpen||0) > 0
+        ? ` <span style="font-size:10px;background:rgba(168,85,247,.25);color:#e9d5ff;border-radius:10px;padding:1px 7px;font-weight:600;">🧾 ออกบิลแล้ว ${billedOpen}</span>`
+        : '';
       const picked  = sel[idx] || 0;
       const canPick = cq > 0 && !allDone;
       const stepper = (picked > 0 && qty > 1)
         ? `<span style="display:inline-flex;align-items:center;gap:5px;margin-left:7px;background:rgba(0,0,0,.28);border-radius:7px;padding:1px 4px;vertical-align:middle;">
-             <button onclick="pendBump('${gid}',${idx},-1)" style="width:20px;height:20px;padding:0;border-radius:5px;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:700;cursor:pointer;line-height:1;">−</button>
+             <button onclick="pendBump(this,${idx},-1)" style="width:20px;height:20px;padding:0;border-radius:5px;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:700;cursor:pointer;line-height:1;">−</button>
              <span style="font-size:12px;font-weight:700;min-width:28px;text-align:center;">${picked}/${qty}</span>
-             <button onclick="pendBump('${gid}',${idx},1)" style="width:20px;height:20px;padding:0;border-radius:5px;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:700;cursor:pointer;line-height:1;">+</button>
+             <button onclick="pendBump(this,${idx},1)" style="width:20px;height:20px;padding:0;border-radius:5px;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:700;cursor:pointer;line-height:1;">+</button>
            </span>`
         : '';
       return `<div class="pend-row" style="display:flex;gap:8px;align-items:center;${canPick?'':'opacity:.45;'}">
-        <input type="checkbox" ${picked>0?'checked':''} ${canPick?'':'disabled'} onchange="pendToggle('${gid}',${idx})" style="width:17px;height:17px;flex-shrink:0;accent-color:#22c55e;cursor:${canPick?'pointer':'not-allowed'};">
-        <span style="flex:1;min-width:0;">${U.esc(key)}${badge}${delTag}${stepper}</span>
+        <input type="checkbox" ${picked>0?'checked':''} ${canPick?'':'disabled'} onchange="pendToggle(this,${idx})" style="width:17px;height:17px;flex-shrink:0;accent-color:#22c55e;cursor:${canPick?'pointer':'not-allowed'};">
+        <span style="flex:1;min-width:0;">${U.esc(key)}${badge}${delTag}${billTag}${stepper}</span>
         <span style="font-weight:700;flex-shrink:0;">${qty}</span>
       </div>`;
     }).join('');
@@ -1636,12 +1646,12 @@ function buildPendingHtml(orders) {
       <div style="background:rgba(0,0,0,.22);border-radius:9px;padding:8px 11px;margin-top:9px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
         <span style="font-size:12px;font-weight:600;opacity:${hasSel?'1':'.6'};">${hasSel?`เลือก ${selRows} รายการ · รวม ${selPcs} ชิ้น`:'ยังไม่ได้เลือกรายการ'}</span>
         <div style="display:flex;gap:5px;">
-          <button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(34,197,94,.28);border:1.5px solid rgba(134,239,172,.55);${hasSel?'':'opacity:.4;pointer-events:none;'}" onclick="pendDeliver('${gid}')"><i class="fa-solid fa-truck me-1"></i>จัดส่งที่เลือก</button>
-          <button class="btn-card-outline" style="font-size:11px;padding:3px 10px;${hasSel?'':'opacity:.4;pointer-events:none;'}" onclick="pendBill('${gid}')"><i class="fa-solid fa-file-invoice me-1"></i>ออกบิลที่เลือก</button>
+          <button class="btn-card-solid" style="font-size:11px;padding:3px 10px;background:rgba(34,197,94,.28);border:1.5px solid rgba(134,239,172,.55);${hasSel?'':'opacity:.4;pointer-events:none;'}" onclick="pendDeliver(this)"><i class="fa-solid fa-truck me-1"></i>จัดส่งที่เลือก</button>
+          <button class="btn-card-outline" style="font-size:11px;padding:3px 10px;${hasSel?'':'opacity:.4;pointer-events:none;'}" onclick="pendBill(this)"><i class="fa-solid fa-file-invoice me-1"></i>ออกบิลที่เลือก</button>
         </div>
       </div>`;
 
-    return `<div style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;${allDone?'opacity:.5;':''}">
+    return `<div data-gid="${U.esc(gid)}" style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;${allDone?'opacity:.5;':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;">
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;">
           <span style="font-size:15px;font-weight:700;">${U.esc(g.customerName||'-')}</span>${ordNos}
@@ -1655,11 +1665,21 @@ function buildPendingHtml(orders) {
 
 // ── ควบคุมการเลือกในรายการรอส่ง ──
 function _pendRerender() {
-  const orders = (window._allOrdersCache||[]).filter(o => !isOrderFullyDelivered(o)).sort((a,b)=>a.createdAt-b.createdAt);
+  // เคารพตัวกรองวันที่เหมือน updatePendingList — ไม่งั้นกดติ๊กแล้วหน้าเด้งกลับเป็นโหมดค้างส่งทั้งหมด
+  const dateStr = document.getElementById('pendingDatePicker')?.value || todayLocal();
+  const isToday = dateStr === todayLocal();
+  const orders = (window._allOrdersCache||[]).filter(o => {
+    if (isToday) return !isOrderFullyDelivered(o);
+    return new Date(o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}) === dateStr;
+  }).sort((a,b)=>a.createdAt-b.createdAt);
   const el = document.getElementById('pendingList');
   if (el) el.innerHTML = buildPendingHtml(orders);
 }
-function pendToggle(gid, idx) {
+// อ่าน gid จาก element ที่กด (ไม่ฝังค่าลง onclick — กันชื่อลูกค้าที่มีเครื่องหมายพิเศษทำ HTML พัง)
+function _gidOf(el) { return el?.closest?.('[data-gid]')?.dataset.gid || null; }
+
+function pendToggle(el, idx) {
+  const gid = _gidOf(el); if (!gid) return;
   const m = window._pendGroups?.[gid]?.merged?.[idx]; if (!m) return;
   const sel = window._pendSel[gid] || (window._pendSel[gid] = {});
   if (sel[idx] > 0) delete sel[idx];
@@ -1667,7 +1687,8 @@ function pendToggle(gid, idx) {
   if (!sel[idx]) delete sel[idx];
   _pendRerender();
 }
-function pendBump(gid, idx, d) {
+function pendBump(el, idx, d) {
+  const gid = _gidOf(el); if (!gid) return;
   const m = window._pendGroups?.[gid]?.merged?.[idx]; if (!m) return;
   const sel = window._pendSel[gid] || (window._pendSel[gid] = {});
   const v = (sel[idx]||0) + d;
@@ -1676,7 +1697,8 @@ function pendBump(gid, idx, d) {
   sel[idx] = v;
   _pendRerender();
 }
-function pendPickCrafted(gid) {
+function pendPickCrafted(el) {
+  const gid = _gidOf(el); if (!gid) return;
   const grp = window._pendGroups?.[gid]; if (!grp) return;
   const sel = {};
   grp.merged.forEach((m, i) => { const v = Math.min(m.craftedQty||0, m.qty); if (v > 0) sel[i] = v; });
@@ -1780,7 +1802,8 @@ function filterDashCust(custKey) {
 }
 
 // ── จัดส่งเฉพาะรายการที่เลือก ──
-function pendDeliver(gid) {
+function pendDeliver(el) {
+  const gid = _gidOf(el); if (!gid) return;
   const grp = window._pendGroups?.[gid]; if (!grp) return;
   const sel = window._pendSel?.[gid] || {};
   const picks = Object.entries(sel).filter(([,v]) => v > 0);
@@ -1827,19 +1850,45 @@ function pendDeliver(gid) {
 }
 
 // ── ออกบิลเฉพาะรายการที่เลือก ──
-async function pendBill(gid) {
+async function pendBill(el) {
+  const gid = _gidOf(el); if (!gid) return;
   const grp = window._pendGroups?.[gid]; if (!grp) return;
   const sel = window._pendSel?.[gid] || {};
   const picks = Object.entries(sel).filter(([,v]) => v > 0);
   if (!picks.length) { U.toast('กรุณาเลือกรายการก่อน','error'); return; }
 
+  // ── กันออกบิลซ้ำ: หักจำนวนที่ออกบิลไปแล้วออกจากโควต้า ──
+  const over = [];
+  for (const [idxStr, want] of picks) {
+    const m = grp.merged[Number(idxStr)]; if (!m) continue;
+    const billable = m.qty - (m.billedOpen || 0);
+    if (want > billable) over.push(`${m.key} (ออกได้อีก ${Math.max(0, billable)})`);
+  }
+  if (over.length) {
+    U.toast('ออกบิลซ้ำไม่ได้: ' + over[0] + (over.length > 1 ? ` และอีก ${over.length-1} รายการ` : ''), 'error');
+    return;
+  }
+
   const items = [];
+  const plan  = []; // {orderId, dKey, qty} สำหรับเขียน billedStatus กลับหลังบันทึกบิล
   for (const [idxStr, want] of picks) {
     const m = grp.merged[Number(idxStr)]; if (!m) continue;
     const s0 = m.sources[0];
     items.push({name: m.key, qty: want, price: s0?.price || 0});
+    // กระจายจำนวนกลับไปยังออเดอร์ต้นทาง (ข้ามส่วนที่ออกบิลไปแล้ว)
+    let left = want;
+    for (const s of m.sources) {
+      if (left <= 0) break;
+      const room = s.remainQty - (s.billedOpen || 0);
+      const take = Math.min(left, room);
+      if (take <= 0) continue;
+      plan.push({orderId: s.orderId, dKey: s.dKey, qty: (s.billed || 0) + take});
+      left -= take;
+    }
   }
   window._pendBillItems = items;
+  window._pendBillPlan  = plan;
+  window._pendBillGid   = gid;
   await showCreateReceiptModal(null, encodeURIComponent(grp.customerName||''));
 }
 
@@ -2821,6 +2870,8 @@ async function showCreateReceiptModal(editId, prefillCustName) {
   const custOpts=customers.map(c=>`<option value="${c.id}" ${(edit?.customerId===c.id||c.id===prefillCustId)?'selected':''}>${U.esc(c.name)}</option>`).join('');
   // รายการที่เลือกมาจากรายการรอส่ง (ปุ่ม "ออกบิลที่เลือก")
   const pendItems = window._pendBillItems; window._pendBillItems = null;
+  // เปิด modal แบบปกติ (ไม่ได้มาจากปุ่ม "ออกบิลที่เลือก") → ล้างแผนค้างไว้ กันเขียน billedStatus ผิดใบ
+  if (!pendItems) { window._pendBillPlan = null; window._pendBillGid = null; }
   const initItems=edit?.items || pendItems || [{name:'',qty:1,price:0}];
 
   const body=`<form class="row g-3">
@@ -3054,6 +3105,22 @@ async function saveReceipt(andPrint=false) {
     let savedId;
     if (editId){const old=await DB.getInvoice(editId);await DB.putInvoice({...old,...data});savedId=editId;U.toast('แก้ไขใบเสร็จแล้ว ✓');}
     else{data.invoiceNo=await DB.nextReceiptNo();savedId=await DB.addInvoice(data);U.toast('ออกใบเสร็จแล้ว ✓');}
+    // ── บันทึก billedStatus กลับไปยังออเดอร์ต้นทาง (กันออกบิลซ้ำ) ──
+    const plan = window._pendBillPlan; window._pendBillPlan = null;
+    if (plan && plan.length && !editId) {
+      const byOrder = {};
+      for (const p of plan) { (byOrder[p.orderId] ||= {})[p.dKey] = p.qty; }
+      const billedAt = Date.now();
+      await Promise.all(Object.entries(byOrder).map(async ([oid, keyMap]) => {
+        const o = await DB.getOrder(oid); if (!o) return;
+        const bsNew = {...(o.billedStatus||{})};
+        for (const [k, q] of Object.entries(keyMap)) bsNew[k] = {billedQty:q, invoiceId:savedId, billedAt};
+        await DB.putOrder({...o, billedStatus: bsNew});
+      })).catch(e => console.error('billedStatus write error:', e));
+      // ล้างที่ติ๊กไว้ของลูกค้ารายนี้
+      if (window._pendBillGid && window._pendSel) delete window._pendSel[window._pendBillGid];
+      window._pendBillGid = null;
+    }
     closeModal('rcModal');
     if (andPrint){
       const inv=await DB.getInvoice(savedId);
