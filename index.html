@@ -1861,15 +1861,26 @@ function showPrintSelectModal() {
   if (!d || !d.pendingOrders || !d.pendingOrders.length) {
     U.toast('ไม่มีรายการรอส่ง','error'); return;
   }
-  const orders = d.pendingOrders;
+  // แสดงเฉพาะจำนวนคงเหลือ (หักที่จัดส่งไปแล้ว) และตัดออเดอร์ที่ส่งครบออก
+  const orders = d.pendingOrders.filter(o => !isOrderFullyDelivered(o));
+  if (!orders.length) { U.toast('ไม่มีรายการค้างส่ง','error'); return; }
+  window._pslOrders = orders;
   const rows = orders.map((o,idx)=>{
-    const totalQty = (o.items||[]).reduce((a,i)=>a+i.qty,0);
-    const isDone = o.isDelivered && o.deliveredAt;
+    const ds = o.deliveryStatus || {};
+    let totalQty = 0, lineCt = 0, sentQty = 0;
+    (o.items||[]).forEach(i=>{
+      const sent = getDeliveredQty(ds[deliverKey(i)], i.qty, o.isDelivered);
+      const remain = i.qty - sent;
+      sentQty += sent;
+      if (remain > 0) { totalQty += remain; lineCt++; }
+    });
+    const sentTag = sentQty > 0
+      ? `<span style="font-size:11px;color:#2563eb;">🚚 ส่งไปแล้ว ${sentQty}</span>` : '';
     return `<label style="display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;border:2px solid #e5e7eb;margin-bottom:6px;background:#fff;" id="psl_label_${idx}">
       <input type="checkbox" class="psl-cb" data-idx="${idx}" id="psl_cb_${idx}" checked style="width:18px;height:18px;cursor:pointer;accent-color:#2563eb;">
       <div style="flex:1;">
-        <div style="font-weight:700;font-size:14px;">${U.esc(o.customerName||'-')} ${isDone?'<span style="font-size:11px;color:#16a34a;">✅ ส่งแล้ว</span>':''}</div>
-        <div style="font-size:11px;color:#6b7280;">${U.date(o.createdAt)} · ${totalQty} ชิ้น · ${(o.items||[]).length} รายการ</div>
+        <div style="font-weight:700;font-size:14px;">${U.esc(o.customerName||'-')} ${sentTag}</div>
+        <div style="font-size:11px;color:#6b7280;">${U.date(o.createdAt)} · เหลือ ${totalQty} ชิ้น · ${lineCt} รายการ</div>
       </div>
       <span style="background:#dbeafe;color:#1e40af;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;">${totalQty} ชิ้น</span>
     </label>`;
@@ -1916,10 +1927,10 @@ function updatePslCount() {
   if(el) el.textContent=`เลือก ${checked}/${total} ลูกค้า`;
 }
 function confirmPrintSelect() {
-  const d = window._dashTodayData;
+  const src = window._pslOrders || window._dashTodayData?.pendingOrders || [];
   const selectedIdxs=[...document.querySelectorAll('.psl-cb:checked')].map(cb=>parseInt(cb.dataset.idx));
   if(!selectedIdxs.length){U.toast('กรุณาเลือกอย่างน้อย 1 ลูกค้า','error');return;}
-  const selectedOrders=selectedIdxs.map(i=>d.pendingOrders[i]);
+  const selectedOrders=selectedIdxs.map(i=>src[i]).filter(Boolean);
   closeModal('pslModal');
   printPendingOrders(selectedOrders);
 }
@@ -1943,16 +1954,22 @@ function printPendingOrders(ordersInput) {
     if (!custMap.has(key)) custMap.set(key, {name:o.customerName, dates:[], items:new Map(), extras:{}});
     const g = custMap.get(key);
     g.dates.push(U.date(o.createdAt));
+    const ds = o.deliveryStatus || {};
     (o.items||[]).forEach(i=>{
+      // พิมพ์เฉพาะจำนวนคงเหลือ — หักที่จัดส่งไปแล้ว
+      const remain = i.qty - getDeliveredQty(ds[deliverKey(i)], i.qty, o.isDelivered);
+      if (remain <= 0) return;
       const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
       const lbl=i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:'');
       if(isCoffin(i.productName)){
-        if(g.items.has(lbl)) g.items.get(lbl).qty+=i.qty;
-        else g.items.set(lbl,{qty:i.qty,productName:i.productName,color:i.color||'',trimColor:i.trimColor||'',isChrist,extra:i.extra||''});
-      } else g.extras[lbl]=(g.extras[lbl]||0)+i.qty;
+        if(g.items.has(lbl)) g.items.get(lbl).qty+=remain;
+        else g.items.set(lbl,{qty:remain,productName:i.productName,color:i.color||'',trimColor:i.trimColor||'',isChrist,extra:i.extra||''});
+      } else g.extras[lbl]=(g.extras[lbl]||0)+remain;
     });
   });
-  const list = [...custMap.values()];
+  // ตัดลูกค้าที่ไม่เหลืออะไรให้พิมพ์ออก
+  const list = [...custMap.values()].filter(c => c.items.size > 0 || Object.keys(c.extras).length > 0);
+  if (!list.length) { U.toast('ไม่มีรายการค้างส่งให้พิมพ์','error'); return; }
   const totalPieces = list.reduce((a,c)=>a+[...c.items.values()].reduce((x,v)=>x+v.qty,0),0);
   const totalCusts  = list.length;
 
