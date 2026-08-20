@@ -2013,15 +2013,21 @@ function printPendingOrders(ordersInput) {
     const g = custMap.get(key);
     g.dates.push(U.date(o.createdAt));
     const ds = o.deliveryStatus || {};
+    const cs = o.craftStatus || {};
     (o.items||[]).forEach(i=>{
       // พิมพ์เฉพาะจำนวนคงเหลือ — หักที่จัดส่งไปแล้ว
-      const remain = i.qty - getDeliveredQty(ds[deliverKey(i)], i.qty, o.isDelivered);
+      const deliveredRaw = getDeliveredQty(ds[deliverKey(i)], i.qty, o.isDelivered);
+      const remain = i.qty - deliveredRaw;
       if (remain <= 0) return;
+      // แยกจำนวนที่แต่งเสร็จแล้ว (พร้อมส่ง) ออกจากที่ยังไม่ได้แต่ง
+      const craftedRemain = Math.max(0, getCraftedFor(cs, i) - deliveredRaw);
+      const rdy = Math.min(craftedRemain, remain);   // พร้อมส่ง
+      const nry = remain - rdy;                      // ยังไม่ได้แต่ง
       const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
       const lbl=i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:'');
       if(isCoffin(i.productName)){
-        if(g.items.has(lbl)) g.items.get(lbl).qty+=remain;
-        else g.items.set(lbl,{qty:remain,productName:i.productName,color:i.color||'',trimColor:i.trimColor||'',isChrist,extra:i.extra||''});
+        if(g.items.has(lbl)) { const e=g.items.get(lbl); e.qty+=remain; e.ready+=rdy; e.notReady+=nry; }
+        else g.items.set(lbl,{qty:remain,ready:rdy,notReady:nry,productName:i.productName,color:i.color||'',trimColor:i.trimColor||'',isChrist,extra:i.extra||''});
       } else g.extras[lbl]=(g.extras[lbl]||0)+remain;
     });
   });
@@ -2057,14 +2063,32 @@ function printPendingOrders(ordersInput) {
 
   const rows = list.map(c=>{
     const custPieces = [...c.items.values()].reduce((a,v)=>a+v.qty,0);
+    const custReady  = [...c.items.values()].reduce((a,v)=>a+(v.ready ?? v.qty),0);
+    const custUnready= custPieces - custReady;
     const itemRows = [...c.items.values()].map(it=>{
-      const boxes = Array.from({length:it.qty},()=>'<span class="pen-box"></span>').join('');
       const extraHtml = it.extra ? ` <em style="color:#9ca3af;font-size:12px;">${it.extra}</em>` : '';
-      return `<tr>
-        <td><strong>${it.productName}</strong>${colorBadge(it.color)}${trimBadge(it.trimColor,it.isChrist)}${extraHtml}</td>
-        <td class="c-qty">${it.qty} ชิ้น</td>
-        <td class="c-box">${boxes}</td>
-      </tr>`;
+      const nameHtml  = `<strong>${it.productName}</strong>${colorBadge(it.color)}${trimBadge(it.trimColor,it.isChrist)}${extraHtml}`;
+      const ready    = it.ready ?? it.qty;
+      const notReady = it.notReady ?? 0;
+      let out = '';
+      // แถวพร้อมส่ง — มีช่องติ๊ก
+      if (ready > 0) {
+        const boxes = Array.from({length:ready},()=>'<span class="pen-box"></span>').join('');
+        out += `<tr>
+          <td>${nameHtml}</td>
+          <td class="c-qty">${ready} ชิ้น</td>
+          <td class="c-box">${boxes}</td>
+        </tr>`;
+      }
+      // แถวยังไม่ได้แต่ง — สีจาง ไม่มีช่องติ๊ก
+      if (notReady > 0) {
+        out += `<tr class="row-unready">
+          <td>${nameHtml} <span class="unready-tag">(ยังไม่ได้แต่ง)</span></td>
+          <td class="c-qty">${notReady} ชิ้น</td>
+          <td class="c-box"></td>
+        </tr>`;
+      }
+      return out;
     }).join('');
     const extraRows = Object.entries(c.extras||{}).map(([name,qty])=>`
       <tr style="opacity:.65;">
@@ -2077,7 +2101,7 @@ function printPendingOrders(ordersInput) {
     <div class="cust-block">
       <div class="cust-head">
         <span class="cust-name">${c.name}</span>
-        <span class="cust-count">${custPieces} โลง</span>
+        <span class="cust-count">${custUnready > 0 ? `พร้อมส่ง ${custReady} / ${custPieces} โลง` : `${custPieces} โลง`}</span>
       </div>
       <table>
         <colgroup><col class="c-name"><col class="c-qty"><col class="c-box"></colgroup>
@@ -2117,6 +2141,11 @@ function printPendingOrders(ordersInput) {
     tbody tr:last-child td{border-bottom:none;}
     td.c-qty{font-weight:800;color:#1e40af;font-size:14px;}
     .pen-box{display:inline-block;width:18px;height:18px;border:1.5px solid #374151;border-radius:2px;margin-right:3px;vertical-align:middle;}
+    .row-unready td{color:#9ca3af!important;}
+    .row-unready td strong{font-weight:500;color:#9ca3af!important;}
+    .row-unready td span{opacity:.45;}
+    .row-unready td.c-qty{color:#9ca3af!important;font-weight:600!important;}
+    .unready-tag{font-size:11.5px;color:#9ca3af;font-style:italic;white-space:nowrap;opacity:1!important;}
     .no-print{margin-top:16px;}
     @media print{
       body{padding:0;}
