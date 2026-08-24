@@ -267,6 +267,13 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .hist-time { display:inline-flex; align-items:center; gap:3px; font-size:12px; color:#2563eb;
   font-weight:600; background:#eff6ff; border-radius:6px; padding:1px 7px; }
 .hist-time i { font-size:10.5px; }
+.hist-time-approx { color:#9ca3af!important; background:#f3f4f6!important; }
+.spark { display:flex; align-items:flex-end; gap:4px; height:38px; }
+.spark-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; }
+.spark-bar { width:100%; background:#dbeafe; border-radius:3px 3px 0 0; min-height:2px; position:relative; }
+.spark-bar.hot { background:#2563eb; }
+.spark-lbl { font-size:9.5px; color:#9ca3af; white-space:nowrap; }
+.spark-val { font-size:10px; font-weight:700; color:#1a2332; }
 </style>
 </head>
 <body>
@@ -355,35 +362,63 @@ async function renderHistory() {
     // เก็บเฉพาะ items ที่ช่างคนนี้ทำ
     const byDate = {}; // { 'YYYY-MM-DD': [{label, qty, craftedAt, customerName}] }
     const byCraftsman = {}; // สถิติของทุกช่าง (สำหรับการ์ดสรุป)
+    const dayKey = ts => new Date(ts).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
+
     for (const o of allOrders) {
       const cs = o.craftStatus || {};
       for (const [k, entry] of Object.entries(cs)) {
-        // ── สะสมสถิติของช่างทุกคนก่อนกรอง ──
-        const who = entry.craftedByName || 'ไม่ระบุชื่อ';
-        const whoId = entry.craftedBy || '';
-        const mItem = (o.items||[]).find(i => itemKey(i) === k)
-                   || (o.items||[]).find(i => itemKeyLegacy(i) === k);
-        const q = entry.craftedQty ?? (mItem ? mItem.qty : 0);
-        if (q > 0) {
-          if (!byCraftsman[who]) byCraftsman[who] = {name: who, id: whoId, qty: 0, lines: 0, days: new Set(), last: 0};
-          byCraftsman[who].qty += q;
-          byCraftsman[who].lines++;
-          byCraftsman[who].days.add(new Date(entry.craftedAt||o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}));
-          if ((entry.craftedAt||0) > byCraftsman[who].last) byCraftsman[who].last = entry.craftedAt||0;
-        }
-        if ((entry.craftedBy||'') !== _craftsman.id) continue;
-        // หา item จาก key (รองรับทั้งคีย์ใหม่และคีย์เก่า)
         const matchItem = (o.items||[]).find(i => itemKey(i) === k)
                        || (o.items||[]).find(i => itemKeyLegacy(i) === k);
-        if (!matchItem) continue;
-        const dateKey = new Date(entry.craftedAt||o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
-        if (!byDate[dateKey]) byDate[dateKey] = [];
-        byDate[dateKey].push({
+
+        // ── มี log → ใช้เวลาจริงของแต่ละครั้งที่กด ──
+        const log = Array.isArray(entry.log) ? entry.log.filter(L => (L.qty||0) > 0) : null;
+        if (log && log.length) {
+          for (const L of log) {
+            const who   = L.byName || entry.craftedByName || 'ไม่ระบุชื่อ';
+            const whoId = L.by || entry.craftedBy || '';
+            const at    = L.at || entry.craftedAt || o.createdAt;
+            const q     = L.qty || 0;
+            if (!byCraftsman[who]) byCraftsman[who] = {name:who, id:whoId, qty:0, lines:0, days:new Set(), last:0, perDay:{}};
+            const S = byCraftsman[who];
+            S.qty += q; S.lines++; S.days.add(dayKey(at));
+            S.perDay[dayKey(at)] = (S.perDay[dayKey(at)]||0) + q;
+            if (at > S.last) S.last = at;
+
+            if (whoId !== _craftsman.id || !matchItem) continue;
+            const dk = dayKey(at);
+            (byDate[dk] ||= []).push({
+              label: buildLabel(matchItem),
+              qty: matchItem.qty,
+              craftedQty: q,
+              customerName: o.customerName||'?',
+              craftedAt: at,
+              exact: true
+            });
+          }
+          continue;
+        }
+
+        // ── ไม่มี log (ข้อมูลก่อนอัปเดต) → ใช้ค่าเดิมแบบเดียวกับเมื่อก่อน ──
+        const who = entry.craftedByName || 'ไม่ระบุชื่อ';
+        const whoId = entry.craftedBy || '';
+        const q = entry.craftedQty ?? (matchItem ? matchItem.qty : 0);
+        if (q > 0) {
+          const at = entry.craftedAt || o.createdAt;
+          if (!byCraftsman[who]) byCraftsman[who] = {name:who, id:whoId, qty:0, lines:0, days:new Set(), last:0, perDay:{}};
+          const S = byCraftsman[who];
+          S.qty += q; S.lines++; S.days.add(dayKey(at));
+          S.perDay[dayKey(at)] = (S.perDay[dayKey(at)]||0) + q;
+          if (at > S.last) S.last = at;
+        }
+        if (whoId !== _craftsman.id || !matchItem || q <= 0) continue;
+        const dk = dayKey(entry.craftedAt || o.createdAt);
+        (byDate[dk] ||= []).push({
           label: buildLabel(matchItem),
           qty: matchItem.qty,
-          craftedQty: entry.craftedQty||matchItem.qty,
+          craftedQty: q,
           customerName: o.customerName||'?',
           craftedAt: entry.craftedAt||0,
+          exact: false
         });
       }
     }
@@ -391,6 +426,36 @@ async function renderHistory() {
     // ── การ์ดสรุป: ใครแต่งไปกี่ใบ (แทนแถบคืบหน้าที่ไม่มีประโยชน์ในโหมดนี้) ──
     const cmList = Object.values(byCraftsman).sort((a,b) => b.qty - a.qty);
     const cmTotal = cmList.reduce((a,c) => a + c.qty, 0);
+
+    // ── กราฟ 7 วันล่าสุดของช่างคนนี้ + ค่าเฉลี่ยต่อวัน ──
+    const me = cmList.find(c => c.id === _craftsman.id);
+    const myPerDay = me?.perDay || {};
+    const last7 = Array.from({length:7}, (_, n) => {
+      const d = new Date(new Date(todayLocal()+'T00:00:00+07:00').getTime() - (6-n)*86400000);
+      const key = d.toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
+      return {key, qty: myPerDay[key] || 0,
+              lbl: d.toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',weekday:'narrow'})};
+    });
+    const peak = Math.max(1, ...last7.map(x => x.qty));
+    const myDays = me?.days.size || 0;
+    const myAvg  = myDays ? (me.qty / myDays) : 0;
+    const week7  = last7.reduce((a,x) => a + x.qty, 0);
+
+    const sparkHtml = me ? `
+      <div style="padding:11px 14px; border-bottom:1.5px solid #f1f5f9;">
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
+          <span style="font-size:11.5px; color:#6b7280; font-weight:600;">ผลงานฉัน 7 วันล่าสุด</span>
+          <span style="font-size:11.5px; color:#9ca3af;">รวม ${week7} ใบ</span>
+        </div>
+        <div class="spark">
+          ${last7.map(x => `<div class="spark-col">
+            <span class="spark-val">${x.qty || ''}</span>
+            <div class="spark-bar${x.qty >= peak && x.qty > 0 ? ' hot' : ''}" style="height:${x.qty ? Math.max(3, Math.round(x.qty/peak*26)) : 2}px;"></div>
+            <span class="spark-lbl">${x.lbl}</span>
+          </div>`).join('')}
+        </div>
+      </div>` : '';
+
     const summaryHtml = cmList.length ? `<div class="sum-card">
       <div class="sum-head" onclick="toggleSumCard()">
         <span class="sum-head-l"><i class="fa-solid fa-trophy"></i>สรุปผลงานช่าง
@@ -400,8 +465,10 @@ async function renderHistory() {
       <div id="sumBody" style="display:${localStorage.getItem('craft_sum_open')!=='0'?'block':'none'};">
         <div class="sum-stats">
           <div class="sum-stat"><b style="color:#1a2332;">${cmTotal}</b><span>แต่งไปทั้งหมด</span></div>
+          <div class="sum-stat"><b style="color:#16a34a;">${myAvg ? myAvg.toFixed(1) : '0'}</b><span>เฉลี่ยฉัน/วัน</span></div>
           <div class="sum-stat"><b style="color:#2563eb;">${cmList.length}</b><span>ช่างที่มีงาน</span></div>
         </div>
+        ${sparkHtml}
         <div style="padding:6px 14px 12px;">
           ${cmList.map(c => {
             const isMe = c.id === _craftsman.id;
@@ -439,8 +506,8 @@ async function renderHistory() {
       const rows = items.map(it => {
         const tm = it.craftedAt ? hhmm(it.craftedAt) : '';
         const timeHtml = tm
-          ? `<span class="hist-time"><i class="fa-regular fa-clock"></i>${tm}</span>`
-          : `<span class="hist-time" style="opacity:.5;">ไม่มีเวลา</span>`;
+          ? `<span class="hist-time${it.exact ? '' : ' hist-time-approx'}" title="${it.exact ? 'เวลาที่แต่งเสร็จ' : 'เวลาบันทึกล่าสุด (ข้อมูลก่อนอัปเดตระบบ)'}"><i class="fa-regular fa-clock"></i>${tm}${it.exact ? '' : '~'}</span>`
+          : `<span class="hist-time hist-time-approx" style="opacity:.5;">ไม่มีเวลา</span>`;
         return `<div class="craft-item-row" style="opacity:.85;">
           <div class="craft-item-info">
             <div class="craft-item-name">${esc(it.label)}</div>
@@ -1033,7 +1100,7 @@ async function doStep(groupItem, delta) {
     if (!src) return;
 
     const newQty = src.craftedQty + delta;
-    await saveSourceCraftedQty(src, newQty);
+    await saveSourceCraftedQty(src, newQty, delta);
     // onSnapshot will re-render automatically — no manual re-render needed
     toast(delta === 1 ? '✅ บันทึกแล้ว' : '↩️ ยกเลิก 1 ใบแล้ว');
   } catch (e) {
@@ -1046,30 +1113,36 @@ async function doStep(groupItem, delta) {
   }
 }
 
-async function saveSourceCraftedQty(src, newCraftedQty) {
+async function saveSourceCraftedQty(src, newCraftedQty, delta) {
   const k    = itemKey(src.item);
   const kOld = itemKeyLegacy(src.item);
   const ref  = db.collection('orders').doc(src.orderId);
   const DEL  = firebase.firestore.FieldValue.delete();
-  if (newCraftedQty <= 0) {
-    // ลบทั้งคีย์ใหม่และคีย์เก่า ไม่งั้น fallback จะอ่านค่าเก่ากลับมา
-    const patch = {[`craftStatus.${k}`]: DEL};
-    if (kOld !== k) patch[`craftStatus.${kOld}`] = DEL;
-    await ref.update(patch);
-  } else {
-    const patch = {
-      [`craftStatus.${k}`]: {
-        craftedQty:    newCraftedQty,
-        isCrafted:     newCraftedQty >= src.orderQty,
-        craftedBy:     _craftsman.id,
-        craftedByName: _craftsman.name,
-        craftedAt:     Date.now()
-      }
-    };
-    // เขียนคีย์ใหม่แล้วลบคีย์เก่าทิ้ง (migrate ทีละรายการตอนใช้งานจริง)
-    if (kOld !== k) patch[`craftStatus.${kOld}`] = DEL;
-    await ref.update(patch);
-  }
+  const now  = Date.now();
+  const qty  = Math.max(0, newCraftedQty);
+
+  // log ทุกครั้งที่กด — เก็บเวลาจริงของแต่ละใบ (ค่าเดิม craftedAt เก็บได้ครั้งเดียว)
+  // id สุ่มกันไม่ให้ arrayUnion มองว่าซ้ำเมื่อกดพร้อมกันในมิลลิวินาทีเดียว
+  const logEntry = {
+    id:     now.toString(36) + Math.random().toString(36).slice(2, 7),
+    qty:    delta ?? 0,
+    at:     now,
+    by:     _craftsman.id,
+    byName: _craftsman.name
+  };
+
+  // ใช้ dot-notation รายฟิลด์ + arrayUnion → ปลอดภัยเมื่อช่างหลายคนเขียนพร้อมกัน
+  const patch = {
+    [`craftStatus.${k}.craftedQty`]:    qty,
+    [`craftStatus.${k}.isCrafted`]:     qty >= src.orderQty,
+    [`craftStatus.${k}.craftedBy`]:     _craftsman.id,
+    [`craftStatus.${k}.craftedByName`]: _craftsman.name,
+    [`craftStatus.${k}.craftedAt`]:     now,
+    [`craftStatus.${k}.log`]:           firebase.firestore.FieldValue.arrayUnion(logEntry)
+  };
+  // ลบคีย์เก่าทิ้ง (migrate ทีละรายการตอนใช้งานจริง) — ไม่ลบคีย์ใหม่แม้จำนวนเป็น 0 เพื่อรักษา log
+  if (kOld !== k) patch[`craftStatus.${kOld}`] = DEL;
+  await ref.update(patch);
 }
 
 // ══════════════════════════════════════
