@@ -264,6 +264,9 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .hist-sub { font-size:11px; color:#9ca3af; font-weight:400; margin-top:1px; }
 .hist-q { font-size:17px; font-weight:800; color:#1a2332; white-space:nowrap; }
 .hist-q span { font-size:11px; font-weight:600; color:#9ca3af; }
+.hist-time { display:inline-flex; align-items:center; gap:3px; font-size:12px; color:#2563eb;
+  font-weight:600; background:#eff6ff; border-radius:6px; padding:1px 7px; }
+.hist-time i { font-size:10.5px; }
 </style>
 </head>
 <body>
@@ -309,6 +312,11 @@ function todayLocal() {
 }
 function orderDateLocal(o) {
   return new Date(o.createdAt || 0).toLocaleDateString('sv-SE', {timeZone: 'Asia/Bangkok'});
+}
+// เวลา HH:MM ตามเวลาไทย
+function hhmm(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleTimeString('th-TH', {timeZone:'Asia/Bangkok', hour:'2-digit', minute:'2-digit', hour12:false});
 }
 
 // ── Date filter toggle ──
@@ -357,10 +365,11 @@ async function renderHistory() {
                    || (o.items||[]).find(i => itemKeyLegacy(i) === k);
         const q = entry.craftedQty ?? (mItem ? mItem.qty : 0);
         if (q > 0) {
-          if (!byCraftsman[who]) byCraftsman[who] = {name: who, id: whoId, qty: 0, lines: 0, days: new Set()};
+          if (!byCraftsman[who]) byCraftsman[who] = {name: who, id: whoId, qty: 0, lines: 0, days: new Set(), last: 0};
           byCraftsman[who].qty += q;
           byCraftsman[who].lines++;
           byCraftsman[who].days.add(new Date(entry.craftedAt||o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}));
+          if ((entry.craftedAt||0) > byCraftsman[who].last) byCraftsman[who].last = entry.craftedAt||0;
         }
         if ((entry.craftedBy||'') !== _craftsman.id) continue;
         // หา item จาก key (รองรับทั้งคีย์ใหม่และคีย์เก่า)
@@ -401,7 +410,7 @@ async function renderHistory() {
             return `<div class="hist-row">
               <div class="hist-av${isMe?' me':''}">${esc(initial)}</div>
               <div class="hist-nm">${esc(c.name)}${isMe?' <span style="font-size:10px;background:#dbeafe;color:#1e40af;border-radius:9px;padding:1px 7px;font-weight:700;">ฉัน</span>':''}
-                <div class="hist-sub">${c.lines} รายการ · ${c.days.size} วัน · ${pct}%</div></div>
+                <div class="hist-sub">${c.lines} รายการ · ${c.days.size} วัน · ${pct}%${c.last ? ' · ล่าสุด ' + new Date(c.last).toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short'}) + ' ' + hhmm(c.last) : ''}</div></div>
               <div class="hist-q">${c.qty} <span>ใบ</span></div>
             </div>`;
           }).join('')}
@@ -425,21 +434,37 @@ async function renderHistory() {
       totalItems += items.length;
       totalQty += items.reduce((s,i) => s+i.craftedQty, 0);
       const thDate = new Date(d+'T12:00:00+07:00').toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',weekday:'short',day:'numeric',month:'short',year:'2-digit'});
-      const rows = items.map(it => `
-        <div class="craft-item-row" style="opacity:.85;">
+      // เรียงตามเวลา ล่าสุดอยู่บน
+      items.sort((a, b) => (b.craftedAt || 0) - (a.craftedAt || 0));
+      const rows = items.map(it => {
+        const tm = it.craftedAt ? hhmm(it.craftedAt) : '';
+        const timeHtml = tm
+          ? `<span class="hist-time"><i class="fa-regular fa-clock"></i>${tm}</span>`
+          : `<span class="hist-time" style="opacity:.5;">ไม่มีเวลา</span>`;
+        return `<div class="craft-item-row" style="opacity:.85;">
           <div class="craft-item-info">
             <div class="craft-item-name">${esc(it.label)}</div>
-            <div class="craft-item-qty" style="font-size:12px;color:#9ca3af;">${esc(it.customerName)}</div>
+            <div class="craft-item-qty" style="font-size:12px;color:#9ca3af;">${esc(it.customerName)} · ${timeHtml}</div>
           </div>
           <div class="craft-item-status">
             <span style="background:#dcfce7;color:#15803d;border-radius:8px;padding:4px 12px;font-size:13px;font-weight:700;">
               ✅ ${it.craftedQty} ใบ
             </span>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
+      // ช่วงเวลาทำงานของวันนั้น
+      const stamps = items.map(i => i.craftedAt).filter(Boolean).sort((a,b)=>a-b);
+      const span = stamps.length
+        ? (stamps.length > 1 && hhmm(stamps[0]) !== hhmm(stamps[stamps.length-1])
+            ? `${hhmm(stamps[0])} – ${hhmm(stamps[stamps.length-1])}`
+            : hhmm(stamps[0]))
+        : '';
       return `<div class="order-card">
         <div class="order-card-head">
-          <div class="cust-name" style="font-size:14px;">${thDate}</div>
+          <div class="cust-name" style="font-size:14px;">${thDate}
+            ${span ? `<span style="font-size:11.5px;color:#9ca3af;font-weight:400;margin-left:6px;"><i class="fa-regular fa-clock" style="margin-right:3px;"></i>${span}</span>` : ''}
+          </div>
           <span class="cust-count">${items.length} รายการ · ${items.reduce((s,i)=>s+i.craftedQty,0)} ใบ</span>
         </div>
         <div class="order-card-body">${rows}</div>
