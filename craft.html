@@ -274,6 +274,62 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .spark-bar.hot { background:#2563eb; }
 .spark-lbl { font-size:9.5px; color:#9ca3af; white-space:nowrap; }
 .spark-val { font-size:10px; font-weight:700; color:#1a2332; }
+
+/* ── รับออเดอร์ ── */
+.btn-neworder { display:flex; align-items:center; justify-content:center; gap:7px; width:100%;
+  background:#16a34a; color:#fff; border:none; border-radius:12px; padding:13px;
+  font-size:15.5px; font-weight:800; font-family:'Sarabun',sans-serif; cursor:pointer; margin-bottom:14px; }
+.btn-neworder:active { background:#15803d; }
+.ord-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9998;
+  display:flex; align-items:flex-end; justify-content:center; padding:0; }
+.ord-sheet { background:#f0f2f5; width:100%; max-width:480px; max-height:94vh; overflow-y:auto;
+  border-radius:16px 16px 0 0; animation:sheetUp .2s ease; }
+@keyframes sheetUp { from{transform:translateY(24px);opacity:.6;} to{transform:translateY(0);opacity:1;} }
+.ord-head { background:#16a34a; color:#fff; padding:14px 16px; display:flex;
+  align-items:center; justify-content:space-between; position:sticky; top:0; z-index:2; }
+.ord-head h3 { margin:0; font-size:15.5px; font-weight:800; }
+.ord-head .sub { font-size:11.5px; opacity:.85; margin-top:2px; }
+.ord-x { font-size:20px; cursor:pointer; opacity:.9; padding:0 4px; }
+.ord-body { padding:12px; }
+.ord-card { background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:10px; }
+.ord-step { display:flex; align-items:center; gap:7px; margin-bottom:9px; }
+.ord-step b { width:20px; height:20px; border-radius:50%; background:#16a34a; color:#fff;
+  font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.ord-step span { font-size:13px; font-weight:700; color:#1a2332; }
+.ord-sel { width:100%; border:2px solid #d1d5db; border-radius:9px; padding:10px 11px;
+  font-size:15px; font-weight:600; font-family:'Sarabun',sans-serif; background:#fff; color:#1a2332; cursor:pointer; }
+.ord-sel:focus { outline:none; border-color:#16a34a; }
+.ord-sel.filled { border-color:#16a34a; }
+.ord-lbl { font-size:11.5px; font-weight:700; color:#6b7280; margin-bottom:4px; }
+.ord-pills { display:flex; gap:5px; }
+.ord-pill { flex:1; text-align:center; border:2px solid #e5e7eb; border-radius:8px; padding:7px 0;
+  font-size:13px; font-weight:600; color:#6b7280; cursor:pointer; background:#fff; font-family:'Sarabun',sans-serif; }
+.ord-pill.on { border-color:#16a34a; background:#f0fdf4; color:#1a2332; font-weight:700; }
+.ord-qty { display:flex; align-items:center; justify-content:center; gap:14px; }
+.ord-qty button { width:46px; height:46px; border-radius:11px; border:2px solid #d1d5db; background:#f3f4f6;
+  font-size:24px; font-weight:800; color:#374151; cursor:pointer; line-height:1; font-family:'Sarabun',sans-serif; }
+.ord-qty button.plus { background:#16a34a; border-color:#16a34a; color:#fff; }
+.ord-qty .n { font-size:32px; font-weight:800; min-width:52px; text-align:center; color:#1a2332; }
+.ord-note { background:#eff6ff; border:1px solid #bfdbfe; border-radius:9px; padding:9px 12px;
+  font-size:11.5px; color:#1e40af; line-height:1.5; margin-bottom:11px; }
+.ord-btn { width:100%; border:none; border-radius:11px; padding:14px; font-size:16px; font-weight:800;
+  cursor:pointer; font-family:'Sarabun',sans-serif; background:#16a34a; color:#fff; }
+.ord-btn[disabled] { opacity:.45; pointer-events:none; }
+.ord-add { border:2px dashed #cbd5e1; border-radius:11px; padding:11px; text-align:center;
+  font-size:13.5px; font-weight:700; color:#6b7280; margin-bottom:10px; cursor:pointer; background:#fff; }
+.ord-list-row { display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid #f1f5f9; }
+.ord-list-row .q { font-size:19px; font-weight:800; color:#1a2332; white-space:nowrap; }
+.ord-list-row .q i { font-size:11.5px; font-weight:600; color:#9ca3af; font-style:normal; }
+.ord-edit-row { padding:11px 16px; border-bottom:1px solid #f1f5f9; background:#fffbeb; }
+.ord-chip { display:inline-block; border-radius:4px; padding:1px 7px; font-size:11.5px; margin-left:4px; }
+.ord-sum { padding:11px 16px; background:#f8fafc; border-top:1px solid #e8ecf0;
+  display:flex; justify-content:space-between; align-items:center; }
+.ord-trash { width:30px; height:30px; border-radius:8px; border:1.5px solid #fecaca; background:#fef2f2;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:#dc2626; }
+.craft-badge-mine { display:inline-block; font-size:10px; font-weight:700; background:#dcfce7;
+  color:#15803d; border-radius:9px; padding:1px 7px; margin-left:5px; }
+.btn-edit-order { font-size:11.5px; font-weight:700; color:#ea580c; background:#fff7ed;
+  border:1.5px solid #fed7aa; border-radius:8px; padding:3px 10px; cursor:pointer; font-family:'Sarabun',sans-serif; }
 </style>
 </head>
 <body>
@@ -297,6 +353,52 @@ let _craftsmen   = [];     // all craftsmen (loaded once)
 let _groups      = [];     // built by buildGroupedData(), used by stepItem()
 let _unsubOrders = null;   // Firestore realtime unsubscribe fn
 let _stepping    = false;  // double-tap guard
+let _customers   = [];     // สำหรับรับออเดอร์
+let _products    = [];     // สำหรับรับออเดอร์
+let _draft       = null;   // { customerId, customerName, items:[{...}] } ระหว่างกรอกฟอร์ม
+let _draftEdit   = false;  // โหมดแก้ไขใน popup ยืนยัน
+let _editOrderId = null;   // ถ้าไม่ null = กำลังแก้ออเดอร์ที่บันทึกไปแล้ว
+
+// ── สเปกโลง (ต้องตรงกับ index.html) ──
+const COFFIN_SPEC = {
+  'ธรรมดา':           {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
+  'บ่าง':             {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
+  'ย้อย':             {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
+  'กลาง':             {colors:['ขาว','แดง'], lines:['ทอง','เงิน','คริสต์'], extra:['หน้า 24 นิ้ว','หน้า 26 นิ้ว','หน้า 28 นิ้ว']},
+  'มุกน้อย':          {colors:['ขาว','แดง'], lines:['เงิน','ทอง','ผ้าจีบ','ผ้าดอก']},
+  'มุกใหญ่':          {colors:['ขาว','แดง'], lines:['เงิน','ทอง','ผ้าจีบ','ผ้าดอก']},
+  'สิงห์น้อย':                  {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
+  'สิงห์น้อย (ฝากระบาน)':       {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
+  'สิงห์น้อย 3 ชั้น':            {colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
+  'สิงห์น้อย 3 ชั้น (ฝากระบาน)':{colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
+  'สิงห์ใหญ่':                  {colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
+  'สิงห์ใหญ่ 3 ชั้น':            {colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
+  'สิงห์ใหญ่ 3 ชั้น (ฝากระบาน)':{colors:['ขาว','แดง'], lines:['ทอง','เงิน']},
+  'พิกุล':            {colors:[],            lines:['ทอง','เงิน']},
+};
+// รวมสีเส้นจาก spec + สีเส้น custom ที่ตั้งไว้ใน priceMap
+function getProductLines(prodName) {
+  const prod = _products.find(p => p.name === prodName);
+  const specLines = COFFIN_SPEC[prodName]?.lines || ['ทอง','เงิน','ซีด','ขาว'];
+  const pmKeys = Object.keys(prod?.priceMap || {}).filter(k => k !== '__default' && (prod.priceMap[k]||0) > 0);
+  return [...specLines, ...pmKeys.filter(k => !specLines.includes(k))];
+}
+function getProductColors(prodName) {
+  return COFFIN_SPEC[prodName]?.colors ?? ['ขาว','แดง'];
+}
+// ราคา: ราคาเฉพาะลูกค้า → ราคาตามสีเส้น → ราคาเริ่มต้น (ช่างไม่เห็นตัวเลขนี้)
+function resolvePrice(customerId, prod, trimColor) {
+  const cust = _customers.find(c => c.id === customerId);
+  const cp = cust?.customPrices?.[prod.id];
+  if (cp !== undefined && cp !== null) {
+    if (typeof cp === 'object') { if (trimColor && cp[trimColor] !== undefined) return cp[trimColor]; }
+    else return cp;
+  }
+  if (trimColor && prod.priceMap?.[trimColor] != null) return prod.priceMap[trimColor];
+  const pm = prod.priceMap || {};
+  const first = Object.keys(pm)[0];
+  return (first ? pm[first] : prod.price) || 0;
+}
 let _dateFilter  = 'all'; // 'today' | 'all'
 
 // ── Utilities ──
@@ -628,6 +730,7 @@ async function init() {
 
   // Start real-time listener for orders immediately
   startOrdersListener();
+  loadOrderRefData(); // โหลดลูกค้า/สินค้าเบื้องหลัง (ไม่บล็อกหน้าจอ)
 
   // Load craftsmen with timeout + retry
   let snap;
@@ -712,6 +815,20 @@ function startOrdersListener() {
   });
 }
 
+// โหลดลูกค้า + สินค้า (ใช้ตอนรับออเดอร์) — โหลดครั้งเดียวพอ
+async function loadOrderRefData() {
+  try {
+    const [cs, ps] = await Promise.all([
+      db.collection('customers').get(),
+      db.collection('products').get()
+    ]);
+    _customers = cs.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
+    _products  = ps.docs.map(d => ({id:d.id, ...d.data()}));
+  } catch (e) {
+    console.error('loadOrderRefData:', e);
+  }
+}
+
 function onCraftsmanChange() {
   const sel = document.getElementById('craftsmanSel');
   const id = sel.value;
@@ -725,6 +842,377 @@ function onCraftsmanChange() {
   _craftsman = _craftsmen.find(c => c.id === id) || null;
   localStorage.setItem('craft_craftsman_id', id);
   renderCraftOrders();
+}
+
+// ══════════════════════════════════════
+//  รับออเดอร์ (สำหรับช่างแต่ง)
+// ══════════════════════════════════════
+const EDIT_WINDOW_MS = 30 * 60 * 1000; // แก้ย้อนหลังได้ 30 นาที
+
+// ช่างแก้ออเดอร์นี้ได้ไหม
+function canCraftsmanEdit(o) {
+  if (!_craftsman || !o) return false;
+  if (o.createdByCraftsmanId !== _craftsman.id) return false;   // ต้องเป็นคนรับเอง
+  if (isOrderFullyDelivered(o) || o.isDelivered) return false;  // ส่งแล้วแก้ไม่ได้
+  const base = o.takenAt || o.createdAt || 0;
+  return (Date.now() - base) <= EDIT_WINDOW_MS;
+}
+function editMinsLeft(o) {
+  const base = o.takenAt || o.createdAt || 0;
+  return Math.max(0, Math.ceil((EDIT_WINDOW_MS - (Date.now() - base)) / 60000));
+}
+
+function openOrderForm(editId) {
+  if (!_craftsman) { toast('กรุณาเลือกชื่อช่างก่อน'); return; }
+  if (!_customers.length || !_products.length) { toast('กำลังโหลดข้อมูล กรุณารอสักครู่'); loadOrderRefData(); return; }
+  _editOrderId = editId || null;
+  if (editId) {
+    const o = _orders.find(x => x.id === editId);
+    if (!o) { toast('ไม่พบออเดอร์'); return; }
+    _draft = {
+      customerId: o.customerId, customerName: o.customerName,
+      items: (o.items||[]).map(i => ({productId:i.productId, productName:i.productName,
+        color:i.color||'', trimColor:i.trimColor||'', extra:i.extra||'', qty:i.qty}))
+    };
+    showConfirmSheet();
+  } else {
+    _draft = {customerId:'', customerName:'', items:[]};
+    showItemSheet();
+  }
+}
+
+function closeOrderSheet() {
+  document.getElementById('ordSheet')?.remove();
+  _draftEdit = false;
+}
+function _sheet(inner) {
+  closeOrderSheet();
+  const d = document.createElement('div');
+  d.className = 'ord-overlay'; d.id = 'ordSheet';
+  d.innerHTML = `<div class="ord-sheet">${inner}</div>`;
+  d.addEventListener('click', e => { if (e.target === d) closeOrderSheet(); });
+  document.body.appendChild(d);
+}
+
+// ── หน้ากรอกรายการ ──
+let _cur = null; // {productId, color, trimColor, extra, qty}
+function showItemSheet() {
+  _cur = _cur || {productId:'', color:'', trimColor:'', extra:'', qty:1};
+  const custOpts = _customers.map(c =>
+    `<option value="${c.id}" ${_draft.customerId===c.id?'selected':''}>${esc(c.name)}</option>`).join('');
+  const prodOpts = _products.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'))
+    .map(p => `<option value="${p.id}" ${_cur.productId===p.id?'selected':''}>${esc(p.name)}</option>`).join('');
+  const has = _draft.items.length;
+  _sheet(`
+    <div class="ord-head">
+      <div><h3>${_editOrderId ? 'แก้ไขออเดอร์' : 'รับออเดอร์ใหม่'}</h3>
+        <div class="sub">${esc(_craftsman.name)}</div></div>
+      <span class="ord-x" onclick="closeOrderSheet()">&times;</span>
+    </div>
+    <div class="ord-body">
+      <div class="ord-card">
+        <div class="ord-step"><b>1</b><span>ลูกค้า</span></div>
+        <select class="ord-sel ${_draft.customerId?'filled':''}" id="ordCust" onchange="onDraftCust(this.value)">
+          <option value="">— เลือกลูกค้า —</option>${custOpts}
+        </select>
+      </div>
+      <div class="ord-card">
+        <div class="ord-step"><b>2</b><span>สินค้า</span></div>
+        <select class="ord-sel ${_cur.productId?'filled':''}" id="ordProd" onchange="onDraftProd(this.value)" style="margin-bottom:9px;">
+          <option value="">— เลือกสินค้า —</option>${prodOpts}
+        </select>
+        <div id="ordSpec">${_cur.productId ? specHtml() : ''}</div>
+      </div>
+      <div class="ord-card">
+        <div class="ord-step"><b>3</b><span>จำนวน</span></div>
+        <div class="ord-qty">
+          <button onclick="draftQty(-1)">−</button>
+          <span class="n" id="ordQty">${_cur.qty}</span>
+          <button class="plus" onclick="draftQty(1)">+</button>
+        </div>
+      </div>
+      <div class="ord-add" onclick="addDraftItem(true)">
+        <i class="fa-solid fa-plus"></i> เพิ่มรายการนี้แล้วกรอกอันต่อไป
+      </div>
+      ${has ? `<div class="ord-note" style="background:#f0fdf4;border-color:#bbf7d0;color:#166534;">
+        <i class="fa-solid fa-check"></i> เพิ่มไว้แล้ว ${has} รายการ · ${_draft.items.reduce((a,b)=>a+b.qty,0)} ใบ</div>` : ''}
+      <div class="ord-note"><i class="fa-solid fa-circle-info"></i> ราคาเจ้าของร้านจะใส่ทีหลัง</div>
+      <button class="ord-btn" onclick="addDraftItem(false)">
+        <i class="fa-solid fa-arrow-right me-1"></i>ไปหน้าตรวจสอบ
+      </button>
+    </div>`);
+}
+
+function specHtml() {
+  const prod = _products.find(p => p.id === _cur.productId);
+  if (!prod) return '';
+  const colors = getProductColors(prod.name);
+  const lines  = getProductLines(prod.name);
+  const extras = COFFIN_SPEC[prod.name]?.extra;
+  if (!_cur.trimColor || !lines.includes(_cur.trimColor)) _cur.trimColor = lines[0] || '';
+  if (colors.length && (!_cur.color || !colors.includes(_cur.color))) _cur.color = colors[0];
+  if (!colors.length) _cur.color = '';
+  return `
+    <div style="display:grid;grid-template-columns:${colors.length?'1fr 1fr':'1fr'};gap:8px;">
+      ${colors.length ? `<div>
+        <div class="ord-lbl">สีโลง</div>
+        <div class="ord-pills">${colors.map(c =>
+          `<button class="ord-pill ${_cur.color===c?'on':''}" onclick="setDraftColor('${esc(c)}')">${esc(c)}</button>`).join('')}</div>
+      </div>` : ''}
+      <div>
+        <div class="ord-lbl">สีเส้น</div>
+        <select class="ord-sel" style="padding:7px 9px;font-size:13.5px;" onchange="_cur.trimColor=this.value">
+          ${lines.map(l => `<option value="${esc(l)}" ${_cur.trimColor===l?'selected':''}>${esc(l)}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    ${extras ? `<div style="margin-top:8px;">
+      <div class="ord-lbl">ขนาด</div>
+      <select class="ord-sel" style="padding:7px 9px;font-size:13.5px;" onchange="_cur.extra=this.value">
+        <option value="">— ไม่ระบุ —</option>
+        ${extras.map(e => `<option value="${esc(e)}" ${_cur.extra===e?'selected':''}>${esc(e)}</option>`).join('')}
+      </select></div>` : ''}`;
+}
+
+function onDraftCust(id) {
+  _draft.customerId = id;
+  _draft.customerName = _customers.find(c => c.id === id)?.name || '';
+  document.getElementById('ordCust')?.classList.toggle('filled', !!id);
+}
+function onDraftProd(id) {
+  _cur.productId = id; _cur.color = ''; _cur.trimColor = ''; _cur.extra = '';
+  const el = document.getElementById('ordSpec'); if (el) el.innerHTML = id ? specHtml() : '';
+  document.getElementById('ordProd')?.classList.toggle('filled', !!id);
+}
+function setDraftColor(c) {
+  _cur.color = c;
+  const el = document.getElementById('ordSpec'); if (el) el.innerHTML = specHtml();
+}
+function draftQty(d) {
+  const v = _cur.qty + d; if (v < 1 || v > 999) return;
+  _cur.qty = v;
+  const el = document.getElementById('ordQty'); if (el) el.textContent = v;
+}
+
+// เพิ่มรายการปัจจุบันเข้าตะกร้า — more=true คือกรอกต่อ, false คือไปหน้าตรวจสอบ
+function addDraftItem(more) {
+  if (!_draft.customerId) { toast('⚠️ กรุณาเลือกลูกค้า'); return; }
+  if (_cur.productId) {
+    const prod = _products.find(p => p.id === _cur.productId);
+    if (prod) {
+      const key = i => `${i.productId}|${i.color}|${i.trimColor}|${i.extra}`;
+      const nw = {productId:prod.id, productName:prod.name, color:_cur.color||'',
+                  trimColor:_cur.trimColor||'', extra:_cur.extra||'', qty:_cur.qty};
+      const ex = _draft.items.find(i => key(i) === key(nw));
+      if (ex) ex.qty += nw.qty; else _draft.items.push(nw);
+      _cur = {productId:'', color:'', trimColor:'', extra:'', qty:1};
+    }
+  }
+  if (!_draft.items.length) { toast('⚠️ กรุณาเลือกสินค้าอย่างน้อย 1 รายการ'); return; }
+  if (more) { showItemSheet(); toast('✅ เพิ่มรายการแล้ว'); }
+  else showConfirmSheet();
+}
+
+// ── การ์ดออเดอร์ที่ฉันเพิ่งรับ (ยังแก้ได้) ──
+function renderMyRecentOrders() {
+  if (!_craftsman) return '';
+  const mine = _orders.filter(o => canCraftsmanEdit(o))
+    .sort((a,b) => (b.takenAt||b.createdAt||0) - (a.takenAt||a.createdAt||0));
+  if (!mine.length) return '';
+  return `<div class="order-card" style="border:2px solid #fed7aa;">
+    <div class="order-card-head" style="background:#fff7ed;">
+      <div class="cust-name" style="font-size:14px;color:#9a3412;">
+        <i class="fa-solid fa-pen-to-square me-1"></i>ออเดอร์ที่ฉันเพิ่งรับ</div>
+      <span class="cust-count" style="color:#c2410c;">ยังแก้ไขได้</span>
+    </div>
+    <div class="order-card-body">
+      ${mine.map(o => {
+        const q = (o.items||[]).reduce((a,i)=>a+i.qty,0);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f6;">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:14.5px;font-weight:700;color:#1a2332;">${esc(o.customerName||'-')}</div>
+            <div style="font-size:11.5px;color:#9ca3af;margin-top:2px;">
+              ${(o.items||[]).length} รายการ · ${q} ใบ · เหลือเวลาแก้ ${editMinsLeft(o)} นาที</div>
+          </div>
+          <button class="btn-edit-order" onclick="openOrderForm('${o.id}')">แก้ไข</button>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// ── Popup ยืนยัน ──
+function draftLabel(i) {
+  const cc = i.color==='แดง' ? 'background:#7f0000;color:#fff;' : 'background:#fff;color:#111;border:1.5px solid #333;';
+  const col = i.color ? `<span class="ord-chip" style="${cc}">${esc(i.color)}</span>` : '';
+  const trm = i.trimColor ? `<span class="ord-chip" style="background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;">เส้น${esc(i.trimColor)}</span>` : '';
+  const ex  = i.extra ? `<span class="ord-chip" style="background:#fef3c7;color:#92400e;">${esc(i.extra)}</span>` : '';
+  return `<span style="font-size:14.5px;font-weight:700;color:#1a2332;">${esc(i.productName)}</span>${col}${trm}${ex}`;
+}
+
+function showConfirmSheet() {
+  const E = _draftEdit;
+  const rows = _draft.items.map((i, n) => E
+    ? `<div class="ord-edit-row">
+         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+           <div style="flex:1;min-width:0;">${draftLabel(i)}</div>
+           <span class="ord-trash" onclick="delDraftItem(${n})"><i class="fa-solid fa-trash"></i></span>
+         </div>
+         <div class="ord-qty">
+           <button style="width:38px;height:38px;font-size:20px;" onclick="bumpDraftItem(${n},-1)">−</button>
+           <span class="n" style="font-size:24px;min-width:44px;">${i.qty}</span>
+           <button class="plus" style="width:38px;height:38px;font-size:20px;" onclick="bumpDraftItem(${n},1)">+</button>
+         </div>
+       </div>`
+    : `<div class="ord-list-row">
+         <div style="flex:1;min-width:0;">${draftLabel(i)}</div>
+         <div class="q">${i.qty} <i>ใบ</i></div>
+       </div>`).join('') ||
+    `<div style="padding:22px 16px;text-align:center;font-size:13px;color:#9ca3af;">ยังไม่มีรายการ</div>`;
+
+  const initial = (_draft.customerName || '?').trim().slice(0, 2);
+  const totalQ = _draft.items.reduce((a,b)=>a+b.qty, 0);
+
+  _sheet(`
+    <div class="ord-head" style="background:${E?'#ea580c':'#16a34a'};">
+      <div><h3>${E ? 'กำลังแก้ไข' : 'ตรวจสอบก่อนบันทึก'}</h3>
+        <div class="sub">${E ? 'ปรับจำนวนหรือลบรายการที่ผิด' : 'ดูให้แน่ใจว่าถูกต้องแล้วกดยืนยัน'}</div></div>
+      <span class="ord-x" onclick="closeOrderSheet()">&times;</span>
+    </div>
+    <div style="background:#fff;">
+      <div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:11px;">
+        <div style="width:40px;height:40px;border-radius:11px;background:#dcfce7;color:#15803d;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;">${esc(initial)}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:#9ca3af;font-weight:600;">ลูกค้า</div>
+          <div style="font-size:17px;font-weight:800;color:#1a2332;">${esc(_draft.customerName||'-')}</div>
+        </div>
+        ${E ? `<span class="btn-edit-order" style="color:#16a34a;background:#f0fdf4;border-color:#bbf7d0;" onclick="backToItemSheet()">เปลี่ยน</span>` : ''}
+      </div>
+      ${rows}
+      ${E ? `<div style="padding:9px 16px 4px;"><div class="ord-add" style="margin:0;" onclick="backToItemSheet()">
+        <i class="fa-solid fa-plus"></i> เพิ่มรายการ</div></div>` : ''}
+      <div class="ord-sum">
+        <span style="font-size:12.5px;color:#6b7280;font-weight:600;">${_draft.items.length} รายการ</span>
+        <span style="font-size:15px;font-weight:800;color:#1a2332;">${totalQ} <span style="font-size:12px;font-weight:600;color:#6b7280;">ใบ</span></span>
+      </div>
+      <div style="padding:11px 16px 0;">
+        <div class="ord-note" style="margin:0;">
+          <i class="fa-solid fa-circle-info"></i> ราคาเจ้าของร้านจะใส่ทีหลัง · บันทึกในชื่อ <b>${esc(_craftsman.name)}</b>
+        </div>
+      </div>
+      <div style="padding:13px 16px 18px;display:flex;gap:9px;">
+        ${E
+          ? `<button class="ord-btn" onclick="toggleDraftEdit(false)">แก้เสร็จแล้ว</button>`
+          : `<button class="ord-btn" style="flex:1;background:#fff;color:#374151;border:2px solid #d1d5db;font-size:14.5px;font-weight:700;" onclick="toggleDraftEdit(true)">แก้ไข</button>
+             <button class="ord-btn" style="flex:1.5;" onclick="submitDraft()" ${_draft.items.length?'':'disabled'}>ยืนยันบันทึก</button>`}
+      </div>
+    </div>`);
+}
+function toggleDraftEdit(v) { _draftEdit = v; showConfirmSheet(); }
+function backToItemSheet() { _draftEdit = false; showItemSheet(); }
+function bumpDraftItem(n, d) {
+  const it = _draft.items[n]; if (!it) return;
+  const v = it.qty + d; if (v < 1) return;
+  it.qty = v; showConfirmSheet();
+}
+function delDraftItem(n) { _draft.items.splice(n, 1); showConfirmSheet(); }
+
+// ── บันทึกจริง ──
+let _submitting = false;
+async function submitDraft() {
+  if (_submitting) return;
+  if (!_draft.customerId) { toast('⚠️ กรุณาเลือกลูกค้า'); return; }
+  if (!_draft.items.length) { toast('⚠️ ยังไม่มีรายการ'); return; }
+  _submitting = true;
+  document.querySelectorAll('.ord-btn').forEach(b => { b.disabled = true; b.style.opacity = '.5'; });
+
+  try {
+    // เติมราคาเบื้องหลัง — ช่างไม่เคยเห็นตัวเลขนี้
+    const items = _draft.items.map(i => {
+      const prod = _products.find(p => p.id === i.productId) || {};
+      return {
+        productId: i.productId, productName: i.productName,
+        qty: i.qty, price: resolvePrice(_draft.customerId, prod, i.trimColor),
+        color: i.color || '', trimColor: i.trimColor || '', extra: i.extra || '', specialNote: ''
+      };
+    });
+
+    if (_editOrderId) {
+      // ── แก้ออเดอร์เดิม ──
+      const ref = db.collection('orders').doc(_editOrderId);
+      const cur = (await ref.get()).data() || {};
+      if (!canCraftsmanEdit({...cur, id:_editOrderId})) {
+        toast('⚠️ หมดเวลาแก้ไขแล้ว กรุณาแจ้งเจ้าของร้าน'); closeOrderSheet(); return;
+      }
+      await ref.update({
+        items,
+        customerId: _draft.customerId, customerName: _draft.customerName,
+        needsReview: true,
+        editLog: firebase.firestore.FieldValue.arrayUnion({
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
+          at: Date.now(), by: _craftsman.id, byName: _craftsman.name,
+          itemCount: items.length, totalQty: items.reduce((a,b)=>a+b.qty,0)
+        })
+      });
+      toast('✅ แก้ไขออเดอร์แล้ว');
+      notifyLine('edit', items);
+    } else {
+      // ── ออเดอร์ใหม่ ──
+      const now = Date.now();
+      const data = {
+        customerId: _draft.customerId, customerName: _draft.customerName,
+        items, discount: 0, notes: '', createdAt: now,
+        orderNo: await nextOrderNoCraft(),
+        createdByCraftsmanId: _craftsman.id,
+        createdByCraftsmanName: _craftsman.name,
+        takenAt: now,
+        needsReview: true
+      };
+      await db.collection('orders').add(data);
+      toast('✅ บันทึกออเดอร์แล้ว');
+      notifyLine('new', items);
+    }
+    _draft = null; _cur = null; _editOrderId = null;
+    closeOrderSheet();
+  } catch (e) {
+    console.error('submitDraft:', e);
+    toast('⚠️ บันทึกไม่สำเร็จ: ' + e.message);
+    document.querySelectorAll('.ord-btn').forEach(b => { b.disabled = false; b.style.opacity = ''; });
+  } finally {
+    _submitting = false;
+  }
+}
+
+// เลขออเดอร์ถัดไป — อ่านใบล่าสุดของปีนี้แทนการโหลดทั้ง collection
+async function nextOrderNoCraft() {
+  const yr = new Date().getFullYear() + 543;
+  const prefix = `ORD-${yr}-`;
+  try {
+    const snap = await db.collection('orders')
+      .orderBy('orderNo', 'desc').limit(20).get();
+    const nums = snap.docs.map(d => d.data().orderNo)
+      .filter(n => typeof n === 'string' && n.startsWith(prefix))
+      .map(n => parseInt(n.slice(prefix.length)) || 0);
+    return prefix + String(nums.length ? Math.max(...nums) + 1 : 1).padStart(4, '0');
+  } catch (e) {
+    // สำรอง: ใช้เวลาต่อท้ายกันชนกัน
+    return prefix + String(Date.now()).slice(-4);
+  }
+}
+
+function notifyLine(type, items) {
+  fetch('/api/notify-line', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({
+      type,
+      customerName: _draft.customerName,
+      takenBy: _craftsman.name,
+      items: items.map(i => ({name:i.productName, qty:i.qty, color:i.color, trimColor:i.trimColor,
+                              changeType: type==='edit' ? 'modified' : undefined})),
+      createdAt: Date.now(),
+      todayOrders: []
+    })
+  }).catch(()=>{});
 }
 
 // ══════════════════════════════════════
@@ -932,7 +1420,9 @@ function renderCraftOrders() {
 
   const el = document.getElementById('craft-content');
 
-  const summaryHtml = renderSummaryCard();
+  const newOrderBtn = `<button class="btn-neworder" onclick="openOrderForm()">
+    <i class="fa-solid fa-plus"></i>รับออเดอร์ใหม่</button>` + renderMyRecentOrders();
+  const summaryHtml = newOrderBtn + renderSummaryCard();
 
   if (!_groups.length) {
     el.innerHTML = summaryHtml + `<div class="empty-craft">

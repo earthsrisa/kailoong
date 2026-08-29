@@ -10,7 +10,7 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Missing LINE config' });
   }
 
-  const { type, customerName, items, createdAt, todayOrders } = req.body;
+  const { type, customerName, items, createdAt, todayOrders, takenBy } = req.body;
   // type: 'new' | 'edit' | 'delete'
 
   const dateStr = new Date(createdAt).toLocaleString('th-TH', {
@@ -57,6 +57,7 @@ export default async function handler(req, res) {
     message =
       `${header}\n` +
       `👤 ลูกค้า: ${customerName}\n` +
+      (takenBy ? `🔨 รับโดย: ${takenBy}\n` : '') +
       `📅 วันที่: ${dateStr}\n` +
       `${divider}\n` +
       `รายการที่ถูกลบ:\n` +
@@ -66,6 +67,7 @@ export default async function handler(req, res) {
     message =
       `${header}\n` +
       `👤 ลูกค้า: ${customerName}\n` +
+      (takenBy ? `🔨 รับโดย: ${takenBy}\n` : '') +
       `📅 วันที่: ${dateStr}\n` +
       `${divider}\n` +
       `${sectionLabel}\n` +

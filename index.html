@@ -492,6 +492,23 @@ function isOrderFullyDelivered(order) {
 function deliverKey(i) {
   return `${i.productName}|${i.color||''}|${i.trimColor||''}|${i.extra||''}`;
 }
+// ── ป้ายออเดอร์ที่ช่างแต่งเป็นคนรับ (ยังไม่ได้ตรวจ) ──
+function craftTakenBadge(o) {
+  if (!o?.createdByCraftsmanName) return '';
+  const name = U.esc(o.createdByCraftsmanName);
+  return o.needsReview
+    ? `<span class="badge-taken" onclick="event.stopPropagation();reviewOrder('${o.id}')" title="กดเพื่อยืนยันว่าตรวจแล้ว"
+         style="display:inline-block;background:#fef3c7;color:#92400e;border:1px solid #fcd34d;font-size:10px;font-weight:700;border-radius:10px;padding:1px 8px;margin-left:6px;vertical-align:middle;cursor:pointer;white-space:nowrap;">🔨 รับโดย ${name} · กดยืนยัน</span>`
+    : `<span style="display:inline-block;background:#f1f5f9;color:#64748b;font-size:10px;font-weight:600;border-radius:10px;padding:1px 8px;margin-left:6px;vertical-align:middle;white-space:nowrap;">🔨 ${name}</span>`;
+}
+async function reviewOrder(id) {
+  try {
+    const o = await DB.getOrder(id); if (!o) return;
+    await DB.putOrder({...o, needsReview:false, reviewedAt:Date.now()});
+    U.toast('ยืนยันแล้ว ✓');
+    navigate(window._currentPage || 'dashboard');
+  } catch(e) { U.toast('เกิดข้อผิดพลาด: '+e.message,'error'); }
+}
 function todayLocal(){
   return new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
 }
@@ -903,7 +920,7 @@ async function renderDashboard(el) {
           ${[...orders].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6).map(o=>`
           <tr>
             <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
-            <td style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;">NEW</span>':''}</td>
+            <td style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;">NEW</span>':''}${craftTakenBadge(o)}</td>
             <td style="font-size:12px;color:#374151;word-break:break-word;">
               ${(o.items||[]).map(i=>`<span class="ord-item-d">${U.esc(itemLabel(i))} ×${i.qty}</span>`).join('')||'-'}
             </td>
@@ -954,7 +971,7 @@ async function renderDashboard(el) {
       recentEl.innerHTML = recent.map(o => `
         <tr>
           <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
-          <td style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;">NEW</span>':''}</td>
+          <td style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;">NEW</span>':''}${craftTakenBadge(o)}</td>
           <td style="font-size:12px;color:#374151;word-break:break-word;">${(o.items||[]).map(i=>`<span class="ord-item-d">${U.esc(itemLabel(i))} ×${i.qty}</span>`).join('')||'-'}</td>
           <td style="font-weight:700;font-size:13px;white-space:nowrap;">${U.money(U.orderTotal(o))}</td>
           <td><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
@@ -1024,7 +1041,7 @@ function renderOrderRows(list) {
   <tr>
     <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
     <td><code style="background:#f3f4f6;padding:2px 7px;border-radius:4px;font-size:12px;">${U.esc(o.orderNo)}</code></td>
-    <td><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;">NEW</span>':''}</td>
+    <td><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;">NEW</span>':''}${craftTakenBadge(o)}</td>
     <td style="max-width:260px;">
       ${(o.items||[]).map(i=>{
         const trimBg=i.trimColor==='ทอง'?'#fef3c7':i.trimColor==='เงิน'?'#f1f5f9':'#f8fafc';
