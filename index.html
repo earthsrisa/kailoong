@@ -1973,7 +1973,27 @@ function showPrintSelectModal() {
       <span style="background:#dbeafe;color:#1e40af;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;">${totalQty} ชิ้น</span>
     </label>`;
   }).join('');
+  // โหมดพิมพ์ — จำค่าล่าสุดไว้
+  const pm = window._printMode || 'craft';
+  const modeBtn = (val, icon, title, desc) => `
+    <label style="flex:1;min-width:190px;display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border-radius:10px;cursor:pointer;
+      border:2px solid ${pm===val?'#2563eb':'#e5e7eb'};background:${pm===val?'#eff6ff':'#fff'};">
+      <input type="radio" name="pslMode" value="${val}" ${pm===val?'checked':''} onchange="window._printMode=this.value"
+        style="width:17px;height:17px;margin-top:2px;flex-shrink:0;accent-color:#2563eb;cursor:pointer;">
+      <span style="min-width:0;">
+        <span style="display:block;font-size:13.5px;font-weight:700;color:#1a2332;"><i class="fa-solid ${icon} me-1"></i>${title}</span>
+        <span style="display:block;font-size:11.5px;color:#6b7280;margin-top:2px;line-height:1.45;">${desc}</span>
+      </span>
+    </label>`;
+
   const body = `<div>
+    <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:2px solid #e5e7eb;">
+      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:7px;">รูปแบบใบพิมพ์</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${modeBtn('craft','fa-hammer','แยกตามสถานะแต่ง','ของที่ยังไม่ได้แต่งขึ้นสีจาง ไม่มีช่องติ๊ก — ใช้ตอนจะไปส่งจริง')}
+        ${modeBtn('all','fa-list-check','แสดงเต็มทุกรายการ','ทุกรายการขึ้นสีปกติ มีช่องติ๊กครบ — ใช้พิมพ์ล่วงหน้า')}
+      </div>
+    </div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:2px solid #e5e7eb;">
       <button type="button" onclick="togglePslAll(true)" class="btn btn-sm btn-outline-primary">เลือกทั้งหมด</button>
       <button type="button" onclick="togglePslAll(false)" class="btn btn-sm btn-outline-secondary">ยกเลิกทั้งหมด</button>
@@ -1986,6 +2006,16 @@ function showPrintSelectModal() {
      <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,
     'modal-md');
   updatePslCount();
+  // ไฮไลต์การ์ดโหมดที่เลือก
+  setTimeout(()=>{
+    const paint = () => document.querySelectorAll('input[name="pslMode"]').forEach(r=>{
+      const l = r.closest('label'); if(!l) return;
+      l.style.borderColor = r.checked ? '#2563eb' : '#e5e7eb';
+      l.style.background  = r.checked ? '#eff6ff' : '#fff';
+    });
+    document.querySelectorAll('input[name="pslMode"]').forEach(r=>r.addEventListener('change', paint));
+    paint();
+  },100);
   // ผูก event บน checkbox เพื่ออัปเดต label style
   setTimeout(()=>{
     document.querySelectorAll('.psl-cb').forEach(cb=>{
@@ -2028,6 +2058,8 @@ function printPendingOrders(ordersInput) {
   if (!ordersToUse || !ordersToUse.length) {
     U.toast('ไม่มีรายการรอส่ง','error'); return;
   }
+  // โหมดพิมพ์: 'craft' = แยกตามสถานะแต่ง (ค่าเริ่มต้น), 'all' = แสดงเต็มทุกรายการ
+  const printAll = (window._printMode || 'craft') === 'all';
   // สร้าง list จาก pendingOrders — แยก โลง vs อุปกรณ์เสริม
   const prodCache = window._allProductsCache || {};
   function isCoffin(productName) {
@@ -2050,7 +2082,8 @@ function printPendingOrders(ordersInput) {
       const remain = i.qty - deliveredRaw;
       if (remain <= 0) return;
       // แยกจำนวนที่แต่งเสร็จแล้ว (พร้อมส่ง) ออกจากที่ยังไม่ได้แต่ง
-      const craftedRemain = Math.max(0, getCraftedFor(cs, i) - deliveredRaw);
+      // โหมด 'all' = พิมพ์ล่วงหน้า → นับทุกใบเป็นพร้อมส่ง ขึ้นสีปกติ มีช่องติ๊กครบ
+      const craftedRemain = printAll ? remain : Math.max(0, getCraftedFor(cs, i) - deliveredRaw);
       const rdy = Math.min(craftedRemain, remain);   // พร้อมส่ง
       const nry = remain - rdy;                      // ยังไม่ได้แต่ง
       const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
@@ -2183,8 +2216,8 @@ function printPendingOrders(ordersInput) {
       .grand-total,.cust-head{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
     }
   </style></head><body>
-  <h1>🚚 รายการรอส่ง</h1>
-  <div class="sub">${d.dateLabel}</div>
+  <h1>🚚 รายการรอส่ง${printAll ? ' <span style="font-size:14px;font-weight:600;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:2px 10px;vertical-align:middle;">พิมพ์ล่วงหน้า</span>' : ''}</h1>
+  <div class="sub">${d.dateLabel}${printAll ? ' · ใบนี้แสดงทุกรายการ ยังไม่ได้แยกว่าแต่งเสร็จหรือยัง' : ''}</div>
   <div class="grand-total">
     <div>
       <div class="label">สรุปยอดรวมทั้งหมด</div>
