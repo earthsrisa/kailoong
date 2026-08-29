@@ -324,6 +324,48 @@ html.pwa-ios .modal {
 html.pwa-ios .modal-backdrop { z-index: 1055 !important; }
 html.pwa-ios body.modal-open { overflow: hidden !important; position: fixed !important; width: 100% !important; }
 html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-bottom, 20px)); }
+
+/* ── ฟอร์มออเดอร์แบบตะกร้า ── */
+.oc-grid { display:grid; grid-template-columns:1fr; gap:12px; }
+@media (min-width:768px){ .oc-grid { grid-template-columns:1fr 340px; align-items:start; } }
+.oc-hdr { font-size:12px; font-weight:700; color:#6b7280; margin-bottom:7px; }
+.oc-row { background:#fff; border:1.5px solid #e8ecf0; border-radius:10px; padding:9px 11px; margin-bottom:7px; transition:box-shadow .25s; }
+.oc-row.hl { box-shadow:0 0 0 2px #2563eb; }
+.oc-row.editing { background:#fffbeb; border-color:#f59e0b; }
+.oc-top { display:flex; align-items:center; gap:8px; }
+.oc-name { flex:1; min-width:0; font-size:13.5px; font-weight:700; color:#1a2332; word-break:break-word; }
+.oc-chip { display:inline-block; border-radius:4px; padding:0 6px; font-size:10.5px; margin-left:4px; white-space:nowrap; }
+.oc-ico { width:27px; height:27px; border-radius:7px; display:flex; align-items:center; justify-content:center;
+  cursor:pointer; flex-shrink:0; font-size:12px; border:1.5px solid #e5e7eb; background:#f8fafc; color:#64748b; }
+.oc-ico.del { border-color:#fecaca; background:#fef2f2; color:#dc2626; }
+.oc-calc { display:flex; justify-content:space-between; align-items:baseline; margin-top:4px; }
+.oc-calc .l { font-size:12px; color:#6b7280; }
+.oc-calc .r { font-size:15px; font-weight:800; color:#1a2332; }
+.oc-note { width:100%; border:1.5px solid #e5e7eb; border-radius:7px; padding:4px 8px; font-size:12px;
+  margin-top:6px; font-family:inherit; background:#f8fafc; color:#374151; }
+.oc-note:focus { outline:none; border-color:#2563eb; background:#fff; }
+.oc-editrow { display:flex; align-items:center; gap:8px; margin-top:9px; flex-wrap:wrap; }
+.oc-stp { width:32px; height:32px; border-radius:7px; border:2px solid #d1d5db; background:#fff;
+  font-size:17px; font-weight:800; color:#374151; cursor:pointer; line-height:1; flex-shrink:0; font-family:inherit; }
+.oc-stp.plus { background:#2563eb; border-color:#2563eb; color:#fff; }
+.oc-qn { font-size:18px; font-weight:800; min-width:28px; text-align:center; }
+.oc-pr { flex:1; min-width:80px; border:2px solid #fcd34d; border-radius:7px; padding:5px 7px;
+  font-size:13.5px; font-weight:700; text-align:right; font-family:inherit; }
+.oc-add { background:#fff; border:2px dashed #cbd5e1; border-radius:12px; padding:12px 13px; }
+.oc-add-ttl { font-size:12.5px; font-weight:800; color:#2563eb; margin-bottom:9px; }
+.oc-lbl { font-size:10.5px; font-weight:700; color:#6b7280; margin-bottom:3px; }
+.oc-pill { flex:1; text-align:center; border:2px solid #e5e7eb; background:#fff; border-radius:7px;
+  padding:5px 0; font-size:12px; color:#6b7280; cursor:pointer; font-family:inherit; }
+.oc-pill.on { border-color:#2563eb; background:#eff6ff; color:#1a2332; font-weight:700; }
+.oc-empty { background:#fff; border:1.5px dashed #e5e7eb; border-radius:10px; padding:18px;
+  text-align:center; font-size:12.5px; color:#9ca3af; }
+.oc-tot { background:#f8fafc; border-radius:10px; padding:11px 13px; margin-top:10px; }
+.oc-tot-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:12.5px; color:#6b7280; }
+.oc-tot-row b { font-size:14px; font-weight:700; color:#1a2332; }
+.oc-grand { display:flex; justify-content:space-between; align-items:center;
+  border-top:2px solid #1a2332; padding-top:8px; margin-top:2px; }
+.oc-grand span { font-size:14px; font-weight:800; }
+.oc-grand b { font-size:20px; font-weight:800; color:#1a2332; }
 </style>
 </head>
 <body>
@@ -1124,6 +1166,7 @@ async function showAddItemsModal(orderId) {
   if (!order) return;
   window._addItemsOrder   = order;
   window._addItemsProducts= products;
+  window._allProductsCache= Object.fromEntries(products.map(p => [p.name, p]));
   window._addItemsCustId  = order.customerId;
   window._addItemsIdx     = 0;
 
@@ -1313,13 +1356,21 @@ async function showCreateOrderModal(editId) {
   const edit = editId ? await DB.getOrder(editId) : null;
 
   window._orderProds  = products;
-  window._orderCustId = edit?.customerId||null;
-  window._orderItemIdx= edit ? (edit.items||[]).length : 1;
+  // isAccessory() อ่านจาก cache นี้ — เติมให้ด้วย เผื่อยังไม่เคยเข้าหน้า Dashboard
+  window._allProductsCache = Object.fromEntries(products.map(p => [p.name, p]));
+  window._orderCustId = edit?.customerId || null;
+  // ตะกร้าเก็บใน memory — ไม่ต้องขูดค่าจาก DOM เหมือนเดิม
+  window._ordCart = (edit?.items || []).map(i => ({
+    productId:i.productId, productName:i.productName, color:i.color||'', trimColor:i.trimColor||'',
+    extra:i.extra||'', qty:i.qty||1, price:i.price||0, specialNote:i.specialNote||''
+  }));
+  window._ordEditIdx = -1;
+  window._ordCur = {productId:'', color:'', trimColor:'', extra:'', qty:1, price:0};
 
-  const custOpts=customers.map(c=>`<option value="${c.id}" ${edit?.customerId===c.id?'selected':''}>${U.esc(c.name)}</option>`).join('');
-  const initItems=edit?.items||[{productId:'',productName:'',qty:1,price:0}];
+  const custOpts = customers.map(c =>
+    `<option value="${c.id}" ${edit?.customerId===c.id?'selected':''}>${U.esc(c.name)}</option>`).join('');
 
-  const body=`<form class="row g-3" id="orderForm">
+  const body = `<form class="row g-3" id="orderForm" onsubmit="return false;">
     <div class="col-sm-7">
       <label class="form-label">ลูกค้า <span class="text-danger">*</span></label>
       <select class="form-select" id="of_cust" required onchange="onOrderCustChange(this)">
@@ -1330,31 +1381,57 @@ async function showCreateOrderModal(editId) {
       <label class="form-label">วันที่รับออเดอร์</label>
       <input type="date" class="form-control" id="of_date" value="${edit?U.dateInput(edit.createdAt):todayLocal()}">
     </div>
+
     <div class="col-12">
-      <label class="form-label">รายการสินค้า <span style="font-size:12px;color:#9ca3af;font-weight:400;">(เลือกสี + สีเส้น + หมายเหตุพิเศษได้)</span></label>
-      <div class="table-scroll"><table class="items-table order-items-table w-100">
-        <thead><tr><th style="width:40%">สินค้า / สี / เส้น</th><th style="width:12%">จำนวน</th><th style="width:18%">ราคา/ชิ้น</th><th style="width:16%">รวม</th><th style="width:14%"></th></tr></thead>
-        <tbody id="orderItemsBody">
-          ${initItems.map((item,i)=>orderItemRow(i,products,item,edit?.customerId)).join('')}
-        </tbody>
-      </table></div>
-      <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addOrderItemRow()"><i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้า</button>
-    </div>
-    <div class="col-sm-6">
-      <label class="form-label">ส่วนลด (บาท)</label>
-      <input type="number" class="form-control" id="of_discount" min="0" value="${edit?.discount||0}" oninput="calcOrderTotal()">
-    </div>
-    <div class="col-sm-6">
-      <label class="form-label">หมายเหตุ (เช่น ชื่อช่าง, หมายเหตุพิเศษ)</label>
-      <input type="text" class="form-control" id="of_notes" placeholder="หมายเหตุ..." value="${U.esc(edit?.notes||'')}">
-    </div>
-    <div class="col-12">
-      <div class="total-box d-flex justify-content-end">
-        <table style="min-width:240px;font-size:14px;">
-          <tr><td style="padding:3px 8px;color:#6b7280;">ยอดก่อนส่วนลด</td><td id="os_sub" style="text-align:right;font-weight:600;">0.00</td></tr>
-          <tr><td style="padding:3px 8px;color:#6b7280;">ส่วนลด</td><td id="os_disc" style="text-align:right;">0.00</td></tr>
-          <tr style="border-top:2px solid #1a2332;"><td style="padding:8px;font-weight:700;font-size:16px;">รวมทั้งสิ้น</td><td id="os_total" style="text-align:right;font-weight:700;font-size:16px;">0.00</td></tr>
-        </table>
+      <div class="oc-grid">
+        <div>
+          <div class="oc-hdr" id="ocHdr">รายการสินค้า</div>
+          <div id="ocCart"></div>
+          <div class="oc-tot">
+            <div class="oc-tot-row"><span>ยอดก่อนส่วนลด</span><b id="os_sub">0.00</b></div>
+            <div class="oc-tot-row" style="margin-bottom:8px;">
+              <span>ส่วนลด (บาท)</span>
+              <input type="number" class="form-control form-control-sm" id="of_discount" min="0"
+                value="${edit?.discount||0}" oninput="calcOrderTotal()"
+                style="width:110px;text-align:right;font-weight:700;">
+            </div>
+            <div class="oc-grand"><span>รวมทั้งสิ้น</span><b id="os_total">0.00</b></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="oc-add">
+            <div class="oc-add-ttl"><i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้า</div>
+            <select class="form-select form-select-sm" id="oc_prod" onchange="ocProdChange(this.value)" style="margin-bottom:9px;">
+              <option value="">-- เลือกสินค้า --</option>${ocProdOptions(products)}
+            </select>
+            <div id="oc_spec"></div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:end;margin-bottom:9px;">
+              <div>
+                <div class="oc-lbl">จำนวน</div>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <button type="button" class="oc-stp" onclick="ocQty(-1)">−</button>
+                  <span class="oc-qn" id="oc_qty">1</span>
+                  <button type="button" class="oc-stp plus" onclick="ocQty(1)">+</button>
+                </div>
+              </div>
+              <div>
+                <div class="oc-lbl">ราคา/ชิ้น</div>
+                <input type="number" class="form-control form-control-sm" id="oc_price" min="0" value="0"
+                  style="text-align:right;font-weight:700;font-size:14px;">
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary w-100" onclick="ocAdd()" style="font-weight:700;">
+              <i class="fa-solid fa-cart-plus me-1"></i>เพิ่มเข้ารายการ
+            </button>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label class="form-label" style="font-size:12px;">หมายเหตุออเดอร์ (เช่น ชื่อช่าง)</label>
+            <input type="text" class="form-control form-control-sm" id="of_notes"
+              placeholder="หมายเหตุ..." value="${U.esc(edit?.notes||'')}">
+          </div>
+        </div>
       </div>
     </div>
     <input type="hidden" id="of_editId" value="${edit?.id||''}">
@@ -1365,178 +1442,190 @@ async function showCreateOrderModal(editId) {
      <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,
     'modal-lg');
 
-  calcOrderTotal();
-  setTimeout(renumberOrderRows, 50);
+  renderOrdCart();
 }
 
 async function showEditOrderModal(id) { await showCreateOrderModal(id); }
 
-function orderItemRow(i, products, item={}, custId) {
-  const _TAIL=['เทพ','มุม','เส้น'];
-  const _isTail=n=>_TAIL.some(k=>(n||'').includes(k));
-  const sortedProds=[...(products||[])].sort((a,b)=>{
-    const aT=_isTail(a.name), bT=_isTail(b.name);
-    if(aT&&!bT) return 1;
-    if(!aT&&bT) return -1;
-    return (a.name||'').localeCompare(b.name||'','th');
+// ── ตัวเลือกสินค้า แยกหมวด โลง / อุปกรณ์เสริม ──
+function ocProdOptions(products) {
+  const sorted = [...(products||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
+  const cof=[], acc=[];
+  sorted.forEach(p => {
+    const o = `<option value="${p.id}">${U.esc(p.name)}</option>`;
+    (isAccessory(p.name) ? acc : cof).push(o);
   });
-  // แยกหมวด โลง / อุปกรณ์เสริม
-  const _opt=(p,idx)=>`<option value="${p.id}" data-price="${p.price}" data-name="${U.esc(p.name)}" ${item.productId==p.id?'selected':''}>${idx+1}. ${U.esc(p.name)}</option>`;
-  const _cof=[], _acc=[];
-  sortedProds.forEach((p,idx)=>{ (isAccessory(p.name)?_acc:_cof).push(_opt(p,idx)); });
-  const opts=(_cof.length?`<optgroup label="⚰️ โลง">${_cof.join('')}</optgroup>`:'')
-           + (_acc.length?`<optgroup label="🔧 อุปกรณ์เสริม (ไม่ต้องแต่ง)">${_acc.join('')}</optgroup>`:'');
-  const SS='font-size:15px;font-weight:600;border:2px solid #d1d5db;border-radius:8px;padding:7px 10px;width:100%;background:#fff;cursor:pointer;';
-
-  // หา spec จากชื่อสินค้า
-  const pName = item.productName||'';
-  const _rowProd = (products||[]).find(p=>p.name===pName);
-  const _isAcc = _rowProd ? ((_rowProd.unit||'โลง').trim()!=='โลง') : ['เทพ','มุม','เส้น'].some(k=>pName.includes(k));
-  const _baseSpec = COFFIN_SPEC[pName] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
-  const spec  = _isAcc ? {colors:[], lines:_baseSpec.lines, extra:_baseSpec.extra} : _baseSpec;
-  const hasColor = spec.colors.length > 0;
-  const hasExtra = !!spec.extra;
-
-  // สีโลง options
-  const colorVal = item.color || (hasColor ? spec.colors[0] : '-');
-  const colorOpts = hasColor
-    ? spec.colors.map(c=>`<option value="${c}" ${colorVal===c?'selected':''}>${c==='ขาว'?'⬜':'🟥'} ${c}</option>`).join('')
-    : '<option value="-">-</option>';
-
-  // สีเส้น options
-  const _oiLines=getProductLines(pName,products||[]);
-  const lineVal = item.trimColor || _oiLines[0] || 'ทอง';
-  const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
-  const lineOpts = _oiLines.map(l=>`<option value="${l}" ${lineVal===l?'selected':''}>${lineIcons[l]||''} ${l}</option>`).join('');
-
-  // extra options (กลาง)
-  const extraVal = item.extra||'';
-  const extraHtml = hasExtra ? `<div style="margin-top:6px;">
-      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">📐 ขนาด</div>
-      <select id="oiextra_${i}" style="${SS}font-size:14px;">
-        <option value="">-- ไม่ระบุ --</option>
-        ${spec.extra.map(e=>`<option value="${e}" ${extraVal===e?'selected':''}>${e}</option>`).join('')}
-      </select>
-    </div>` : `<div id="oiextra_wrap_${i}" style="display:none;"></div>`;
-
-  const specialVal=U.esc(item.specialNote||'');
-  return `<tr id="oirow_${i}" class="order-item-row" style="vertical-align:top;border-bottom:3px solid #e5e7eb;">
-    <td style="min-width:220px;padding:8px 6px;">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;">
-        <span class="order-item-num">รายการที่ ${i+1}</span>
-      </div>
-      <select style="${SS}border-color:#2563eb!important;" onchange="onOrderProdChange(this,${i})" id="oiprod_${i}">
-        <option value="">🔍 -- เลือกสินค้า --</option>${opts}
-      </select>
-      <div id="oispec_${i}" style="${(!pName||_isAcc)?'display:none;':''}">
-        <div style="display:grid;grid-template-columns:${hasColor?'1fr 1fr':'1fr'};gap:6px;margin-top:7px;">
-          ${hasColor?`<div>
-            <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">🎨 สีโลง</div>
-            <select id="oicolor_${i}" style="${SS}font-size:14px;" onchange="updateItemPrice(${i})">${colorOpts}</select>
-          </div>`:''}
-          <div>
-            <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">✨ สีเส้น</div>
-            <select id="oitrim_${i}" style="${SS}font-size:14px;" onchange="updateItemPrice(${i})">${lineOpts}</select>
-          </div>
-        </div>
-        ${extraHtml}
-      </div>
-      <input type="text" class="form-control mt-1" id="oisp_${i}" value="${specialVal}" style="font-size:13px;border-radius:8px;border:2px solid #d1d5db;" placeholder="📝 หมายเหตุพิเศษ...">
-    </td>
-    <td style="min-width:100px;padding:8px 4px;">
-      <div style="display:flex;align-items:center;gap:3px;">
-        <button type="button" onclick="adjQty(${i},-1)" style="width:34px;height:38px;border-radius:8px;border:2px solid #d1d5db;background:#f3f4f6;font-size:20px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:1;">−</button>
-        <input type="number" class="form-control" id="oiqty_${i}" value="${item.qty||1}" min="1" oninput="calcOrderTotal()" style="font-size:17px;font-weight:700;text-align:center;border-radius:8px;border:2px solid #d1d5db;padding:4px 2px;width:46px;min-width:0;">
-        <button type="button" onclick="adjQty(${i},1)" style="width:34px;height:38px;border-radius:8px;border:2px solid #d1d5db;background:#f3f4f6;font-size:20px;font-weight:700;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;line-height:1;">+</button>
-      </div>
-    </td>
-    <td style="min-width:100px;padding:8px 4px;"><input type="number" class="form-control" id="oiprice_${i}" value="${item.price||0}" min="0" oninput="calcOrderTotal()" style="font-size:16px;border-radius:8px;border:2px solid #d1d5db;padding:8px;"></td>
-    <td style="min-width:80px;padding:8px 4px;"><span id="oitotal_${i}" style="font-size:16px;font-weight:700;color:#1a2332;">${U.money((item.qty||1)*(item.price||0))}</span></td>
-    <td style="padding:8px 4px;"><button type="button" class="btn btn-outline-danger" style="width:36px;height:36px;padding:0;border-radius:8px;" onclick="document.getElementById('oirow_${i}').remove();calcOrderTotal();renumberOrderRows()"><i class="fa-solid fa-trash"></i></button></td>
-  </tr>`;
+  return (cof.length?`<optgroup label="⚰️ โลง">${cof.join('')}</optgroup>`:'')
+       + (acc.length?`<optgroup label="🔧 อุปกรณ์เสริม (ไม่ต้องแต่ง)">${acc.join('')}</optgroup>`:'');
 }
 
-function updateItemSpec(i, prodName) {
-  const _uProd = (window._orderProds||[]).find(p=>p.name===prodName);
-  const _uAcc = _uProd ? ((_uProd.unit||'โลง').trim()!=='โลง') : ['เทพ','มุม','เส้น'].some(k=>(prodName||'').includes(k));
-  const _uBase = COFFIN_SPEC[prodName] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
-  const spec = _uAcc ? {colors:[], lines:_uBase.lines, extra:_uBase.extra} : _uBase;
-  const hasColor = spec.colors.length > 0;
-  const SS='font-size:15px;font-weight:600;border:2px solid #d1d5db;border-radius:8px;padding:7px 10px;width:100%;background:#fff;cursor:pointer;';
-  const lineIcons = {ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
-  const _uiLines=getProductLines(prodName,window._orderProds||[]);
-  const lineOpts = _uiLines.map(l=>`<option value="${l}">${lineIcons[l]||''} ${l}</option>`).join('');
-  const colorOpts = hasColor
-    ? spec.colors.map(c=>`<option value="${c}">${c==='ขาว'?'⬜':'🟥'} ${c}</option>`).join('')
-    : '<option value="-">-</option>';
-  const extraHtml = spec.extra ? `<div style="margin-top:6px;">
-      <div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">📐 ขนาด</div>
-      <select id="oiextra_${i}" style="${SS}font-size:14px;">
+// ── ช่องสี/เส้น/ขนาด ของสินค้าที่เลือกอยู่ ──
+function ocSpecHtml() {
+  const cur = window._ordCur;
+  const prod = (window._orderProds||[]).find(p => p.id === cur.productId);
+  if (!prod) return '';
+  if (isAccessory(prod.name)) { cur.color=''; cur.trimColor=''; cur.extra=''; return ''; }
+  const spec = COFFIN_SPEC[prod.name] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
+  const colors = spec.colors || [];
+  const lines  = getProductLines(prod.name, window._orderProds||[]);
+  if (!cur.trimColor || !lines.includes(cur.trimColor)) cur.trimColor = lines[0] || '';
+  if (colors.length && (!cur.color || !colors.includes(cur.color))) cur.color = colors[0];
+  if (!colors.length) cur.color = '';
+  return `
+    <div style="display:grid;grid-template-columns:${colors.length?'1fr 1fr':'1fr'};gap:8px;margin-bottom:9px;">
+      ${colors.length?`<div><div class="oc-lbl">สีโลง</div>
+        <div style="display:flex;gap:5px;">${colors.map(c =>
+          `<button type="button" class="oc-pill ${cur.color===c?'on':''}" onclick="ocColor('${U.esc(c)}')">${U.esc(c)}</button>`).join('')}</div></div>`:''}
+      <div><div class="oc-lbl">สีเส้น</div>
+        <select class="form-select form-select-sm" onchange="ocTrim(this.value)">
+          ${lines.map(l=>`<option value="${U.esc(l)}" ${cur.trimColor===l?'selected':''}>${U.esc(l)}</option>`).join('')}
+        </select></div>
+    </div>
+    ${spec.extra?`<div style="margin-bottom:9px;"><div class="oc-lbl">ขนาด</div>
+      <select class="form-select form-select-sm" onchange="window._ordCur.extra=this.value">
         <option value="">-- ไม่ระบุ --</option>
-        ${spec.extra.map(e=>`<option value="${e}">${e}</option>`).join('')}
-      </select></div>` : '';
-  const wrap = document.getElementById(`oispec_${i}`);
-  if (!wrap) return;
-  wrap.style.display = '';
-  wrap.innerHTML = `<div style="display:grid;grid-template-columns:${hasColor?'1fr 1fr':'1fr'};gap:6px;margin-top:7px;">
-    ${hasColor?`<div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">🎨 สีโลง</div><select id="oicolor_${i}" style="${SS}font-size:14px;">${colorOpts}</select></div>`:''}
-    <div><div style="font-size:12px;font-weight:700;color:#374151;margin-bottom:3px;">✨ สีเส้น</div><select id="oitrim_${i}" style="${SS}font-size:14px;" onchange="updateItemPrice(${i})">${lineOpts}</select></div>
-  </div>${extraHtml}`;
+        ${spec.extra.map(e=>`<option value="${U.esc(e)}" ${cur.extra===e?'selected':''}>${U.esc(e)}</option>`).join('')}
+      </select></div>`:''}`;
 }
 
-async function updateItemPrice(i) {
-  const prodSel = document.getElementById(`oiprod_${i}`);
-  if (!prodSel?.value) return;
-  const prodId = prodSel.value;
-  const trimColor = document.getElementById(`oitrim_${i}`)?.value || '';
-  // หาจาก window._orderProds ก่อน ถ้าไม่เจอดึงจาก DB โดยตรง
-  let prod = (window._orderProds || []).find(p => p.id === prodId);
-  if (!prod) prod = await DB.getProduct(prodId);
+async function ocProdChange(id) {
+  const cur = window._ordCur;
+  cur.productId = id; cur.color=''; cur.trimColor=''; cur.extra='';
+  const el = document.getElementById('oc_spec'); if (el) el.innerHTML = id ? ocSpecHtml() : '';
+  await ocRefreshPrice();
+}
+async function ocColor(c) {
+  window._ordCur.color = c;
+  const el = document.getElementById('oc_spec'); if (el) el.innerHTML = ocSpecHtml();
+  await ocRefreshPrice();
+}
+async function ocTrim(t) { window._ordCur.trimColor = t; await ocRefreshPrice(); }
+function ocQty(d) {
+  const cur = window._ordCur;
+  const v = cur.qty + d; if (v < 1 || v > 999) return;
+  cur.qty = v;
+  const el = document.getElementById('oc_qty'); if (el) el.textContent = v;
+}
+// เติมราคาให้อัตโนมัติจากราคาลูกค้า/ราคาตามสีเส้น (แก้ทับได้)
+async function ocRefreshPrice() {
+  const cur = window._ordCur;
+  const prod = (window._orderProds||[]).find(p => p.id === cur.productId);
   if (!prod) return;
-  // ราคาจาก priceMap[trimColor] → priceMap ค่าใดก็ได้ → prod.price
-  let price = 0;
-  if (trimColor && prod.priceMap?.[trimColor] != null) {
-    price = prod.priceMap[trimColor];
-  } else if (prod.priceMap && Object.keys(prod.priceMap).length > 0) {
-    // ถ้า trim ที่เลือกไม่มีในแผน ใช้ค่าแรกที่มี
-    const firstKey = Object.keys(prod.priceMap)[0];
-    price = prod.priceMap[firstKey] || 0;
-  } else {
-    price = prod.price || 0;
+  let price = prod.price || 0;
+  if (prod.priceMap && Object.keys(prod.priceMap).length) {
+    price = (cur.trimColor && prod.priceMap[cur.trimColor] != null)
+      ? prod.priceMap[cur.trimColor]
+      : (prod.priceMap[Object.keys(prod.priceMap)[0]] || 0);
   }
-  if (window._orderCustId) price = await DB.getEffectivePrice(window._orderCustId, prodId, price, trimColor);
-  const priceEl = document.getElementById(`oiprice_${i}`);
-  if (priceEl) { priceEl.value = price; calcOrderTotal(); }
+  if (window._orderCustId) {
+    try { price = await DB.getEffectivePrice(window._orderCustId, prod.id, price, cur.trimColor||''); } catch(e){}
+  }
+  cur.price = price;
+  const el = document.getElementById('oc_price'); if (el) el.value = price;
 }
 
-function renumberOrderRows() {
-  document.querySelectorAll('#orderItemsBody .order-item-num').forEach((el,idx)=>{
-    el.textContent='รายการที่ '+(idx+1);
-  });
-}
-function addOrderItemRow() {
-  const i=window._orderItemIdx++;
-  document.getElementById('orderItemsBody').insertAdjacentHTML('beforeend',orderItemRow(i,window._orderProds||[]));
-  renumberOrderRows();
+// ── เพิ่มเข้าตะกร้า ──
+function ocAdd() {
+  const cur = window._ordCur;
+  if (!cur.productId) { U.toast('กรุณาเลือกสินค้า','error'); return; }
+  const prod = (window._orderProds||[]).find(p => p.id === cur.productId);
+  if (!prod) return;
+  const price = parseFloat(document.getElementById('oc_price')?.value || 0) || 0;
+  const key = x => `${x.productId}|${x.color}|${x.trimColor}|${x.extra}|${x.price}`;
+  const nw = {productId:prod.id, productName:prod.name, color:cur.color||'', trimColor:cur.trimColor||'',
+              extra:cur.extra||'', qty:cur.qty, price, specialNote:''};
+  const cart = window._ordCart;
+  const ex = cart.findIndex(x => key(x) === key(nw));
+  let hl;
+  if (ex >= 0) { cart[ex].qty += nw.qty; hl = ex; }
+  else { cart.push(nw); hl = cart.length - 1; }
+  cur.qty = 1;
+  const q = document.getElementById('oc_qty'); if (q) q.textContent = 1;
+  renderOrdCart(hl);
 }
 
-// ── ปุ่ม +/- จำนวน ──
-function adjQty(i, delta) {
-  const inp = document.getElementById(`oiqty_${i}`);
-  if (!inp) return;
-  inp.value = Math.max(1, (parseInt(inp.value)||1) + delta);
+function ocDel(i) {
+  window._ordCart.splice(i, 1);
+  if (window._ordEditIdx === i) window._ordEditIdx = -1;
+  renderOrdCart();
+}
+function ocEdit(i) {
+  window._ordEditIdx = (window._ordEditIdx === i) ? -1 : i;
+  renderOrdCart();
+}
+function ocBump(i, d) {
+  const it = window._ordCart[i]; if (!it) return;
+  const v = it.qty + d; if (v < 1) return;
+  it.qty = v; renderOrdCart();
+}
+function ocSetPrice(i, v) {
+  const it = window._ordCart[i]; if (!it) return;
+  it.price = parseFloat(v) || 0; renderOrdCart();
+}
+function ocSetNote(i, v) {
+  const it = window._ordCart[i]; if (it) it.specialNote = v;
+}
+
+// ── วาดตะกร้า ──
+function ocRowLabel(x) {
+  const cs = x.color === 'แดง' ? 'background:#7f0000;color:#fff;'
+    : x.color === 'ดำ' ? 'background:#111;color:#fff;'
+    : 'background:#fff;color:#111;border:1.5px solid #333;';
+  const isChrist = x.trimColor === 'คริสต์';
+  return `<span>${U.esc(x.productName)}</span>`
+    + (x.color && x.color !== '-' ? `<span class="oc-chip" style="${cs}">${U.esc(x.color)}</span>` : '')
+    + (x.trimColor ? `<span class="oc-chip" style="background:${isChrist?'#dbeafe':'#f3f4f6'};color:${isChrist?'#1e40af':'#374151'};border:1px solid #e5e7eb;">${isChrist?'✝คริสต์':'เส้น'+U.esc(x.trimColor)}</span>` : '')
+    + (x.extra ? `<span class="oc-chip" style="background:#fef3c7;color:#92400e;">${U.esc(x.extra)}</span>` : '');
+}
+
+function renderOrdCart(hl) {
+  const cart = window._ordCart || [];
+  const el = document.getElementById('ocCart'); if (!el) return;
+  el.innerHTML = cart.length ? cart.map((x, i) => {
+    const editing = window._ordEditIdx === i;
+    const note = `<input type="text" class="oc-note" placeholder="📝 หมายเหตุพิเศษ..."
+        value="${U.esc(x.specialNote||'')}" oninput="ocSetNote(${i},this.value)">`;
+    if (editing) {
+      return `<div class="oc-row editing">
+        <div class="oc-top">
+          <div class="oc-name">${ocRowLabel(x)}</div>
+          <span class="oc-ico del" onclick="ocDel(${i})"><i class="fa-solid fa-trash"></i></span>
+        </div>
+        <div class="oc-editrow">
+          <button type="button" class="oc-stp" onclick="ocBump(${i},-1)">−</button>
+          <span class="oc-qn">${x.qty}</span>
+          <button type="button" class="oc-stp plus" onclick="ocBump(${i},1)">+</button>
+          <span style="font-size:11.5px;color:#92400e;font-weight:700;">ราคา</span>
+          <input type="number" class="oc-pr" value="${x.price}" onchange="ocSetPrice(${i},this.value)">
+        </div>
+        ${note}
+        <div style="text-align:right;margin-top:7px;">
+          <button type="button" class="btn btn-sm btn-warning" style="font-weight:700;" onclick="ocEdit(${i})">เสร็จ</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="oc-row${hl===i?' hl':''}">
+      <div class="oc-top">
+        <div class="oc-name">${ocRowLabel(x)}</div>
+        <span class="oc-ico" onclick="ocEdit(${i})"><i class="fa-solid fa-pen"></i></span>
+        <span class="oc-ico del" onclick="ocDel(${i})"><i class="fa-solid fa-trash"></i></span>
+      </div>
+      <div class="oc-calc">
+        <span class="l">${x.qty} × ${U.money(x.price)}</span>
+        <span class="r">${U.money(x.qty * x.price)}</span>
+      </div>
+      ${note}
+    </div>`;
+  }).join('') : `<div class="oc-empty">ยังไม่มีรายการ — เพิ่มสินค้าทางขวา</div>`;
+
+  const hdr = document.getElementById('ocHdr');
+  if (hdr) hdr.textContent = cart.length
+    ? `รายการสินค้า (${cart.length}) · ${cart.reduce((a,b)=>a+b.qty,0)} ชิ้น`
+    : 'รายการสินค้า';
   calcOrderTotal();
+  if (hl != null) setTimeout(() => document.querySelector('.oc-row.hl')?.classList.remove('hl'), 900);
 }
 
-// ── เมื่อเลือกแบบตกแต่ง: คริสต์ → ปิดสีเส้น ──
-function onOrderStyleChange(sel, i) {
-  const trimSel = document.getElementById(`oitrim_${i}`);
-  if (!trimSel) return;
-  const isChrist = sel.value === 'คริสต์';
-  trimSel.disabled = isChrist;
-  trimSel.style.opacity = isChrist ? '0.4' : '1';
-  trimSel.style.cursor  = isChrist ? 'not-allowed' : 'pointer';
-}
 
 // ── filter pending by date ──
 async function filterPendingByDate(dateStr) {
@@ -2276,39 +2365,34 @@ function printPendingOrders(ordersInput) {
   win.document.close();
 }
 
-function onOrderCustChange(sel) {
-  window._orderCustId=sel.value||null;
-  // re-apply prices for all selected products
-  document.querySelectorAll('#orderItemsBody tr').forEach(row=>{
-    const m=row.id?.match(/oirow_(\d+)/); if(!m)return;
-    const prodSel=document.getElementById(`oiprod_${m[1]}`);
-    if (prodSel?.value) onOrderProdChange(prodSel,m[1]);
-  });
-}
-
-async function onOrderProdChange(sel,i) {
-  const opt=sel.options[sel.selectedIndex];
-  const prodId=sel.value; if(!prodId)return;
-  const prodName=opt.dataset.name||opt.text||'';
-  updateItemSpec(i, prodName);
-  // Use updateItemPrice to pick up priceMap + customer price
-  await updateItemPrice(i);
+async function onOrderCustChange(sel) {
+  window._orderCustId = sel.value || null;
+  // เปลี่ยนลูกค้า → เติมราคาใหม่ตามราคาเฉพาะลูกค้ารายนั้น
+  await ocRefreshPrice();
+  const cart = window._ordCart || [];
+  for (const x of cart) {
+    const prod = (window._orderProds||[]).find(p => p.id === x.productId);
+    if (!prod) continue;
+    let base = prod.price || 0;
+    if (prod.priceMap && Object.keys(prod.priceMap).length) {
+      base = (x.trimColor && prod.priceMap[x.trimColor] != null)
+        ? prod.priceMap[x.trimColor]
+        : (prod.priceMap[Object.keys(prod.priceMap)[0]] || 0);
+    }
+    if (window._orderCustId) {
+      try { base = await DB.getEffectivePrice(window._orderCustId, prod.id, base, x.trimColor||''); } catch(e){}
+    }
+    x.price = base;
+  }
+  renderOrdCart();
 }
 
 function calcOrderTotal() {
-  let sub=0;
-  document.querySelectorAll('#orderItemsBody tr').forEach(row=>{
-    const m=row.id?.match(/oirow_(\d+)/); if(!m)return;
-    const i=m[1];
-    const qty=parseFloat(document.getElementById(`oiqty_${i}`)?.value||0);
-    const pr=parseFloat(document.getElementById(`oiprice_${i}`)?.value||0);
-    const t=qty*pr;
-    const tel=document.getElementById(`oitotal_${i}`); if(tel)tel.textContent=U.money(t);
-    sub+=t;
-  });
-  const disc=parseFloat(document.getElementById('of_discount')?.value||0);
+  const cart = window._ordCart || [];
+  const sub = cart.reduce((a,x) => a + (x.qty||0) * (x.price||0), 0);
+  const disc = parseFloat(document.getElementById('of_discount')?.value||0) || 0;
   const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=U.money(v);};
-  s('os_sub',sub); s('os_disc',disc); s('os_total',sub-disc);
+  s('os_sub',sub); s('os_disc',disc); s('os_total',Math.max(0, sub-disc));
 }
 
 // คืน array [{customerName, items:[{name,qty,color,trimColor,action}]}] ของออเดอร์วันนี้
@@ -2354,25 +2438,13 @@ async function saveOrder() {
     if (!custId){U.toast('กรุณาเลือกลูกค้า','error');return;}
     const cust=await DB.getCustomer(custId);
 
-    const items=[]; let anyItem=false; let qtyErr=false;
-    document.querySelectorAll('#orderItemsBody tr').forEach(row=>{
-      const m=row.id?.match(/oirow_(\d+)/); if(!m)return;
-      const i=m[1];
-      const sel=document.getElementById(`oiprod_${i}`);
-      const prodId=sel?.value; if(!prodId)return;
-      const opt=sel.options[sel.selectedIndex];
-      const qty=parseFloat(document.getElementById(`oiqty_${i}`)?.value||1);
-      if(qty<1){qtyErr=true;return;}
-      const price=parseFloat(document.getElementById(`oiprice_${i}`)?.value||0);
-      const color      = document.getElementById(`oicolor_${i}`)?.value||'';
-      const trimColor  = document.getElementById(`oitrim_${i}`)?.value||'';
-      const extra      = document.getElementById(`oiextra_${i}`)?.value||'';
-      const specialNote= document.getElementById(`oisp_${i}`)?.value.trim()||'';
-      items.push({productId:prodId,productName:opt.dataset.name||opt.text,qty,price,color,trimColor,extra,specialNote});
-      anyItem=true;
-    });
-    if(qtyErr){U.toast('จำนวนสินค้าต้องมากกว่า 0','error');return;}
-    if (!anyItem){U.toast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','error');return;}
+    // อ่านจากตะกร้าใน memory (ไม่ขูดจาก DOM แล้ว)
+    const items = (window._ordCart||[])
+      .filter(x => x.productId && x.qty >= 1)
+      .map(x => ({productId:x.productId, productName:x.productName, qty:x.qty, price:x.price||0,
+                  color:x.color||'', trimColor:x.trimColor||'', extra:x.extra||'',
+                  specialNote:(x.specialNote||'').trim()}));
+    if (!items.length){U.toast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','error');return;}
 
     const editId=document.getElementById('of_editId')?.value||'';
     const dateStr=document.getElementById('of_date')?.value;
