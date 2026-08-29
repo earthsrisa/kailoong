@@ -417,6 +417,13 @@ function getProductLines(prodName) {
 function getProductColors(prodName) {
   return COFFIN_SPEC[prodName]?.colors ?? ['ขาว','แดง'];
 }
+// ── แยกอุปกรณ์เสริมออกจากโลง (ต้องตรงกับ index.html) ──
+const ACC_HINTS = ['เทพ','นางฟ้า','มุม','กางเขน','ดอกพิกุล','พลาสติก','ม้วน'];
+function isAccessory(productName) {
+  const p = _products.find(x => x.name === productName);
+  if (p) return (p.unit||'โลง').trim() !== 'โลง';
+  return ACC_HINTS.some(k => (productName||'').includes(k));
+}
 // ราคา: ราคาเฉพาะลูกค้า → ราคาตามสีเส้น → ราคาเริ่มต้น (ช่างไม่เห็นตัวเลขนี้)
 function resolvePrice(customerId, prod, trimColor) {
   const cust = _customers.find(c => c.id === customerId);
@@ -742,6 +749,7 @@ function isOrderFullyDelivered(order) {
 // ── Check if this craftsman can work on this item ──
 function craftsmanCanDo(item) {
   if (!_craftsman) return false;
+  if (isAccessory(item.productName)) return false; // อุปกรณ์เสริมไม่ต้องแต่ง
   const types = _craftsman.productTypes || [];
   if (types.length === 0) return true; // ไม่กำหนด = ทำได้ทุกประเภท
   const name = (item.productName || '').trim();
@@ -932,8 +940,14 @@ function showItemSheet() {
   _cur = _cur || {productId:'', color:'', trimColor:'', extra:'', qty:1};
   const custOpts = _customers.map(c =>
     `<option value="${c.id}" ${_draft.customerId===c.id?'selected':''}>${esc(c.name)}</option>`).join('');
-  const prodOpts = _products.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'))
-    .map(p => `<option value="${p.id}" ${_cur.productId===p.id?'selected':''}>${esc(p.name)}</option>`).join('');
+  // แยกเป็น 2 หมวด: โลง / อุปกรณ์เสริม (ดูจากช่อง "หน่วย" ของสินค้า)
+  const sorted = _products.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
+  const opt = p => `<option value="${p.id}" ${_cur.productId===p.id?'selected':''}>${esc(p.name)}</option>`;
+  const coffins = sorted.filter(p => !isAccessory(p.name));
+  const accs    = sorted.filter(p =>  isAccessory(p.name));
+  const prodOpts =
+      (coffins.length ? `<optgroup label="⚰️ โลง">${coffins.map(opt).join('')}</optgroup>` : '')
+    + (accs.length    ? `<optgroup label="🔧 อุปกรณ์เสริม (ไม่ต้องแต่ง)">${accs.map(opt).join('')}</optgroup>` : '');
 
   _sheet(`
     <div class="ord-head">
@@ -1297,6 +1311,7 @@ function buildShopSummary() {
     const cs = o.craftStatus || {};
     const ds = o.deliveryStatus || {};
     for (const item of (o.items || [])) {
+      if (isAccessory(item.productName)) continue; // สรุปนี้นับเฉพาะหีบ
       const craftedRaw   = getCraftedQty(readCraftEntry(cs, item), item.qty);
       const deliveredRaw = getDeliveredQty(ds[deliverKey(item)], item.qty, o.isDelivered);
       const remainQty  = item.qty - deliveredRaw;              // คงเหลือหลังหักที่ส่งแล้ว

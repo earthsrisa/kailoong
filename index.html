@@ -492,6 +492,20 @@ function isOrderFullyDelivered(order) {
 function deliverKey(i) {
   return `${i.productName}|${i.color||''}|${i.trimColor||''}|${i.extra||''}`;
 }
+// ── แยกอุปกรณ์เสริมออกจากโลง ──
+// เกณฑ์หลัก: ช่อง "หน่วย" ของสินค้า ถ้าไม่ใช่ "โลง" = อุปกรณ์เสริม
+// ถ้าไม่เจอสินค้าในระบบ ใช้ชื่อเป็นตัวช่วยเดา
+const ACC_HINTS = ['เทพ','นางฟ้า','มุม','กางเขน','ดอกพิกุล','พลาสติก','ม้วน'];
+function isAccessory(productName) {
+  const p = (window._allProductsCache||{})[productName];
+  if (p) return (p.unit||'โลง').trim() !== 'โลง';
+  return ACC_HINTS.some(k => (productName||'').includes(k));
+}
+// อุปกรณ์เสริมไม่ต้องแต่ง → นับเป็นพร้อมส่งเต็มจำนวนเสมอ
+function readyQtyFor(item, craftedQty) {
+  return isAccessory(item.productName) ? item.qty : craftedQty;
+}
+
 // ── ป้ายออเดอร์ที่ช่างแต่งเป็นคนรับ (ยังไม่ได้ตรวจ) ──
 function craftTakenBadge(o) {
   if (!o?.createdByCraftsmanName) return '';
@@ -1366,7 +1380,12 @@ function orderItemRow(i, products, item={}, custId) {
     if(!aT&&bT) return -1;
     return (a.name||'').localeCompare(b.name||'','th');
   });
-  const opts=sortedProds.map((p,idx)=>`<option value="${p.id}" data-price="${p.price}" data-name="${U.esc(p.name)}" ${item.productId==p.id?'selected':''}>${idx+1}. ${U.esc(p.name)}</option>`).join('');
+  // แยกหมวด โลง / อุปกรณ์เสริม
+  const _opt=(p,idx)=>`<option value="${p.id}" data-price="${p.price}" data-name="${U.esc(p.name)}" ${item.productId==p.id?'selected':''}>${idx+1}. ${U.esc(p.name)}</option>`;
+  const _cof=[], _acc=[];
+  sortedProds.forEach((p,idx)=>{ (isAccessory(p.name)?_acc:_cof).push(_opt(p,idx)); });
+  const opts=(_cof.length?`<optgroup label="⚰️ โลง">${_cof.join('')}</optgroup>`:'')
+           + (_acc.length?`<optgroup label="🔧 อุปกรณ์เสริม (ไม่ต้องแต่ง)">${_acc.join('')}</optgroup>`:'');
   const SS='font-size:15px;font-weight:600;border:2px solid #d1d5db;border-radius:8px;padding:7px 10px;width:100%;background:#fff;cursor:pointer;';
 
   // หา spec จากชื่อสินค้า
@@ -1585,7 +1604,8 @@ function buildPendingHtml(orders) {
           + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
           + (i.extra?' '+i.extra:'');
         const dKey  = deliverKey(i);
-        const craftedRaw   = getCraftedFor(cs, i);
+        // อุปกรณ์เสริมไม่ต้องแต่ง → ถือว่าพร้อมส่งเต็มจำนวน
+        const craftedRaw   = readyQtyFor(i, getCraftedFor(cs, i));
         const deliveredRaw = getDeliveredQty(ds[dKey], i.qty, o.isDelivered);
         const billedRaw    = getBilledQty(bs[dKey], i.qty);
         // คงเหลือ = สั่ง − ส่งแล้ว ; แต่งเสร็จคงเหลือ = แต่งแล้ว − ส่งแล้ว
@@ -1634,11 +1654,14 @@ function buildPendingHtml(orders) {
       const cq = craftedQty||0;
       const isDone    = cq >= qty;
       const isPartial = cq > 0 && cq < qty;
-      const badge = isDone
-        ? ` <span style="font-size:10px;background:rgba(134,239,172,.3);color:#bbf7d0;border-radius:10px;padding:1px 7px;font-weight:600;">✅ แต่งเสร็จแล้ว</span>`
-        : isPartial
-          ? ` <span style="font-size:10px;background:rgba(251,191,36,.25);color:#fde68a;border-radius:10px;padding:1px 7px;font-weight:600;">🔨 ${cq}/${qty}</span>`
-          : ` <span style="font-size:10px;background:rgba(255,255,255,.12);color:#cbd5e1;border-radius:10px;padding:1px 7px;font-weight:600;">ยังไม่แต่ง</span>`;
+      const isAcc = isAccessory(m.sources?.[0]?.productName);
+      const badge = isAcc
+        ? ` <span style="font-size:10px;background:rgba(148,163,184,.25);color:#e2e8f0;border-radius:10px;padding:1px 7px;font-weight:600;">อุปกรณ์เสริม</span>`
+        : isDone
+          ? ` <span style="font-size:10px;background:rgba(134,239,172,.3);color:#bbf7d0;border-radius:10px;padding:1px 7px;font-weight:600;">✅ แต่งเสร็จแล้ว</span>`
+          : isPartial
+            ? ` <span style="font-size:10px;background:rgba(251,191,36,.25);color:#fde68a;border-radius:10px;padding:1px 7px;font-weight:600;">🔨 ${cq}/${qty}</span>`
+            : ` <span style="font-size:10px;background:rgba(255,255,255,.12);color:#cbd5e1;border-radius:10px;padding:1px 7px;font-weight:600;">ยังไม่แต่ง</span>`;
       const delTag = delivered > 0
         ? ` <span style="font-size:10px;background:rgba(59,130,246,.25);color:#bfdbfe;border-radius:10px;padding:1px 7px;font-weight:600;">🚚 ส่งแล้ว ${delivered}</span>`
         : '';
@@ -2100,7 +2123,8 @@ function printPendingOrders(ordersInput) {
       if (remain <= 0) return;
       // แยกจำนวนที่แต่งเสร็จแล้ว (พร้อมส่ง) ออกจากที่ยังไม่ได้แต่ง
       // โหมด 'all' = พิมพ์ล่วงหน้า → นับทุกใบเป็นพร้อมส่ง ขึ้นสีปกติ มีช่องติ๊กครบ
-      const craftedRemain = printAll ? remain : Math.max(0, getCraftedFor(cs, i) - deliveredRaw);
+      const craftedRemain = printAll ? remain
+        : Math.max(0, readyQtyFor(i, getCraftedFor(cs, i)) - deliveredRaw);
       const rdy = Math.min(craftedRemain, remain);   // พร้อมส่ง
       const nry = remain - rdy;                      // ยังไม่ได้แต่ง
       const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
