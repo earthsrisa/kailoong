@@ -325,6 +325,46 @@ html.pwa-ios .modal-backdrop { z-index: 1055 !important; }
 html.pwa-ios body.modal-open { overflow: hidden !important; position: fixed !important; width: 100% !important; }
 html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-bottom, 20px)); }
 
+/* ── ตารางออเดอร์ → การ์ด เฉพาะบนมือถือ ── */
+@media (max-width: 767px) {
+  .ord-card-tbl, .ord-card-tbl tbody, .ord-card-tbl tr, .ord-card-tbl td { display: block; width: 100%; }
+  .ord-card-tbl thead, .ord-card-tbl colgroup { display: none; }
+  .ord-card-tbl { border-collapse: separate; }
+  .ord-card-tbl tr {
+    background: #fff; border: 1px solid #e8ecf0; border-radius: 12px;
+    padding: 11px 13px; margin-bottom: 9px;
+    display: grid; grid-template-columns: 1fr auto;
+    grid-template-areas: "cust total" "meta meta" "items items" "notes notes" "act act";
+    column-gap: 9px; row-gap: 0;
+  }
+  .ord-card-tbl tr:active { background: #f8fafc; }
+  .ord-card-tbl td { border: none !important; padding: 0 !important; font-size: 13px; }
+  .ord-card-tbl td.c-cust  { grid-area: cust; font-size: 15px; font-weight: 800; color: #1a2332; }
+  .ord-card-tbl td.c-total { grid-area: total; text-align: right; font-size: 16px; font-weight: 800;
+    color: #1a2332; white-space: nowrap; }
+  .ord-card-tbl td.c-date, .ord-card-tbl td.c-no { display: inline; grid-area: meta;
+    font-size: 10.5px !important; color: #9ca3af !important; }
+  .ord-card-tbl td.c-no::after { content: ' · '; }
+  .ord-card-tbl td.c-date br { display: none; }
+  .ord-card-tbl td.c-date span { font-size: 10.5px !important; color: #9ca3af !important; }
+  .ord-card-tbl td.c-items { grid-area: items; margin-top: 8px !important;
+    border-top: 1px solid #f1f5f9 !important; padding-top: 7px !important; }
+  .ord-card-tbl td.c-notes { grid-area: notes; font-size: 11px !important; color: #9ca3af !important;
+    max-width: none !important; white-space: normal !important; overflow: visible !important;
+    margin-top: 6px !important; padding-top: 6px !important; border-top: 1px dashed #f1f5f9 !important; }
+  .ord-card-tbl td.c-notes:empty, .ord-card-tbl td.c-notes.blank { display: none; }
+  .ord-card-tbl td.c-act { grid-area: act; display: flex !important; justify-content: flex-end;
+    gap: 6px; margin-top: 9px !important; padding-top: 8px !important; border-top: 1px solid #f1f5f9 !important; }
+  .ord-card-tbl td.c-act .btn { flex: 1; max-width: 92px; }
+  /* รายการสินค้า: บรรทัดละรายการ จำนวนชิดขวา */
+  .ord-card-tbl .ord-item-d, .ord-card-tbl .ord-item {
+    display: flex !important; justify-content: space-between; align-items: baseline; gap: 8px;
+    padding: 3px 0 !important; margin: 0 !important; background: none !important; font-size: 12.5px;
+  }
+  .ord-card-tbl .ord-item-d + .ord-item-d::before { content: none !important; }
+  .ord-card-tbl .oi-q { font-weight: 800; color: #1a2332; white-space: nowrap; }
+}
+
 /* ── ฟอร์มออเดอร์แบบตะกร้า ── */
 .oc-grid { display:grid; grid-template-columns:1fr; gap:12px; }
 @media (min-width:768px){ .oc-grid { grid-template-columns:1fr 340px; align-items:start; } }
@@ -969,19 +1009,19 @@ async function renderDashboard(el) {
       <a href="#" onclick="navigate('orders');return false;" style="font-size:13px;">ดูทั้งหมด →</a>
     </div>
     <div class="table-scroll">
-      <table class="table-clean">
+      <table class="table-clean ord-card-tbl">
         <colgroup><col style="width:72px"><col style="width:80px"><col><col style="width:90px"><col style="width:36px"></colgroup>
         <thead><tr><th>วันที่/เวลา</th><th>ลูกค้า</th><th>รายการ</th><th>ยอดรวม</th><th></th></tr></thead>
         <tbody id="dashRecentTbody">
           ${[...orders].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6).map(o=>`
           <tr>
-            <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
-            <td style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;">NEW</span>':''}${craftTakenBadge(o)}</td>
-            <td style="font-size:12px;color:#374151;word-break:break-word;">
-              ${(o.items||[]).map(i=>`<span class="ord-item-d">${U.esc(itemLabel(i))} ×${i.qty}</span>`).join('')||'-'}
+            <td class="c-date" style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
+            <td class="c-cust" style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;">NEW</span>':''}${craftTakenBadge(o)}</td>
+            <td class="c-items" style="font-size:12px;color:#374151;word-break:break-word;">
+              ${(o.items||[]).map(i=>`<span class="ord-item-d"><span class="oi-nm">${U.esc(itemLabel(i))}</span> <span class="oi-q">×${i.qty}</span></span>`).join('')||'-'}
             </td>
-            <td style="font-weight:700;font-size:13px;white-space:nowrap;">${U.money(U.orderTotal(o))}</td>
-            <td><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
+            <td class="c-total" style="font-weight:700;font-size:13px;white-space:nowrap;">${U.money(U.orderTotal(o))}</td>
+            <td class="c-act"><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
           </tr>`).join('')||`<tr><td colspan="5"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-inbox"></i><p>ยังไม่มีออเดอร์</p></div></td></tr>`}
         </tbody>
       </table>
@@ -1026,11 +1066,11 @@ async function renderDashboard(el) {
       const recent = [...freshOrders].sort((a,b) => b.createdAt - a.createdAt).slice(0, 6);
       recentEl.innerHTML = recent.map(o => `
         <tr>
-          <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
-          <td style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;">NEW</span>':''}${craftTakenBadge(o)}</td>
-          <td style="font-size:12px;color:#374151;word-break:break-word;">${(o.items||[]).map(i=>`<span class="ord-item-d">${U.esc(itemLabel(i))} ×${i.qty}</span>`).join('')||'-'}</td>
-          <td style="font-weight:700;font-size:13px;white-space:nowrap;">${U.money(U.orderTotal(o))}</td>
-          <td><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
+          <td class="c-date" style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
+          <td class="c-cust" style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;">NEW</span>':''}${craftTakenBadge(o)}</td>
+          <td class="c-items" style="font-size:12px;color:#374151;word-break:break-word;">${(o.items||[]).map(i=>`<span class="ord-item-d"><span class="oi-nm">${U.esc(itemLabel(i))}</span> <span class="oi-q">×${i.qty}</span></span>`).join('')||'-'}</td>
+          <td class="c-total" style="font-weight:700;font-size:13px;white-space:nowrap;">${U.money(U.orderTotal(o))}</td>
+          <td class="c-act"><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
         </tr>`).join('') || `<tr><td colspan="5"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-inbox"></i><p>ยังไม่มีออเดอร์</p></div></td></tr>`;
     }
   }, err => console.error('dashboard onSnapshot error:', err));
@@ -1065,7 +1105,7 @@ async function renderOrders(el) {
       </div>
     </div>
     <div class="table-scroll">
-      <table class="table-clean orders-history-table">
+      <table class="table-clean orders-history-table ord-card-tbl">
         <colgroup><col style="width:72px"><col><col style="width:80px"><col><col style="width:90px"><col><col></colgroup>
         <thead><tr>
           <th>${sortTh('วันที่','ordersTbody','createdAt','_allOrders')}</th><th>เลขออเดอร์</th><th>${sortTh('ลูกค้า','ordersTbody','customerName','_allOrders')}</th>
@@ -1095,10 +1135,10 @@ function renderOrderRows(list) {
   if (!list.length) return `<tr><td colspan="7"><div class="empty-state" style="padding:30px"><i class="fa-solid fa-inbox"></i><p>ไม่มีออเดอร์</p></div></td></tr>`;
   return list.map(o=>`
   <tr>
-    <td style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
-    <td><code style="background:#f3f4f6;padding:2px 7px;border-radius:4px;font-size:12px;">${U.esc(o.orderNo)}</code></td>
-    <td><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;">NEW</span>':''}${craftTakenBadge(o)}</td>
-    <td style="max-width:260px;">
+    <td class="c-date" style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
+    <td class="c-no"><code style="background:#f3f4f6;padding:2px 7px;border-radius:4px;font-size:12px;">${U.esc(o.orderNo)}</code></td>
+    <td class="c-cust"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;">NEW</span>':''}${craftTakenBadge(o)}</td>
+    <td class="c-items" style="max-width:260px;">
       ${(o.items||[]).map(i=>{
         const trimBg=i.trimColor==='ทอง'?'#fef3c7':i.trimColor==='เงิน'?'#f1f5f9':'#f8fafc';
         const trimTx=i.trimColor==='ทอง'?'#92400e':i.trimColor==='เงิน'?'#475569':'#6b7280';
@@ -1109,12 +1149,12 @@ function renderOrderRows(list) {
           :csDone>0
           ?`<span style="background:#fef3c7;color:#92400e;border-radius:3px;padding:1px 5px;font-size:10px;font-weight:700;margin-left:3px;">🔨 ${csDone}/${i.qty}</span>`
           :'';
-        return `<span class="ord-item" style="background:#f1f5f9;border-radius:4px;padding:2px 8px;font-size:12px;margin:2px 2px 2px 0;">${label} ×${i.qty}${craftBadge}</span>`;
+        return `<span class="ord-item" style="background:#f1f5f9;border-radius:4px;padding:2px 8px;font-size:12px;margin:2px 2px 2px 0;"><span class="oi-nm">${label}${craftBadge}</span> <span class="oi-q">×${i.qty}</span></span>`;
       }).join('')||'-'}
     </td>
-    <td style="font-weight:700;white-space:nowrap;">${U.money(U.orderTotal(o))}</td>
-    <td style="max-width:140px;color:#6b7280;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${U.esc(o.notes||'-')}</td>
-    <td class="d-flex gap-1">
+    <td class="c-total" style="font-weight:700;white-space:nowrap;">${U.money(U.orderTotal(o))}</td>
+    <td class="c-notes${o.notes?'':' blank'}" style="max-width:140px;color:#6b7280;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${U.esc(o.notes||'-')}</td>
+    <td class="c-act d-flex gap-1">
       <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
       <button class="btn btn-sm btn-outline-success btn-icon" onclick="showAddItemsModal('${o.id}')" title="เพิ่มรายการ"><i class="fa-solid fa-plus"></i></button>
       <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteOrder('${o.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>

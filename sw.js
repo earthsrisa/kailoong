@@ -1,4 +1,4 @@
-const CACHE = 'kailoong-v35';
+const CACHE = 'kailoong-v36';
 const ASSETS = [
   '/',
   '/index.html',
