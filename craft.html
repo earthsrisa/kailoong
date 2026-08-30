@@ -264,6 +264,12 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .hist-sub { font-size:11px; color:#9ca3af; font-weight:400; margin-top:1px; }
 .hist-q { font-size:17px; font-weight:800; color:#1a2332; white-space:nowrap; }
 .hist-q span { font-size:11px; font-weight:600; color:#9ca3af; }
+
+/* กัน iOS ซูมหน้าจอเองเวลากดช่องกรอก (Safari ซูมถ้าฟอนต์เล็กกว่า 16px) */
+@media (max-width: 767px) {
+  input[type="text"], input[type="number"], input[type="search"], select, textarea,
+  .ord-sel, #craftsmanSel { font-size: 16px !important; }
+}
 .hist-time { display:inline-flex; align-items:center; gap:3px; font-size:12px; color:#2563eb;
   font-weight:600; background:#eff6ff; border-radius:6px; padding:1px 7px; }
 .hist-time i { font-size:10.5px; }

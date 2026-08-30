@@ -267,15 +267,15 @@ body { background: #f0f2f5; margin: 0; }
   .stat-card .value { font-size: 22px; }
   .topbar-actions-btn { font-size: 12px !important; padding: 5px 10px !important; }
 
-  /* order form table บนมือถือ — ซ่อน col ราคา+รวม ดูยอดจากด้านล่างแทน */
-  .order-items-table th:nth-child(3),
-  .order-items-table td:nth-child(3),
-  .order-items-table th:nth-child(4),
-  .order-items-table td:nth-child(4) { display: none; }
-  .order-items-table th, .order-items-table td { font-size: 12px; padding: 4px 4px; }
-  .order-items-table th:nth-child(1), .order-items-table td:nth-child(1) { width: 75%; }
-  .order-items-table th:nth-child(2), .order-items-table td:nth-child(2) { width: 15%; }
-  .order-items-table th:nth-child(5), .order-items-table td:nth-child(5) { width: 10%; }
+  /* กัน iOS ซูมหน้าจอเองเวลากดช่องกรอก — Safari ซูมถ้าฟอนต์เล็กกว่า 16px */
+  input[type="text"], input[type="number"], input[type="date"], input[type="tel"],
+  input[type="search"], input[type="email"], select, textarea,
+  .form-control, .form-control-sm, .form-select, .form-select-sm {
+    font-size: 16px !important;
+  }
+  /* ปุ่ม −/+ และไอคอนให้กดง่ายขึ้นบนมือถือ */
+  .oc-stp, .ord-cart-x, .oc-ico { min-width: 40px !important; min-height: 40px !important; }
+  .btn-icon { min-width: 38px; min-height: 38px; }
 
   /* รายการโลง — แสดง 1 บรรทัดต่อรายการบนมือถือ */
   .ord-item { display: block !important; margin: 2px 0 !important; }
@@ -363,6 +363,50 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
   }
   .ord-card-tbl .ord-item-d + .ord-item-d::before { content: none !important; }
   .ord-card-tbl .oi-q { font-weight: 800; color: #1a2332; white-space: nowrap; }
+}
+
+/* ── ตารางทั่วไป → การ์ด บนมือถือ (ใบเสร็จ / ลูกค้า / สินค้า) ── */
+@media (max-width: 767px) {
+  .gen-card-tbl, .gen-card-tbl tbody, .gen-card-tbl tr, .gen-card-tbl td { display: block; width: 100%; }
+  .gen-card-tbl thead, .gen-card-tbl colgroup { display: none; }
+  .gen-card-tbl { border-collapse: separate; }
+  .gen-card-tbl tr {
+    background: #fff; border: 1px solid #e8ecf0; border-radius: 12px;
+    padding: 11px 13px; margin-bottom: 9px;
+  }
+  .gen-card-tbl td {
+    border: none !important; padding: 4px 0 !important; font-size: 13px;
+    max-width: none !important; white-space: normal !important;
+    overflow: visible !important; text-overflow: clip !important;
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  }
+  /* ชื่อป้ายกำกับจาก data-label */
+  .gen-card-tbl td::before {
+    content: attr(data-label); font-size: 11.5px; color: #9ca3af;
+    font-weight: 600; flex-shrink: 0; white-space: nowrap;
+  }
+  .gen-card-tbl td:not([data-label])::before { content: none; }
+  /* หัวการ์ด */
+  .gen-card-tbl td.g-title {
+    display: block; font-size: 15.5px !important; font-weight: 800; color: #1a2332;
+    border-bottom: 1px solid #f1f5f9 !important;
+    padding-bottom: 8px !important; margin-bottom: 3px !important; text-align: left !important;
+  }
+  .gen-card-tbl td.g-title::before { content: none; }
+  .gen-card-tbl td.g-title strong { font-size: 15.5px; }
+  /* แถวปุ่มล่างสุด */
+  .gen-card-tbl td.g-act {
+    display: flex !important; justify-content: flex-end; gap: 6px;
+    border-top: 1px solid #f1f5f9 !important;
+    margin-top: 7px !important; padding-top: 9px !important;
+  }
+  .gen-card-tbl td.g-act::before { content: none; }
+  .gen-card-tbl td.g-act .btn { flex: 1; max-width: 90px; }
+  /* ช่องที่ไม่ต้องแสดงบนมือถือ (เช่น เลขลำดับแถว) */
+  .gen-card-tbl td.g-hide { display: none !important; }
+  /* ค่าที่ยาว เช่น รายการสินค้า ให้ขึ้นบรรทัดใหม่ */
+  .gen-card-tbl td.g-wrap { display: block; }
+  .gen-card-tbl td.g-wrap::before { display: block; margin-bottom: 3px; }
 }
 
 /* ── ฟอร์มออเดอร์แบบตะกร้า ── */
@@ -2643,7 +2687,7 @@ async function renderCustomers(el) {
       </div>
     </div>
     <div class="table-scroll">
-      <table class="table-clean">
+      <table class="table-clean gen-card-tbl">
         <thead><tr><th>#</th><th>${sortTh('ชื่อลูกค้า','custTbody','name','_custData')}</th><th>เบอร์โทร</th><th>ที่อยู่</th><th>ราคาพิเศษ</th><th></th></tr></thead>
         <tbody id="custTbody">${customers.map((c,i)=>custRow(c,i)).join('')||emptyRow(7,'ยังไม่มีลูกค้า','fa-users-slash')}</tbody>
       </table>
@@ -2655,13 +2699,13 @@ async function renderCustomers(el) {
 function custRow(c,i) {
   const customCount=Object.keys(c.customPrices||{}).length;
   return `<tr>
-    <td style="color:#9ca3af;font-size:12px;">${i+1}</td>
-    <td><strong>${U.esc(c.name)}</strong></td>
-    <td>${U.esc(c.phone||'-')}</td>
-    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#6b7280;">${U.esc(c.address||'-')}</td>
+    <td class="g-hide" style="color:#9ca3af;font-size:12px;">${i+1}</td>
+    <td class="g-title"><strong>${U.esc(c.name)}</strong></td>
+    <td data-label="เบอร์โทร">${U.esc(c.phone||'-')}</td>
+    <td data-label="ที่อยู่" class="g-wrap" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:#6b7280;">${U.esc(c.address||'-')}</td>
     <td>${customCount?`<span class="price-custom"><i class="fa-solid fa-tag me-1"></i>${customCount} สินค้า</span>`:
          `<span style="color:#9ca3af;font-size:12px;">ราคาปกติ</span>`}</td>
-    <td class="d-flex gap-1">
+    <td class="g-act d-flex gap-1">
       <button class="btn btn-sm btn-outline-info btn-icon" onclick="showCustomerHistory('${c.id}')" title="ประวัติการซื้อ"><i class="fa-solid fa-clock-rotate-left"></i></button>
       <button class="btn btn-sm btn-outline-warning btn-icon" onclick="showCustomerPriceModal('${c.id}')" title="จัดการราคา"><i class="fa-solid fa-tag"></i></button>
       <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showCustomerModal('${c.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
@@ -2848,7 +2892,7 @@ async function renderProducts(el) {
       </div>
     </div>
     <div class="table-scroll">
-      <table class="table-clean">
+      <table class="table-clean gen-card-tbl">
         <thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th>ประเภท</th><th>หน่วย</th><th>ราคาตามสีเส้น</th><th></th></tr></thead>
         <tbody id="prodTbody">${products.map((p,i)=>prodRow(p,i)).join('')||emptyRow(6,'ยังไม่มีสินค้า','fa-box-open')}</tbody>
       </table>
@@ -2874,12 +2918,12 @@ function prodRow(p,i) {
     priceCell=`<span style="font-weight:700;color:#2563eb;">${U.money(p.price)}</span>`;
   }
   return `<tr>
-    <td><code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px;">${U.esc(p.code||'-')}</code></td>
-    <td><strong>${U.esc(p.name)}</strong></td>
-    <td style="font-size:13px;color:#6b7280;">${U.esc(p.category||'-')}</td>
-    <td style="font-size:13px;">${U.esc(p.unit||'โลง')}</td>
-    <td>${priceCell}</td>
-    <td class="d-flex gap-1">
+    <td data-label="รหัส"><code style="background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px;">${U.esc(p.code||'-')}</code></td>
+    <td class="g-title"><strong>${U.esc(p.name)}</strong></td>
+    <td data-label="ประเภท" style="font-size:13px;color:#6b7280;">${U.esc(p.category||'-')}</td>
+    <td data-label="หน่วย" style="font-size:13px;">${U.esc(p.unit||'โลง')}</td>
+    <td data-label="ราคาตามสีเส้น" class="g-wrap">${priceCell}</td>
+    <td class="g-act d-flex gap-1">
       <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showProductModal('${p.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
       <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteProduct('${p.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
     </td>
@@ -3030,7 +3074,7 @@ async function renderInvoices(el) {
       </div>
     </div>
     <div class="table-scroll">
-      <table class="table-clean">
+      <table class="table-clean gen-card-tbl">
         <thead><tr><th>เลขที่ใบเสร็จ</th><th>${sortTh('ลูกค้า','invTbody','customerName','_invData')}</th><th>${sortTh('วันที่','invTbody','createdAt','_invData')}</th><th>รายการ</th><th style="text-align:right;">${sortTh('ยอดรวม','invTbody','_total','_invData')}</th><th style="text-align:center;">สถานะ</th><th></th></tr></thead>
         <tbody id="invTbody">${invoices.map(inv=>invRow(inv)).join('')||emptyRow(7,'ยังไม่มีใบเสร็จ','fa-file-circle-xmark')}</tbody>
       </table>
@@ -3058,15 +3102,15 @@ function invRow(inv) {
     ?`<button class="btn btn-sm btn-outline-secondary btn-icon" onclick="toggleInvPaid('${inv.id}',false)" title="ยกเลิกชำระ"><i class="fa-solid fa-rotate-left"></i></button>`
     :`<button class="btn btn-sm btn-outline-success btn-icon" onclick="toggleInvPaid('${inv.id}',true)" title="บันทึกชำระแล้ว"><i class="fa-solid fa-check"></i></button>`;
   return `<tr>
-    <td><strong>${U.esc(inv.invoiceNo)}</strong></td>
-    <td>${U.esc(inv.customerName||'-')}</td>
-    <td style="white-space:nowrap;font-size:13px;">${U.date(inv.createdAt)}</td>
-    <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#6b7280;">
+    <td class="g-title"><strong>${U.esc(inv.invoiceNo)}</strong></td>
+    <td data-label="ลูกค้า">${U.esc(inv.customerName||'-')}</td>
+    <td data-label="วันที่" style="white-space:nowrap;font-size:13px;">${U.date(inv.createdAt)}</td>
+    <td data-label="รายการ" class="g-wrap" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#6b7280;">
       ${(inv.items||[]).map(i=>U.esc(i.name)+' ×'+i.qty).join(', ')||'-'}
     </td>
-    <td style="text-align:right;font-weight:700;">${U.money(t.total)}</td>
-    <td style="text-align:center;">${statusBadge}</td>
-    <td class="d-flex gap-1">
+    <td data-label="ยอดรวม" style="text-align:right;font-weight:700;">${U.money(t.total)}</td>
+    <td data-label="สถานะ" style="text-align:center;">${statusBadge}</td>
+    <td class="g-act d-flex gap-1">
       ${payBtn}
       <button class="btn btn-sm btn-outline-primary btn-icon" onclick="printReceiptById('${inv.id}')" title="พิมพ์"><i class="fa-solid fa-print"></i></button>
       <button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showCreateReceiptModal('${inv.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
@@ -4387,7 +4431,7 @@ function renderCraftsmenRows(craftsmen, products) {
       return `<tr>
         <td><strong>${U.esc(c.name)}</strong></td>
         <td style="font-size:13px;">${types}</td>
-        <td class="d-flex gap-1">
+        <td class="g-act d-flex gap-1">
           <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showCraftsmanModal('${c.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
           <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteCraftsman('${c.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
         </td>
