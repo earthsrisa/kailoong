@@ -685,19 +685,43 @@ const DB = {
   },
 
   // ── Sequence helpers ──
+  // ใช้ตัวนับกลางใน Firestore + transaction → เลขไม่ซ้ำแม้เจ้าของกับช่างกดพร้อมกัน
+  // counterKey: 'orders-2569' | 'invoices-2569'
+  async _nextSeq(counterKey, seedFn) {
+    const ref = this._fs.collection('counters').doc(counterKey);
+    // คำนวณเลขเริ่มต้นไว้ก่อน (ใช้เฉพาะครั้งแรกที่ยังไม่มีตัวนับ)
+    let seed = 0;
+    try {
+      const snap = await ref.get();
+      if (!snap.exists) seed = await seedFn();
+    } catch (e) { seed = await seedFn(); }
+    // transaction: อ่าน+เขียนเป็นหน่วยเดียว ใครมาทีหลังจะได้เลขถัดไปเสมอ
+    return await this._fs.runTransaction(async tx => {
+      const d = await tx.get(ref);
+      const cur = d.exists ? (d.data().seq || 0) : seed;
+      tx.set(ref, { seq: cur + 1, updatedAt: Date.now() }, { merge: true });
+      return cur + 1;
+    });
+  },
   async nextOrderNo() {
-    const all = await this.getOrders();
-    const yr  = new Date().getFullYear()+543;
+    const yr = new Date().getFullYear() + 543;
     const prefix = `ORD-${yr}-`;
-    const nums = all.filter(o=>o.orderNo?.startsWith(prefix)).map(o=>parseInt(o.orderNo.slice(prefix.length))||0);
-    return `${prefix}${String(nums.length?Math.max(...nums)+1:1).padStart(4,'0')}`;
+    const n = await this._nextSeq(`orders-${yr}`, async () => {
+      const all = await this.getOrders();
+      const nums = all.filter(o=>o.orderNo?.startsWith(prefix)).map(o=>parseInt(o.orderNo.slice(prefix.length))||0);
+      return nums.length ? Math.max(...nums) : 0;
+    });
+    return `${prefix}${String(n).padStart(4,'0')}`;
   },
   async nextReceiptNo() {
-    const all = await this.getInvoices();
-    const yr  = new Date().getFullYear()+543;
+    const yr = new Date().getFullYear() + 543;
     const prefix = `RC-${yr}-`;
-    const nums = all.filter(i=>i.invoiceNo?.startsWith(prefix)).map(i=>parseInt(i.invoiceNo.slice(prefix.length))||0);
-    return `${prefix}${String(nums.length?Math.max(...nums)+1:1).padStart(4,'0')}`;
+    const n = await this._nextSeq(`invoices-${yr}`, async () => {
+      const all = await this.getInvoices();
+      const nums = all.filter(i=>i.invoiceNo?.startsWith(prefix)).map(i=>parseInt(i.invoiceNo.slice(prefix.length))||0);
+      return nums.length ? Math.max(...nums) : 0;
+    });
+    return `${prefix}${String(n).padStart(4,'0')}`;
   },
   async getEffectivePrice(customerId, productId, defaultPrice, trimColor='') {
     const c = await this.getCustomer(customerId);
@@ -4438,14 +4462,18 @@ async function saveSettings() {
 // ── BACKUP ──
 async function backupData() {
   try {
-    const [customers, products, orders, invoices, expenses] = await Promise.all([
-      DB.getCustomers(), DB.getProducts(), DB.getOrders(), DB.getInvoices(), DB.getExpenses()
+    const [customers, products, orders, invoices, expenses, craftsmen] = await Promise.all([
+      DB.getCustomers(), DB.getProducts(), DB.getOrders(), DB.getInvoices(), DB.getExpenses(),
+      DB.getCraftsmen()
     ]);
+    // settings เก็บเป็น doc เดี่ยว ไม่ได้ผ่าน DB shortcut
+    const setSnap = await DB._fs.collection('settings').get();
+    const settings = setSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     const backup = {
-      version: 2,
+      version: 3,
       exportedAt: Date.now(),
       exportedBy: CFG.businessName,
-      data: { customers, products, orders, invoices, expenses }
+      data: { customers, products, orders, invoices, expenses, craftsmen, settings }
     };
     const json = JSON.stringify(backup, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
@@ -4476,7 +4504,8 @@ async function restoreData(input) {
       const backup = JSON.parse(e.target.result);
       if (!backup?.data) { U.toast('ไฟล์ไม่ถูกต้อง ไม่พบข้อมูล', 'error'); return; }
 
-      const { customers=[], products=[], orders=[], invoices=[], expenses=[] } = backup.data;
+      const { customers=[], products=[], orders=[], invoices=[], expenses=[], craftsmen=[], settings=[] } = backup.data;
+      const oldFile = !Array.isArray(backup.data.craftsmen); // ไฟล์สำรองรุ่นเก่าไม่มีช่าง/ตั้งค่า
       const exportDate = backup.exportedAt ? U.datetime(backup.exportedAt) : 'ไม่ทราบ';
 
       const body = `
@@ -4497,7 +4526,11 @@ async function restoreData(input) {
             <div class="col"><div style="font-size:20px;font-weight:700;color:#f59e0b;">${products.length}</div><div style="font-size:11px;color:#6b7280;">สินค้า</div></div>
             <div class="col"><div style="font-size:20px;font-weight:700;color:#8b5cf6;">${invoices.length}</div><div style="font-size:11px;color:#6b7280;">ใบเสร็จ</div></div>
             <div class="col"><div style="font-size:20px;font-weight:700;color:#dc2626;">${expenses.length}</div><div style="font-size:11px;color:#6b7280;">รายจ่าย</div></div>
+            <div class="col"><div style="font-size:20px;font-weight:700;color:#0891b2;">${craftsmen.length}</div><div style="font-size:11px;color:#6b7280;">ช่างแต่ง</div></div>
           </div>
+          ${oldFile ? `<div style="margin-top:12px;background:#fef3c7;border-radius:8px;padding:9px 12px;font-size:12px;color:#92400e;">
+            <i class="fa-solid fa-triangle-exclamation me-1"></i>ไฟล์สำรองรุ่นเก่า — ไม่มีข้อมูลช่างแต่งและตั้งค่าร้าน
+            ของเดิมในระบบจะถูกเก็บไว้ไม่ถูกลบ</div>` : ''}
         </div>`;
 
       showModal('restoreConfirmModal', 'ยืนยันการกู้คืนข้อมูล', body,
@@ -4524,7 +4557,9 @@ async function confirmRestore() {
     closeModal('restoreConfirmModal');
     U.toast('กำลังกู้คืนข้อมูล...');
 
+    // craftsmen กู้คืนเฉพาะเมื่อไฟล์สำรองมีข้อมูลนั้น (ไฟล์เก่า version < 3 ไม่มี)
     const stores = ['customers','products','orders','invoices','expenses'];
+    if (Array.isArray(data.craftsmen)) stores.push('craftsmen');
     for (const store of stores) {
       const all = await DB._all(store);
       for (const item of all) await DB._del(store, item.id);
@@ -4538,6 +4573,25 @@ async function confirmRestore() {
     for (const order of (data.orders||[])) { await DB._put('orders', order); }
     for (const inv of (data.invoices||[])) { await DB._put('invoices', inv); }
     for (const exp of (data.expenses||[])) { await DB._put('expenses', exp); }
+    for (const cm of (data.craftsmen||[])) { await DB._put('craftsmen', cm); }
+    // ตั้งค่าร้าน (ชื่อร้าน ที่อยู่ PromptPay ฯลฯ)
+    for (const st of (data.settings||[])) {
+      const { id, ...rest } = st;
+      if (id) await DB._fs.collection('settings').doc(String(id)).set(rest, { merge: true });
+    }
+    // ตัวนับเลขออเดอร์: ตั้งใหม่ให้ตรงกับข้อมูลที่กู้คืน กันเลขซ้ำ
+    try {
+      const yr = new Date().getFullYear() + 543;
+      const maxOf = (arr, field, prefix) => {
+        const nums = (arr||[]).map(x => x[field]).filter(n => typeof n === 'string' && n.startsWith(prefix))
+          .map(n => parseInt(n.slice(prefix.length)) || 0);
+        return nums.length ? Math.max(...nums) : 0;
+      };
+      await DB._fs.collection('counters').doc(`orders-${yr}`)
+        .set({ seq: maxOf(data.orders, 'orderNo', `ORD-${yr}-`), updatedAt: Date.now() }, { merge: true });
+      await DB._fs.collection('counters').doc(`invoices-${yr}`)
+        .set({ seq: maxOf(data.invoices, 'invoiceNo', `RC-${yr}-`), updatedAt: Date.now() }, { merge: true });
+    } catch(e) { console.error('reset counters:', e); }
 
     await DB.setSetting('lastBackup', Date.now());
     window._pendingRestore = null;

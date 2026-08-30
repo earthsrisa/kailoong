@@ -1263,20 +1263,34 @@ async function submitDraft() {
   }
 }
 
-// เลขออเดอร์ถัดไป — อ่านใบล่าสุดของปีนี้แทนการโหลดทั้ง collection
+// เลขออเดอร์ถัดไป — ใช้ตัวนับกลางตัวเดียวกับ index.html + transaction
+// กันเลขซ้ำเวลาเจ้าของกับช่างกดบันทึกพร้อมกัน
 async function nextOrderNoCraft() {
   const yr = new Date().getFullYear() + 543;
   const prefix = `ORD-${yr}-`;
+  const ref = db.collection('counters').doc(`orders-${yr}`);
   try {
-    const snap = await db.collection('orders')
-      .orderBy('orderNo', 'desc').limit(20).get();
-    const nums = snap.docs.map(d => d.data().orderNo)
-      .filter(n => typeof n === 'string' && n.startsWith(prefix))
-      .map(n => parseInt(n.slice(prefix.length)) || 0);
-    return prefix + String(nums.length ? Math.max(...nums) + 1 : 1).padStart(4, '0');
+    // ครั้งแรกที่ยังไม่มีตัวนับ → หาเลขล่าสุดจากออเดอร์ที่มีอยู่มาตั้งต้น
+    let seed = 0;
+    const snap = await ref.get();
+    if (!snap.exists) {
+      const all = await db.collection('orders').get();
+      const nums = all.docs.map(d => d.data().orderNo)
+        .filter(n => typeof n === 'string' && n.startsWith(prefix))
+        .map(n => parseInt(n.slice(prefix.length)) || 0);
+      seed = nums.length ? Math.max(...nums) : 0;
+    }
+    const n = await db.runTransaction(async tx => {
+      const d = await tx.get(ref);
+      const cur = d.exists ? (d.data().seq || 0) : seed;
+      tx.set(ref, { seq: cur + 1, updatedAt: Date.now() }, { merge: true });
+      return cur + 1;
+    });
+    return prefix + String(n).padStart(4, '0');
   } catch (e) {
-    // สำรอง: ใช้เวลาต่อท้ายกันชนกัน
-    return prefix + String(Date.now()).slice(-4);
+    console.error('nextOrderNoCraft:', e);
+    // สำรองสุดท้าย: ใช้เวลาต่อท้ายกันชนกัน
+    return prefix + 'T' + String(Date.now()).slice(-5);
   }
 }
 
