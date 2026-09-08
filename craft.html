@@ -421,6 +421,9 @@ function getProductLines(prodName) {
   return [...specLines, ...pmKeys.filter(k => !specLines.includes(k))];
 }
 function getProductColors(prodName) {
+  const prod = _products.find(p => p.name === prodName);
+  // ถ้าเจ้าของตั้งสีโลงไว้ในหน้าสินค้าแล้ว ยึดตามนั้น ([] = ไม่ต้องเลือกสี เช่น ไม้สัก)
+  if (Array.isArray(prod?.colors)) return prod.colors;
   return COFFIN_SPEC[prodName]?.colors ?? ['ขาว','แดง'];
 }
 // ── แยกอุปกรณ์เสริมออกจากโลง (ต้องตรงกับ index.html) ──

@@ -470,6 +470,9 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
   font-size:12.5px; color:#92400e; font-weight:600; }
 .oc-add-ttl { font-size:12.5px; font-weight:800; color:#2563eb; margin-bottom:9px; }
 .oc-lbl { font-size:10.5px; font-weight:700; color:#6b7280; margin-bottom:3px; }
+/* วงกลมสีตัวอย่างในหน้าตั้งค่าสินค้า */
+.pf-sw { width:26px; height:26px; border-radius:50%; flex-shrink:0;
+  box-shadow:inset 0 -2px 4px rgba(0,0,0,.12); }
 /* ── ปุ่มเลือกสีโลง: เต็มบรรทัด แบ่งครึ่ง มีวงกลมสีตัวอย่าง ── */
 .oc-colors { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; }
 .oc-color { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
@@ -1377,6 +1380,13 @@ function addItemRow(i, custId, products) {
 }
 
 // ── helper: รวม spec.lines + custom lines จาก priceMap ──
+// สีโลงของสินค้า — ถ้าเคยตั้งไว้ในหน้าสินค้าให้ยึดตามนั้น
+// คืน [] = สินค้านั้นไม่ต้องเลือกสี (เช่น ไม้สัก ที่เป็นสีไม้ธรรมชาติ)
+function getProductColorsFor(prodName, prodList) {
+  const prod = (prodList||[]).find(p => p.name === prodName);
+  if (Array.isArray(prod?.colors)) return prod.colors;   // ตั้งไว้แล้ว (ว่างก็ถือว่าตั้งใจ)
+  return COFFIN_SPEC[prodName]?.colors ?? ['ขาว','แดง'];
+}
 function getProductLines(prodName, prodList) {
   const prod=(prodList||[]).find(p=>p.name===prodName);
   // ถ้าเคยตั้งสีเส้นไว้ในหน้าสินค้าแล้ว ให้ยึดตามนั้น (ลบออกแล้วต้องไม่กลับมา)
@@ -1391,7 +1401,8 @@ function updateAddItemSpec(i, prodName) {
   const _prod=(window._addItemsProducts||[]).find(p=>p.name===prodName);
   const _isAcc=_prod?((_prod.unit||'โลง').trim()!=='โลง'):['เทพ','มุม','เส้น'].some(k=>(prodName||'').includes(k));
   const _base=COFFIN_SPEC[prodName]||{colors:['ขาว','แดง'],lines:['ทอง','เงิน','ซีด','ขาว']};
-  const spec=_isAcc?{colors:[],lines:_base.lines}:_base;
+  const _cols=_isAcc?[]:getProductColorsFor(prodName, window._addItemsProducts||[]);
+  const spec={..._base, colors:_cols};
   const hasColor=spec.colors.length>0;
   const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   const colorSel=document.getElementById(`aicolor_${i}`);
@@ -1722,7 +1733,7 @@ function renderOcSteps() {
 
   const isAcc  = isAccessory(prod.name);
   const spec   = COFFIN_SPEC[prod.name] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
-  const colors = isAcc ? [] : (spec.colors || []);
+  const colors = isAcc ? [] : getProductColorsFor(prod.name, prods);
   const lines  = isAcc ? [] : getProductLines(prod.name, prods);
 
   // ── ขั้น 3 สีโลง (ข้ามถ้าเป็นอุปกรณ์เสริม หรือสินค้าไม่มีสี) ──
@@ -3161,7 +3172,7 @@ function filterProdTable(val) {
   document.getElementById('prodTbody').innerHTML=data.map((p,i)=>prodRow(p,i)).join('')||emptyRow(6,'ไม่พบสินค้า');
 }
 
-function buildPriceFields(prodName, existingPm, savedLines) {
+function buildPriceFields(prodName, existingPm, savedLines, savedColors) {
   const spec=COFFIN_SPEC[prodName];
   const pmKeys=Object.keys(existingPm||{}).filter(k=>k!=='__default'&&(existingPm[k]||0)>0);
   const DEFAULT_LINES=['ทอง','เงิน'];
@@ -3185,7 +3196,56 @@ function buildPriceFields(prodName, existingPm, savedLines) {
     </div>
     <div id="pf_lines_wrap" style="display:flex;flex-direction:column;gap:8px;">${rows}</div>
   </div>
+  ${buildColorFields(prodName, savedColors)}
   <input type="hidden" id="pf_price" value="0">`;
+}
+
+// ── ตั้งค่าสีโลงของสินค้า — ลบให้หมด = ไม่ต้องเลือกสีตอนสั่ง ──
+function buildColorFields(prodName, savedColors) {
+  const colors = Array.isArray(savedColors) ? savedColors
+    : (COFFIN_SPEC[prodName]?.colors ?? ['ขาว','แดง']);
+  const rows = colors.map(c => `
+    <div class="pf-color-row" style="display:grid;grid-template-columns:28px 1fr 34px;gap:8px;align-items:center;">
+      <span class="pf-sw" style="${COLOR_SWATCH[c]||'background:#e5e7eb;'}"></span>
+      <input type="text" class="form-control form-control-sm pf-color-name" value="${U.esc(c)}"
+        placeholder="ชื่อสี" oninput="refreshColorSwatch(this)">
+      <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.pf-color-row').remove();updateColorHint()" style="padding:4px 7px;"><i class="fa-solid fa-trash"></i></button>
+    </div>`).join('');
+  return `<div class="col-12">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <label class="form-label fw-semibold mb-0">🎨 สีโลง</label>
+      <button type="button" class="btn btn-sm btn-outline-primary" onclick="addColorRow()"><i class="fa-solid fa-plus me-1"></i>เพิ่มสี</button>
+    </div>
+    <div id="pf_colors_wrap" style="display:flex;flex-direction:column;gap:8px;">${rows}</div>
+    <div id="pf_color_hint" style="font-size:12px;color:#6b7280;margin-top:7px;"></div>
+  </div>`;
+}
+
+function refreshColorSwatch(inp) {
+  const sw = inp.closest('.pf-color-row')?.querySelector('.pf-sw');
+  if (sw) sw.style.cssText = 'width:26px;height:26px;border-radius:50%;flex-shrink:0;'
+    + (COLOR_SWATCH[inp.value.trim()] || 'background:#e5e7eb;border:1.5px solid #cbd5e1;');
+}
+function updateColorHint() {
+  const n = document.querySelectorAll('.pf-color-row').length;
+  const el = document.getElementById('pf_color_hint');
+  if (el) el.innerHTML = n
+    ? `<i class="fa-solid fa-circle-info me-1"></i>ตอนรับออเดอร์จะให้เลือก ${n} สีนี้`
+    : `<span style="color:#0891b2;font-weight:600;"><i class="fa-solid fa-check me-1"></i>ไม่มีสี — ตอนรับออเดอร์จะข้ามขั้นเลือกสีโลงไปเลย (เหมาะกับไม้สัก)</span>`;
+}
+function addColorRow() {
+  const wrap = document.getElementById('pf_colors_wrap');
+  if (!wrap) return;
+  const row = document.createElement('div');
+  row.className = 'pf-color-row';
+  row.style.cssText = 'display:grid;grid-template-columns:28px 1fr 34px;gap:8px;align-items:center;';
+  row.innerHTML = `
+    <span class="pf-sw" style="background:#e5e7eb;border:1.5px solid #cbd5e1;"></span>
+    <input type="text" class="form-control form-control-sm pf-color-name" placeholder="ชื่อสี เช่น ขาว" oninput="refreshColorSwatch(this)">
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.pf-color-row').remove();updateColorHint()" style="padding:4px 7px;"><i class="fa-solid fa-trash"></i></button>`;
+  wrap.appendChild(row);
+  row.querySelector('.pf-color-name').focus();
+  updateColorHint();
 }
 
 function addPriceLineRow() {
@@ -3205,7 +3265,7 @@ async function showProductModal(id) {
   const p=id?await DB.getProduct(id):null;
   const specNames=Object.keys(COFFIN_SPEC);
   const nameOpts=specNames.map(n=>`<option value="${n}">`).join('');
-  const initPriceFields=buildPriceFields(p?.name||'',p?.priceMap||{},p?.lines);
+  const initPriceFields=buildPriceFields(p?.name||'',p?.priceMap||{},p?.lines,p?.colors);
   const body=`<form class="row g-3">
     <div class="col-sm-4"><label class="form-label">รหัสสินค้า</label>
       <input type="text" class="form-control" id="pf_code" placeholder="เช่น L001" value="${U.esc(p?.code||'')}"></div>
@@ -3220,13 +3280,14 @@ async function showProductModal(id) {
     <div class="col-12" id="pf_price_wrap">${initPriceFields}</div>
     <input type="hidden" id="pf_id" value="${p?.id||''}">
   </form>`;
+  setTimeout(updateColorHint, 60);
   showModal('prodModal',p?'แก้ไขสินค้า':'เพิ่มสินค้าใหม่',body,
     `<button class="btn btn-primary" onclick="saveProduct()"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึก</button>
      <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,'modal-lg');
 }
 function refreshPriceFields(name) {
   const wrap=document.getElementById('pf_price_wrap');
-  if(wrap) wrap.innerHTML=buildPriceFields(name,{});
+  if(wrap){ wrap.innerHTML=buildPriceFields(name,{}); updateColorHint(); }
 }
 
 async function saveProduct() {
@@ -3244,11 +3305,17 @@ async function saveProduct() {
       const v=parseFloat(row.querySelector('.pf-line-price')?.value||'');
       if(!isNaN(v)&&v>0) priceMap[l]=v;
     });
+    // สีโลง — เก็บเป็น array ว่างได้ (= ไม่ต้องเลือกสี เช่น ไม้สัก)
+    const colors=[];
+    document.querySelectorAll('.pf-color-name').forEach(el=>{
+      const c=el.value.trim();
+      if(c && !colors.includes(c)) colors.push(c);
+    });
     const defaultPrice=parseFloat(document.getElementById('pf_price')?.value||0)||0;
     const data={code:document.getElementById('pf_code')?.value.trim()||'',name,
       category:document.getElementById('pf_cat')?.value.trim()||'',
       unit:document.getElementById('pf_unit')?.value.trim()||'โลง',
-      price:defaultPrice, priceMap, lines};
+      price:defaultPrice, priceMap, lines, colors};
     if (id){const old=await DB.getProduct(id);await DB.putProduct({...old,...data});U.toast('แก้ไขสินค้าแล้ว ✓');}
     else{await DB.addProduct(data);U.toast('เพิ่มสินค้าแล้ว ✓');}
     closeModal('prodModal');navigate('products');
