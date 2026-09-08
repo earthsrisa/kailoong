@@ -444,6 +444,9 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-stp { width:32px; height:32px; border-radius:7px; border:2px solid #d1d5db; background:#fff;
   font-size:17px; font-weight:800; color:#374151; cursor:pointer; line-height:1; flex-shrink:0; font-family:inherit; }
 .oc-stp.plus { background:#2563eb; border-color:#2563eb; color:#fff; }
+.oc-stp.bulk { width:auto; padding:0 11px; font-size:13.5px; font-weight:800;
+  background:#f1f5f9; border-color:#cbd5e1; color:#475569; }
+.oc-stp.bulk.plus { background:#0891b2; border-color:#0891b2; color:#fff; }
 .oc-qn { font-size:18px; font-weight:800; min-width:28px; text-align:center; }
 .oc-pr { flex:1; min-width:80px; border:2px solid #fcd34d; border-radius:7px; padding:5px 7px;
   font-size:13.5px; font-weight:700; text-align:right; font-family:inherit; }
@@ -467,6 +470,23 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
   font-size:12.5px; color:#92400e; font-weight:600; }
 .oc-add-ttl { font-size:12.5px; font-weight:800; color:#2563eb; margin-bottom:9px; }
 .oc-lbl { font-size:10.5px; font-weight:700; color:#6b7280; margin-bottom:3px; }
+/* ── ปุ่มเลือกสีโลง: เต็มบรรทัด แบ่งครึ่ง มีวงกลมสีตัวอย่าง ── */
+.oc-colors { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; }
+.oc-color { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  border:2.5px solid #e5e7eb; background:#fff; border-radius:11px; padding:12px 6px;
+  cursor:pointer; font-family:'Sarabun',sans-serif; transition:all .15s; position:relative; }
+.oc-color:hover { border-color:#cbd5e1; transform:translateY(-1px); }
+.oc-color .sw { width:34px; height:34px; border-radius:50%; flex-shrink:0;
+  box-shadow:inset 0 -2px 5px rgba(0,0,0,.14); transition:transform .15s; }
+.oc-color .nm { font-size:14px; font-weight:700; color:#64748b; }
+.oc-color.on { border-color:#2563eb; background:#eff6ff; box-shadow:0 2px 8px rgba(37,99,235,.18); }
+.oc-color.on .sw { transform:scale(1.12); }
+.oc-color.on .nm { color:#1e3a8a; font-weight:800; }
+.oc-color .tick { position:absolute; top:6px; right:8px; font-size:13px; color:#2563eb; opacity:0; transition:opacity .15s; }
+.oc-color.on .tick { opacity:1; }
+/* ── สีเส้น: สัญลักษณ์ท้ายชื่อ ── */
+.oc-trim-tag { display:inline-block; margin-left:6px; font-size:13px; }
+
 .oc-pill { flex:1; text-align:center; border:2px solid #e5e7eb; background:#fff; border-radius:7px;
   padding:5px 0; font-size:12px; color:#6b7280; cursor:pointer; font-family:inherit; }
 .oc-pill.on { border-color:#2563eb; background:#eff6ff; color:#1a2332; font-weight:700; }
@@ -1581,6 +1601,86 @@ function ocProdOptions(products, selectedId) {
 //  ลูกค้า* → สินค้า* → สีโลง* → สีเส้น* → ขนาด → จำนวน/ราคา
 //  ขั้นถัดไปจะโผล่ก็ต่อเมื่อขั้นก่อนหน้าเลือกครบแล้ว
 // ══════════════════════════════════════════════════
+// ── หน้าสรุปหลังบันทึกออเดอร์ ──
+function showOrderSavedSummary({orderNo, customerName, items, discount, isEdit, createdAt}) {
+  const sub   = (items||[]).reduce((a,i) => a + (i.qty||0)*(i.price||0), 0);
+  const total = Math.max(0, sub - (discount||0));
+  const pcs   = (items||[]).reduce((a,i) => a + (i.qty||0), 0);
+
+  const rows = (items||[]).map(i => {
+    const isAcc = isAccessory(i.productName);
+    const cs = i.color==='แดง' ? 'background:#7f1d1d;color:#fff;'
+      : i.color==='ดำ' ? 'background:#111827;color:#fff;'
+      : 'background:#fff;color:#111;border:1.5px solid #94a3b8;';
+    const chips =
+        (i.color && i.color!=='-' ? `<span class="oc-chip" style="${cs}">${U.esc(i.color)}</span>` : '')
+      + (i.trimColor ? `<span class="oc-chip" style="background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">เส้น${U.esc(i.trimColor)} ${TRIM_ICON[i.trimColor]||''}</span>` : '')
+      + (i.extra ? `<span class="oc-chip" style="background:#fef3c7;color:#92400e;">${U.esc(i.extra)}</span>` : '')
+      + (isAcc ? `<span class="oc-chip" style="background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc;">อุปกรณ์เสริม</span>` : '');
+    return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #f1f5f9;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:700;color:#1a2332;">${U.esc(i.productName)}${chips}</div>
+        ${i.specialNote?`<div style="font-size:11.5px;color:#9ca3af;margin-top:3px;">📝 ${U.esc(i.specialNote)}</div>`:''}
+        <div style="font-size:12px;color:#6b7280;margin-top:3px;">${i.qty} × ${U.money(i.price)}</div>
+      </div>
+      <div style="font-size:15px;font-weight:800;color:#1a2332;white-space:nowrap;">${U.money((i.qty||0)*(i.price||0))}</div>
+    </div>`;
+  }).join('');
+
+  const body = `
+    <div style="text-align:center;padding:4px 0 14px;">
+      <div style="width:56px;height:56px;border-radius:50%;background:#dcfce7;color:#16a34a;
+        display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 10px;">
+        <i class="fa-solid fa-circle-check"></i></div>
+      <div style="font-size:17px;font-weight:800;color:#1a2332;">${isEdit?'แก้ไขออเดอร์เรียบร้อย':'บันทึกออเดอร์เรียบร้อย'}</div>
+      ${orderNo?`<div style="font-size:12.5px;color:#6b7280;margin-top:3px;">เลขที่ <strong style="color:#374151;">${U.esc(orderNo)}</strong></div>`:''}
+    </div>
+    <div style="background:#f8fafc;border-radius:11px;padding:12px 14px;margin-bottom:12px;
+      display:flex;align-items:center;gap:11px;">
+      <div style="width:40px;height:40px;border-radius:11px;background:#dbeafe;color:#1e40af;
+        display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;">
+        ${U.esc((customerName||'?').trim().slice(0,2))}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:11px;color:#9ca3af;font-weight:600;">ลูกค้า</div>
+        <div style="font-size:16px;font-weight:800;color:#1a2332;">${U.esc(customerName||'-')}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:#9ca3af;font-weight:600;">วันที่</div>
+        <div style="font-size:12.5px;font-weight:600;color:#374151;">${U.date(createdAt)}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:4px;">
+      รายการที่สั่ง (${(items||[]).length} รายการ · ${pcs} ชิ้น)</div>
+    <div style="max-height:38vh;overflow-y:auto;">${rows||'<div style="padding:14px;text-align:center;color:#9ca3af;font-size:13px;">ไม่มีรายการ</div>'}</div>
+    <div style="background:#f8fafc;border-radius:11px;padding:11px 14px;margin-top:12px;">
+      <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#6b7280;margin-bottom:5px;">
+        <span>ยอดก่อนส่วนลด</span><b style="color:#1a2332;">${U.money(sub)}</b></div>
+      ${discount?`<div style="display:flex;justify-content:space-between;font-size:12.5px;color:#6b7280;margin-bottom:5px;">
+        <span>ส่วนลด</span><b style="color:#dc2626;">−${U.money(discount)}</b></div>`:''}
+      <div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid #1a2332;padding-top:8px;">
+        <span style="font-size:14px;font-weight:800;">รวมทั้งสิ้น</span>
+        <b style="font-size:21px;font-weight:800;color:#1a2332;">${U.money(total)}</b></div>
+    </div>`;
+
+  showModal('orderSavedModal', '', body,
+    `<button class="btn btn-primary w-100" data-bs-dismiss="modal" style="font-weight:800;padding:11px;">
+       <i class="fa-solid fa-check me-1"></i>รับทราบ
+     </button>`, 'modal-md');
+}
+
+// สีตัวอย่างในปุ่มเลือกสีโลง
+const COLOR_SWATCH = {
+  'ขาว':    'background:#fff;border:2px solid #94a3b8;',
+  'แดง':    'background:#7f1d1d;',
+  'ดำ':     'background:#111827;',
+  'น้ำตาล': 'background:#92400e;',
+};
+// สัญลักษณ์ท้ายชื่อสีเส้น
+const TRIM_ICON = {
+  'ทอง':'🟡', 'เงิน':'⚪', 'ซีด':'🥉', 'ขาว':'⬜',
+  'คริสต์':'✝️', 'ผ้าจีบ':'🪷', 'ผ้าดอก':'🌸',
+};
+
 function ocStep(n, label, required, inner, done) {
   return `<div class="oc-step${done?' done':''}">
     <div class="oc-step-hd">
@@ -1625,21 +1725,28 @@ function renderOcSteps() {
   if (colors.length) {
     colorDone = !!cur.color;
     html += ocStep(n++, 'เลือกสีโลง', true,
-      `<div class="ord-pills">${colors.map(c =>
-        `<button type="button" class="oc-pill ${cur.color===c?'on':''}" onclick="ocColor('${U.esc(c)}')">${U.esc(c)}</button>`
+      `<div class="oc-colors">${colors.map(c =>
+        `<button type="button" class="oc-color ${cur.color===c?'on':''}" onclick="ocColor('${U.esc(c)}')">
+           <span class="tick"><i class="fa-solid fa-circle-check"></i></span>
+           <span class="sw" style="${COLOR_SWATCH[c]||'background:#e5e7eb;'}"></span>
+           <span class="nm">${U.esc(c)}</span>
+         </button>`
       ).join('')}</div>`, colorDone);
     if (!colorDone) return html;
   }
 
-  // ── ขั้น 4 สีเส้น ──
+  // ── ขั้น 4 สีเส้น (มีสัญลักษณ์ท้ายชื่อ) ──
   let trimDone = true;
   if (lines.length) {
     trimDone = !!cur.trimColor;
     html += ocStep(n++, 'เลือกสีเส้น', true,
       `<select class="form-select form-select-sm" onchange="ocTrim(this.value)">
          <option value="">-- เลือกสีเส้น --</option>
-         ${lines.map(l => `<option value="${U.esc(l)}" ${cur.trimColor===l?'selected':''}>${U.esc(l)}</option>`).join('')}
-       </select>`, trimDone);
+         ${lines.map(l => `<option value="${U.esc(l)}" ${cur.trimColor===l?'selected':''}>${U.esc(l)} ${TRIM_ICON[l]||'▫'}</option>`).join('')}
+       </select>
+       ${cur.trimColor ? `<div class="oc-picked" style="margin-top:7px;background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a;">
+         เส้น${U.esc(cur.trimColor)}<span class="oc-trim-tag" style="font-size:17px;">${TRIM_ICON[cur.trimColor]||'▫'}</span></div>` : ''}`,
+      trimDone);
     if (!trimDone) return html;
   }
 
@@ -1653,21 +1760,28 @@ function renderOcSteps() {
   }
 
   // ── ขั้นสุดท้าย จำนวน + ราคา + ปุ่มเพิ่ม ──
+  // อุปกรณ์เสริมมักสั่งทีละร้อย → เพิ่มปุ่ม ±10 ให้กดเร็ว
+  const bulk = isAcc
+    ? `<button type="button" class="oc-stp bulk" onclick="ocQty(-10)">−10</button>`
+    : '';
+  const bulkPlus = isAcc
+    ? `<button type="button" class="oc-stp bulk plus" onclick="ocQty(10)">+10</button>`
+    : '';
   html += ocStep(n, 'จำนวนและราคา', false, `
-    <div style="display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:end;margin-bottom:10px;">
-      <div>
-        <div class="oc-lbl">จำนวน</div>
-        <div style="display:flex;align-items:center;gap:6px;">
-          <button type="button" class="oc-stp" onclick="ocQty(-1)">−</button>
-          <span class="oc-qn" id="oc_qty">${cur.qty || 1}</span>
-          <button type="button" class="oc-stp plus" onclick="ocQty(1)">+</button>
-        </div>
+    <div style="margin-bottom:10px;">
+      <div class="oc-lbl">จำนวน${isAcc?` <span style="color:#0891b2;font-weight:600;">(${U.esc(prod.unit||'ชิ้น')})</span>`:''}</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        ${bulk}
+        <button type="button" class="oc-stp" onclick="ocQty(-1)">−</button>
+        <span class="oc-qn" id="oc_qty">${cur.qty || 1}</span>
+        <button type="button" class="oc-stp plus" onclick="ocQty(1)">+</button>
+        ${bulkPlus}
       </div>
-      <div>
-        <div class="oc-lbl">ราคา/ชิ้น</div>
-        <input type="number" class="form-control form-control-sm" id="oc_price" min="0" value="${cur.price || 0}"
-          style="text-align:right;font-weight:700;font-size:14px;">
-      </div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <div class="oc-lbl">ราคา/ชิ้น</div>
+      <input type="number" class="form-control form-control-sm" id="oc_price" min="0" value="${cur.price || 0}"
+        style="text-align:right;font-weight:700;font-size:15px;">
     </div>
     <button type="button" class="btn btn-primary w-100" onclick="ocAdd()" style="font-weight:800;padding:10px;">
       <i class="fa-solid fa-cart-plus me-1"></i>เพิ่มเข้ารายการ
@@ -1703,7 +1817,9 @@ async function ocTrim(t) {
 }
 function ocQty(d) {
   const cur = window._ordCur;
-  const v = cur.qty + d; if (v < 1 || v > 999) return;
+  // กด −10 ตอนมีน้อยกว่า 10 → ลงมาที่ 1 แทนที่จะไม่ทำอะไร
+  const v = Math.min(9999, Math.max(1, (cur.qty || 1) + d));
+  if (v === cur.qty) return;
   cur.qty = v;
   const el = document.getElementById('oc_qty'); if (el) el.textContent = v;
   const pr = document.getElementById('oc_price'); if (pr) cur.price = parseFloat(pr.value)||0;
@@ -2664,8 +2780,10 @@ async function saveOrder() {
       notes:document.getElementById('of_notes')?.value.trim()||'',
       createdAt,
     };
+    let savedOrderNo = '';
     if (editId) {
       const old=await DB.getOrder(editId);
+      savedOrderNo = old?.orderNo || '';
       await DB.putOrder({...old,...data,id:editId});
       U.toast('แก้ไขออเดอร์แล้ว ✓');
       // แจ้งเตือน LINE กลุ่ม — แก้ไขออเดอร์ (เฉพาะรายการที่เปลี่ยน)
@@ -2710,6 +2828,7 @@ async function saveOrder() {
       }
     } else {
       data.orderNo=await DB.nextOrderNo();
+      savedOrderNo = data.orderNo;
       const newOrderId = await DB.addOrder(data);
       U.toast('บันทึกออเดอร์แล้ว ✓');
       // แจ้งเตือน LINE กลุ่ม — ออเดอร์ใหม่ (fire-and-forget)
@@ -2730,6 +2849,10 @@ async function saveOrder() {
     }
     closeModal('orderModal');
     navigate(editId ? 'orders' : 'dashboard');
+    // หน้าสรุปหลังบันทึก — ทวนอีกรอบว่าสั่งอะไรไปบ้าง
+    const _sum = { orderNo: savedOrderNo, customerName: data.customerName, items,
+                   discount: data.discount || 0, isEdit: !!editId, createdAt: data.createdAt };
+    setTimeout(() => showOrderSavedSummary(_sum), 350);
   } catch(e) {
     U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
   } finally {
