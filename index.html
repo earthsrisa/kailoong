@@ -141,6 +141,18 @@ body { background: #f0f2f5; margin: 0; }
 .btn-card-outline:hover { background:rgba(255,255,255,.15); }
 .btn-card-solid { background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:7px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:600; }
 .btn-card-solid:hover { background:rgba(255,255,255,.35); }
+/* ปุ่มรับออเดอร์ใหม่ — เด่นกว่าปุ่มอื่นในการ์ด */
+.btn-neworder-hero {
+  display:inline-flex; align-items:center; gap:7px;
+  background:#fff; color:#065f46; border:none; border-radius:9px;
+  padding:9px 18px; font-size:14.5px; font-weight:800; cursor:pointer;
+  box-shadow:0 2px 10px rgba(0,0,0,.22); transition:transform .12s, box-shadow .12s;
+  font-family:'Sarabun',sans-serif; white-space:nowrap;
+}
+.btn-neworder-hero i { font-size:15px; }
+.btn-neworder-hero:hover { transform:translateY(-1px); box-shadow:0 4px 14px rgba(0,0,0,.28); }
+.btn-neworder-hero:active { transform:translateY(0); }
+@media (max-width:767px){ .btn-neworder-hero { width:100%; justify-content:center; padding:11px; font-size:15px; } }
 .today-card h3 { font-size: 15px; font-weight: 700; margin: 0 0 14px; opacity: .85; }
 .today-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.12); font-size: 14px; }
 .today-item:last-child { border-bottom: none; }
@@ -436,6 +448,23 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-pr { flex:1; min-width:80px; border:2px solid #fcd34d; border-radius:7px; padding:5px 7px;
   font-size:13.5px; font-weight:700; text-align:right; font-family:inherit; }
 .oc-add { background:#fff; border:2px dashed #cbd5e1; border-radius:12px; padding:12px 13px; }
+/* ── ขั้นตอนไหลลงทีละบรรทัด ── */
+.oc-step { padding:9px 0; border-bottom:1px dashed #eef2f6; animation:ocSlide .18s ease; }
+.oc-step:last-child { border-bottom:none; padding-bottom:2px; }
+@keyframes ocSlide { from{opacity:0;transform:translateY(-5px);} to{opacity:1;transform:translateY(0);} }
+.oc-step-hd { display:flex; align-items:center; gap:7px; margin-bottom:6px; }
+.oc-step-no { width:20px; height:20px; border-radius:50%; background:#e2e8f0; color:#64748b;
+  font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.oc-step-no.ok { background:#16a34a; color:#fff; }
+.oc-step-lb { font-size:12.5px; font-weight:700; color:#1a2332; }
+.oc-req { color:#dc2626; font-weight:800; }
+.oc-step.done .oc-step-lb { color:#64748b; font-weight:600; }
+.oc-picked { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
+  background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:8px; padding:7px 10px;
+  font-size:13.5px; font-weight:700; color:#166534; }
+.oc-change { font-size:11px; font-weight:600; color:#16a34a; cursor:pointer; text-decoration:underline; }
+.oc-wait { background:#fef3c7; border:1.5px solid #fcd34d; border-radius:8px; padding:7px 10px;
+  font-size:12.5px; color:#92400e; font-weight:600; }
 .oc-add-ttl { font-size:12.5px; font-weight:800; color:#2563eb; margin-bottom:9px; }
 .oc-lbl { font-size:10.5px; font-weight:700; color:#6b7280; margin-bottom:3px; }
 .oc-pill { flex:1; text-align:center; border:2px solid #e5e7eb; background:#fff; border-radius:7px;
@@ -1062,7 +1091,7 @@ async function renderDashboard(el) {
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input type="date" id="pendingDatePicker" value="${todayLocal()}" onchange="filterPendingByDate(this.value)" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:12px;padding:4px 8px;cursor:pointer;">
             <button class="btn-card-outline" onclick="showPrintSelectModal()"><i class="fa-solid fa-print me-1"></i>พิมพ์รายการรอส่ง</button>
-            <button class="btn-card-solid" onclick="showCreateOrderModal()"><i class="fa-solid fa-plus me-1"></i>รับออเดอร์ใหม่</button>
+            <button class="btn-neworder-hero" onclick="showCreateOrderModal()"><i class="fa-solid fa-cart-plus"></i>รับออเดอร์ใหม่</button>
           </div>
         </div>
         <div id="pendingList">${buildPendingHtml(pendingOrders)}</div>
@@ -1510,28 +1539,7 @@ async function showCreateOrderModal(editId) {
         <div>
           <div class="oc-add">
             <div class="oc-add-ttl"><i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้า</div>
-            <select class="form-select form-select-sm" id="oc_prod" onchange="ocProdChange(this.value)" style="margin-bottom:9px;">
-              <option value="">-- เลือกสินค้า --</option>${ocProdOptions(products)}
-            </select>
-            <div id="oc_spec"></div>
-            <div style="display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:end;margin-bottom:9px;">
-              <div>
-                <div class="oc-lbl">จำนวน</div>
-                <div style="display:flex;align-items:center;gap:6px;">
-                  <button type="button" class="oc-stp" onclick="ocQty(-1)">−</button>
-                  <span class="oc-qn" id="oc_qty">1</span>
-                  <button type="button" class="oc-stp plus" onclick="ocQty(1)">+</button>
-                </div>
-              </div>
-              <div>
-                <div class="oc-lbl">ราคา/ชิ้น</div>
-                <input type="number" class="form-control form-control-sm" id="oc_price" min="0" value="0"
-                  style="text-align:right;font-weight:700;font-size:14px;">
-              </div>
-            </div>
-            <button type="button" class="btn btn-primary w-100" onclick="ocAdd()" style="font-weight:700;">
-              <i class="fa-solid fa-cart-plus me-1"></i>เพิ่มเข้ารายการ
-            </button>
+            <div id="oc_steps"></div>
           </div>
 
           <div style="margin-top:10px;">
@@ -1551,68 +1559,154 @@ async function showCreateOrderModal(editId) {
     'modal-lg');
 
   renderOrdCart();
+  paintOcSteps();
 }
 
 async function showEditOrderModal(id) { await showCreateOrderModal(id); }
 
 // ── ตัวเลือกสินค้า แยกหมวด โลง / อุปกรณ์เสริม ──
-function ocProdOptions(products) {
+function ocProdOptions(products, selectedId) {
   const sorted = [...(products||[])].sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
   const cof=[], acc=[];
   sorted.forEach(p => {
-    const o = `<option value="${p.id}">${U.esc(p.name)}</option>`;
+    const o = `<option value="${p.id}" ${selectedId===p.id?'selected':''}>${U.esc(p.name)}</option>`;
     (isAccessory(p.name) ? acc : cof).push(o);
   });
   return (cof.length?`<optgroup label="⚰️ โลง">${cof.join('')}</optgroup>`:'')
        + (acc.length?`<optgroup label="🔧 อุปกรณ์เสริม (ไม่ต้องแต่ง)">${acc.join('')}</optgroup>`:'');
 }
 
-// ── ช่องสี/เส้น/ขนาด ของสินค้าที่เลือกอยู่ ──
-function ocSpecHtml() {
-  const cur = window._ordCur;
-  const prod = (window._orderProds||[]).find(p => p.id === cur.productId);
-  if (!prod) return '';
-  if (isAccessory(prod.name)) { cur.color=''; cur.trimColor=''; cur.extra=''; return ''; }
-  const spec = COFFIN_SPEC[prod.name] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
-  const colors = spec.colors || [];
-  const lines  = getProductLines(prod.name, window._orderProds||[]);
-  if (!cur.trimColor || !lines.includes(cur.trimColor)) cur.trimColor = lines[0] || '';
-  if (colors.length && (!cur.color || !colors.includes(cur.color))) cur.color = colors[0];
-  if (!colors.length) cur.color = '';
-  return `
-    <div style="display:grid;grid-template-columns:${colors.length?'1fr 1fr':'1fr'};gap:8px;margin-bottom:9px;">
-      ${colors.length?`<div><div class="oc-lbl">สีโลง</div>
-        <div style="display:flex;gap:5px;">${colors.map(c =>
-          `<button type="button" class="oc-pill ${cur.color===c?'on':''}" onclick="ocColor('${U.esc(c)}')">${U.esc(c)}</button>`).join('')}</div></div>`:''}
-      <div><div class="oc-lbl">สีเส้น</div>
-        <select class="form-select form-select-sm" onchange="ocTrim(this.value)">
-          ${lines.map(l=>`<option value="${U.esc(l)}" ${cur.trimColor===l?'selected':''}>${U.esc(l)}</option>`).join('')}
-        </select></div>
+// ══════════════════════════════════════════════════
+//  ฟอร์มเพิ่มสินค้าแบบไหลลงทีละขั้น
+//  ลูกค้า* → สินค้า* → สีโลง* → สีเส้น* → ขนาด → จำนวน/ราคา
+//  ขั้นถัดไปจะโผล่ก็ต่อเมื่อขั้นก่อนหน้าเลือกครบแล้ว
+// ══════════════════════════════════════════════════
+function ocStep(n, label, required, inner, done) {
+  return `<div class="oc-step${done?' done':''}">
+    <div class="oc-step-hd">
+      <span class="oc-step-no${done?' ok':''}">${done?'<i class="fa-solid fa-check"></i>':n}</span>
+      <span class="oc-step-lb">${label}${required?' <span class="oc-req">*</span>':''}</span>
     </div>
-    ${spec.extra?`<div style="margin-bottom:9px;"><div class="oc-lbl">ขนาด</div>
-      <select class="form-select form-select-sm" onchange="window._ordCur.extra=this.value">
-        <option value="">-- ไม่ระบุ --</option>
-        ${spec.extra.map(e=>`<option value="${U.esc(e)}" ${cur.extra===e?'selected':''}>${U.esc(e)}</option>`).join('')}
-      </select></div>`:''}`;
+    <div class="oc-step-bd">${inner}</div>
+  </div>`;
 }
+
+function renderOcSteps() {
+  const cur  = window._ordCur || {};
+  const prods = window._orderProds || [];
+  const prod = prods.find(p => p.id === cur.productId);
+  const hasCust = !!window._orderCustId;
+  let n = 1, html = '';
+
+  // ── ขั้น 1 ลูกค้า ──
+  const custName = document.getElementById('of_cust')?.selectedOptions?.[0]?.text || '';
+  html += ocStep(n++, 'เลือกลูกค้า', true,
+    hasCust
+      ? `<div class="oc-picked"><i class="fa-solid fa-user me-1"></i>${U.esc(custName)}
+           <span class="oc-change" onclick="document.getElementById('of_cust')?.focus()">เปลี่ยนด้านบน</span></div>`
+      : `<div class="oc-wait"><i class="fa-solid fa-arrow-up me-1"></i>เลือกลูกค้าที่ช่องด้านบนก่อน</div>`,
+    hasCust);
+  if (!hasCust) return html;
+
+  // ── ขั้น 2 สินค้า ──
+  html += ocStep(n++, 'เลือกสินค้า', true,
+    `<select class="form-select form-select-sm" id="oc_prod" onchange="ocProdChange(this.value)">
+       <option value="">-- เลือกสินค้า --</option>${ocProdOptions(prods, cur.productId)}
+     </select>`, !!prod);
+  if (!prod) return html;
+
+  const isAcc  = isAccessory(prod.name);
+  const spec   = COFFIN_SPEC[prod.name] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
+  const colors = isAcc ? [] : (spec.colors || []);
+  const lines  = isAcc ? [] : getProductLines(prod.name, prods);
+
+  // ── ขั้น 3 สีโลง (ข้ามถ้าเป็นอุปกรณ์เสริม หรือสินค้าไม่มีสี) ──
+  let colorDone = true;
+  if (colors.length) {
+    colorDone = !!cur.color;
+    html += ocStep(n++, 'เลือกสีโลง', true,
+      `<div class="ord-pills">${colors.map(c =>
+        `<button type="button" class="oc-pill ${cur.color===c?'on':''}" onclick="ocColor('${U.esc(c)}')">${U.esc(c)}</button>`
+      ).join('')}</div>`, colorDone);
+    if (!colorDone) return html;
+  }
+
+  // ── ขั้น 4 สีเส้น ──
+  let trimDone = true;
+  if (lines.length) {
+    trimDone = !!cur.trimColor;
+    html += ocStep(n++, 'เลือกสีเส้น', true,
+      `<select class="form-select form-select-sm" onchange="ocTrim(this.value)">
+         <option value="">-- เลือกสีเส้น --</option>
+         ${lines.map(l => `<option value="${U.esc(l)}" ${cur.trimColor===l?'selected':''}>${U.esc(l)}</option>`).join('')}
+       </select>`, trimDone);
+    if (!trimDone) return html;
+  }
+
+  // ── ขั้น 5 ขนาด (เฉพาะสินค้าที่มี ไม่บังคับ) ──
+  if (!isAcc && spec.extra?.length) {
+    html += ocStep(n++, 'เลือกขนาด', false,
+      `<select class="form-select form-select-sm" onchange="window._ordCur.extra=this.value">
+         <option value="">-- ไม่ระบุ --</option>
+         ${spec.extra.map(e => `<option value="${U.esc(e)}" ${cur.extra===e?'selected':''}>${U.esc(e)}</option>`).join('')}
+       </select>`, !!cur.extra);
+  }
+
+  // ── ขั้นสุดท้าย จำนวน + ราคา + ปุ่มเพิ่ม ──
+  html += ocStep(n, 'จำนวนและราคา', false, `
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:end;margin-bottom:10px;">
+      <div>
+        <div class="oc-lbl">จำนวน</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button type="button" class="oc-stp" onclick="ocQty(-1)">−</button>
+          <span class="oc-qn" id="oc_qty">${cur.qty || 1}</span>
+          <button type="button" class="oc-stp plus" onclick="ocQty(1)">+</button>
+        </div>
+      </div>
+      <div>
+        <div class="oc-lbl">ราคา/ชิ้น</div>
+        <input type="number" class="form-control form-control-sm" id="oc_price" min="0" value="${cur.price || 0}"
+          style="text-align:right;font-weight:700;font-size:14px;">
+      </div>
+    </div>
+    <button type="button" class="btn btn-primary w-100" onclick="ocAdd()" style="font-weight:800;padding:10px;">
+      <i class="fa-solid fa-cart-plus me-1"></i>เพิ่มเข้ารายการ
+    </button>`, false);
+
+  return html;
+}
+
+function paintOcSteps() {
+  const el = document.getElementById('oc_steps');
+  if (el) el.innerHTML = renderOcSteps();
+}
+
 
 async function ocProdChange(id) {
   const cur = window._ordCur;
   cur.productId = id; cur.color=''; cur.trimColor=''; cur.extra='';
-  const el = document.getElementById('oc_spec'); if (el) el.innerHTML = id ? ocSpecHtml() : '';
+  // อุปกรณ์เสริมไม่มีสี/เส้น → ข้ามไปขั้นจำนวนได้เลย
+  const prod = (window._orderProds||[]).find(p => p.id === id);
+  if (prod && isAccessory(prod.name)) { cur.color=''; cur.trimColor=''; }
   await ocRefreshPrice();
+  paintOcSteps();
 }
 async function ocColor(c) {
   window._ordCur.color = c;
-  const el = document.getElementById('oc_spec'); if (el) el.innerHTML = ocSpecHtml();
   await ocRefreshPrice();
+  paintOcSteps();
 }
-async function ocTrim(t) { window._ordCur.trimColor = t; await ocRefreshPrice(); }
+async function ocTrim(t) {
+  window._ordCur.trimColor = t;
+  await ocRefreshPrice();
+  paintOcSteps();
+}
 function ocQty(d) {
   const cur = window._ordCur;
   const v = cur.qty + d; if (v < 1 || v > 999) return;
   cur.qty = v;
   const el = document.getElementById('oc_qty'); if (el) el.textContent = v;
+  const pr = document.getElementById('oc_price'); if (pr) cur.price = parseFloat(pr.value)||0;
 }
 // เติมราคาให้อัตโนมัติจากราคาลูกค้า/ราคาตามสีเส้น (แก้ทับได้)
 async function ocRefreshPrice() {
@@ -1647,9 +1741,10 @@ function ocAdd() {
   let hl;
   if (ex >= 0) { cart[ex].qty += nw.qty; hl = ex; }
   else { cart.push(nw); hl = cart.length - 1; }
-  cur.qty = 1;
-  const q = document.getElementById('oc_qty'); if (q) q.textContent = 1;
+  // รีเซ็ตกลับไปขั้น "เลือกสินค้า" พร้อมกรอกรายการต่อไป
+  window._ordCur = {productId:'', color:'', trimColor:'', extra:'', qty:1, price:0};
   renderOrdCart(hl);
+  paintOcSteps();
 }
 
 function ocDel(i) {
@@ -2493,6 +2588,7 @@ async function onOrderCustChange(sel) {
     x.price = base;
   }
   renderOrdCart();
+  paintOcSteps();
 }
 
 function calcOrderTotal() {
