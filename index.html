@@ -1617,72 +1617,105 @@ function ocProdOptions(products, selectedId) {
 //  ลูกค้า* → สินค้า* → สีโลง* → สีเส้น* → ขนาด → จำนวน/ราคา
 //  ขั้นถัดไปจะโผล่ก็ต่อเมื่อขั้นก่อนหน้าเลือกครบแล้ว
 // ══════════════════════════════════════════════════
-// ── หน้าสรุปหลังบันทึกออเดอร์ ──
-function showOrderSavedSummary({orderNo, customerName, items, discount, isEdit, createdAt}) {
-  const sub   = (items||[]).reduce((a,i) => a + (i.qty||0)*(i.price||0), 0);
-  const total = Math.max(0, sub - (discount||0));
-  const pcs   = (items||[]).reduce((a,i) => a + (i.qty||0), 0);
+// ══════════════════════════════════════════════════
+//  หน้าตรวจสอบก่อนบันทึกออเดอร์
+//  ใช้ overlay ของตัวเอง (ไม่ซ้อน bootstrap modal เพื่อกัน z-index ชนกัน)
+// ══════════════════════════════════════════════════
+function closeOrderConfirm() { document.getElementById('ordConfirmOv')?.remove(); }
 
-  const rows = (items||[]).map(i => {
-    const isAcc = isAccessory(i.productName);
-    const cs = i.color==='แดง' ? 'background:#7f1d1d;color:#fff;'
-      : i.color==='ดำ' ? 'background:#111827;color:#fff;'
+function showOrderConfirm() {
+  const cart = window._ordCart || [];
+  const custSel = document.getElementById('of_cust');
+  const custName = custSel?.selectedOptions?.[0]?.text || '-';
+  const dateStr  = document.getElementById('of_date')?.value || '';
+  const discount = parseFloat(document.getElementById('of_discount')?.value || 0) || 0;
+  const notes    = document.getElementById('of_notes')?.value.trim() || '';
+  const isEdit   = !!(document.getElementById('of_editId')?.value);
+
+  const sub   = cart.reduce((a,x) => a + (x.qty||0)*(x.price||0), 0);
+  const total = Math.max(0, sub - discount);
+  const pcs   = cart.reduce((a,x) => a + (x.qty||0), 0);
+
+  const rows = cart.map((x,i) => {
+    const isAcc = isAccessory(x.productName);
+    const cs = x.color==='แดง' ? 'background:#7f1d1d;color:#fff;'
+      : x.color==='ดำ' ? 'background:#111827;color:#fff;'
       : 'background:#fff;color:#111;border:1.5px solid #94a3b8;';
     const chips =
-        (i.color && i.color!=='-' ? `<span class="oc-chip" style="${cs}">${U.esc(i.color)}</span>` : '')
-      + (i.trimColor ? `<span class="oc-chip" style="background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">เส้น${U.esc(i.trimColor)} ${TRIM_ICON[i.trimColor]||''}</span>` : '')
-      + (i.extra ? `<span class="oc-chip" style="background:#fef3c7;color:#92400e;">${U.esc(i.extra)}</span>` : '')
+        (x.color && x.color!=='-' ? `<span class="oc-chip" style="${cs}">${U.esc(x.color)}</span>` : '')
+      + (x.trimColor ? `<span class="oc-chip" style="background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">เส้น${U.esc(x.trimColor)} ${TRIM_ICON[x.trimColor]||''}</span>` : '')
+      + (x.extra ? `<span class="oc-chip" style="background:#fef3c7;color:#92400e;">${U.esc(x.extra)}</span>` : '')
       + (isAcc ? `<span class="oc-chip" style="background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc;">อุปกรณ์เสริม</span>` : '');
     return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #f1f5f9;">
       <div style="flex:1;min-width:0;">
-        <div style="font-size:14px;font-weight:700;color:#1a2332;">${U.esc(i.productName)}${chips}</div>
-        ${i.specialNote?`<div style="font-size:11.5px;color:#9ca3af;margin-top:3px;">📝 ${U.esc(i.specialNote)}</div>`:''}
-        <div style="font-size:12px;color:#6b7280;margin-top:3px;">${i.qty} × ${U.money(i.price)}</div>
+        <div style="font-size:14px;font-weight:700;color:#1a2332;">${i+1}. ${U.esc(x.productName)}${chips}</div>
+        ${x.specialNote?`<div style="font-size:11.5px;color:#9ca3af;margin-top:3px;">📝 ${U.esc(x.specialNote)}</div>`:''}
+        <div style="font-size:12px;color:#6b7280;margin-top:3px;">${x.qty} × ${U.money(x.price)}</div>
       </div>
-      <div style="font-size:15px;font-weight:800;color:#1a2332;white-space:nowrap;">${U.money((i.qty||0)*(i.price||0))}</div>
+      <div style="font-size:15px;font-weight:800;color:#1a2332;white-space:nowrap;">${U.money((x.qty||0)*(x.price||0))}</div>
     </div>`;
   }).join('');
 
-  const body = `
-    <div style="text-align:center;padding:4px 0 14px;">
-      <div style="width:56px;height:56px;border-radius:50%;background:#dcfce7;color:#16a34a;
-        display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 10px;">
-        <i class="fa-solid fa-circle-check"></i></div>
-      <div style="font-size:17px;font-weight:800;color:#1a2332;">${isEdit?'แก้ไขออเดอร์เรียบร้อย':'บันทึกออเดอร์เรียบร้อย'}</div>
-      ${orderNo?`<div style="font-size:12.5px;color:#6b7280;margin-top:3px;">เลขที่ <strong style="color:#374151;">${U.esc(orderNo)}</strong></div>`:''}
-    </div>
-    <div style="background:#f8fafc;border-radius:11px;padding:12px 14px;margin-bottom:12px;
-      display:flex;align-items:center;gap:11px;">
-      <div style="width:40px;height:40px;border-radius:11px;background:#dbeafe;color:#1e40af;
-        display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;">
-        ${U.esc((customerName||'?').trim().slice(0,2))}</div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:11px;color:#9ca3af;font-weight:600;">ลูกค้า</div>
-        <div style="font-size:16px;font-weight:800;color:#1a2332;">${U.esc(customerName||'-')}</div>
+  const ov = document.createElement('div');
+  ov.id = 'ordConfirmOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;'
+    + 'display:flex;align-items:center;justify-content:center;padding:14px;';
+  ov.innerHTML = `
+    <div style="background:#fff;border-radius:16px;width:100%;max-width:480px;max-height:92vh;
+      display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.3);">
+      <div style="background:#1a2332;color:#fff;padding:14px 17px;">
+        <div style="font-size:16px;font-weight:800;">ตรวจสอบก่อนบันทึก</div>
+        <div style="font-size:11.5px;opacity:.8;margin-top:2px;">ดูให้แน่ใจว่าถูกต้องแล้วกดยืนยัน</div>
       </div>
-      <div style="text-align:right;">
-        <div style="font-size:11px;color:#9ca3af;font-weight:600;">วันที่</div>
-        <div style="font-size:12.5px;font-weight:600;color:#374151;">${U.date(createdAt)}</div>
-      </div>
-    </div>
-    <div style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:4px;">
-      รายการที่สั่ง (${(items||[]).length} รายการ · ${pcs} ชิ้น)</div>
-    <div style="max-height:38vh;overflow-y:auto;">${rows||'<div style="padding:14px;text-align:center;color:#9ca3af;font-size:13px;">ไม่มีรายการ</div>'}</div>
-    <div style="background:#f8fafc;border-radius:11px;padding:11px 14px;margin-top:12px;">
-      <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#6b7280;margin-bottom:5px;">
-        <span>ยอดก่อนส่วนลด</span><b style="color:#1a2332;">${U.money(sub)}</b></div>
-      ${discount?`<div style="display:flex;justify-content:space-between;font-size:12.5px;color:#6b7280;margin-bottom:5px;">
-        <span>ส่วนลด</span><b style="color:#dc2626;">−${U.money(discount)}</b></div>`:''}
-      <div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid #1a2332;padding-top:8px;">
-        <span style="font-size:14px;font-weight:800;">รวมทั้งสิ้น</span>
-        <b style="font-size:21px;font-weight:800;color:#1a2332;">${U.money(total)}</b></div>
-    </div>`;
 
-  showModal('orderSavedModal', '', body,
-    `<button class="btn btn-primary w-100" data-bs-dismiss="modal" style="font-weight:800;padding:11px;">
-       <i class="fa-solid fa-check me-1"></i>รับทราบ
-     </button>`, 'modal-md');
+      <div style="flex:1;overflow-y:auto;padding:14px 17px;">
+        <div style="background:#f8fafc;border-radius:11px;padding:11px 13px;margin-bottom:12px;
+          display:flex;align-items:center;gap:11px;">
+          <div style="width:42px;height:42px;border-radius:11px;background:#dbeafe;color:#1e40af;
+            display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;">
+            ${U.esc((custName||'?').trim().slice(0,2))}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:11px;color:#9ca3af;font-weight:600;">ลูกค้า</div>
+            <div style="font-size:16.5px;font-weight:800;color:#1a2332;">${U.esc(custName)}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:11px;color:#9ca3af;font-weight:600;">วันที่</div>
+            <div style="font-size:12.5px;font-weight:600;color:#374151;">${U.esc(dateStr)}</div>
+          </div>
+        </div>
+
+        <div style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:2px;">
+          รายการที่สั่ง (${cart.length} รายการ · ${pcs} ชิ้น)</div>
+        ${rows}
+        ${notes?`<div style="margin-top:10px;background:#fffbeb;border:1px solid #fcd34d;border-radius:9px;
+          padding:8px 11px;font-size:12px;color:#92400e;">📌 ${U.esc(notes)}</div>`:''}
+
+        <div style="background:#f8fafc;border-radius:11px;padding:11px 13px;margin-top:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:#6b7280;margin-bottom:5px;">
+            <span>ยอดก่อนส่วนลด</span><b style="color:#1a2332;">${U.money(sub)}</b></div>
+          ${discount?`<div style="display:flex;justify-content:space-between;font-size:12.5px;color:#6b7280;margin-bottom:5px;">
+            <span>ส่วนลด</span><b style="color:#dc2626;">−${U.money(discount)}</b></div>`:''}
+          <div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid #1a2332;padding-top:8px;">
+            <span style="font-size:14px;font-weight:800;">รวมทั้งสิ้น</span>
+            <b style="font-size:22px;font-weight:800;color:#1a2332;">${U.money(total)}</b></div>
+        </div>
+      </div>
+
+      <div style="padding:13px 17px 16px;display:flex;gap:9px;border-top:1px solid #f1f5f9;">
+        <button type="button" onclick="closeOrderConfirm()"
+          style="flex:1;padding:13px;border-radius:11px;background:#fff;color:#374151;
+          border:2px solid #d1d5db;font-size:14.5px;font-weight:700;cursor:pointer;font-family:'Sarabun',sans-serif;">
+          <i class="fa-solid fa-pen me-1"></i>กลับไปแก้ไข</button>
+        <button type="button" onclick="closeOrderConfirm();doSaveOrder();"
+          style="flex:1.5;padding:13px;border-radius:11px;background:#2563eb;color:#fff;border:none;
+          font-size:15px;font-weight:800;cursor:pointer;font-family:'Sarabun',sans-serif;">
+          <i class="fa-solid fa-check me-1"></i>${isEdit?'ยืนยันแก้ไข':'ยืนยันบันทึก'}</button>
+      </div>
+    </div>`;
+  ov.addEventListener('click', e => { if (e.target === ov) closeOrderConfirm(); });
+  document.body.appendChild(ov);
 }
+
 
 // สีตัวอย่างในปุ่มเลือกสีโลง
 const COLOR_SWATCH = {
@@ -2767,7 +2800,17 @@ async function getTodayOrdersSummary({ currentOrderId, actionType, actionItemKey
     .filter(o => o.items.length > 0);
 }
 
-async function saveOrder() {
+// กดบันทึก → เปิดหน้าตรวจสอบก่อน ยังไม่เขียนลงฐานข้อมูล
+function saveOrder() {
+  const custId = document.getElementById('of_cust')?.value || '';
+  if (!custId) { U.toast('กรุณาเลือกลูกค้า','error'); return; }
+  const items = (window._ordCart||[]).filter(x => x.productId && x.qty >= 1);
+  if (!items.length) { U.toast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','error'); return; }
+  showOrderConfirm();
+}
+
+// บันทึกจริง — เรียกจากปุ่ม "ยืนยันบันทึก" ในหน้าตรวจสอบเท่านั้น
+async function doSaveOrder() {
   if (window._saving){return;} window._saving=true;
   try {
     const custId=document.getElementById('of_cust')?.value||'';
@@ -2865,10 +2908,10 @@ async function saveOrder() {
     }
     closeModal('orderModal');
     navigate(editId ? 'orders' : 'dashboard');
-    // หน้าสรุปหลังบันทึก — ทวนอีกรอบว่าสั่งอะไรไปบ้าง
-    const _sum = { orderNo: savedOrderNo, customerName: data.customerName, items,
-                   discount: data.discount || 0, isEdit: !!editId, createdAt: data.createdAt };
-    setTimeout(() => showOrderSavedSummary(_sum), 350);
+    // ตรวจสอบไปแล้วก่อนบันทึก → แจ้งสั้นๆ พอ ไม่ต้องเด้งสรุปซ้ำ
+    if (savedOrderNo) {
+      setTimeout(() => U.toast(`${editId?'แก้ไข':'บันทึก'}ออเดอร์ ${savedOrderNo} แล้ว ✓`), 400);
+    }
   } catch(e) {
     U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
   } finally {
