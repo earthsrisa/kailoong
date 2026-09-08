@@ -748,7 +748,10 @@ const DB = {
   },
   async _put(col, d) {
     const { id, ...rest } = d;
-    await this._fs.collection(col).doc(String(id)).set(rest, { merge: true });
+    // merge:false — เขียนทับทั้งเอกสาร ไม่งั้นค่าที่ลบออก (เช่น สีเส้นใน priceMap
+    // หรือราคาพิเศษของลูกค้า) จะไม่ถูกลบจริง เพราะ merge เก็บ key เดิมไว้
+    // ทุกที่ที่เรียก _put ส่ง object เต็มอยู่แล้ว ({...old, ...ใหม่})
+    await this._fs.collection(col).doc(String(id)).set(rest);
     // อัพเดท cache record ตรง ๆ
     const c = this._cache[col];
     if (c) { const i = c.data.findIndex(r => String(r.id) === String(id)); if (i >= 0) c.data[i] = { id, ...rest }; }
@@ -1376,6 +1379,8 @@ function addItemRow(i, custId, products) {
 // ── helper: รวม spec.lines + custom lines จาก priceMap ──
 function getProductLines(prodName, prodList) {
   const prod=(prodList||[]).find(p=>p.name===prodName);
+  // ถ้าเคยตั้งสีเส้นไว้ในหน้าสินค้าแล้ว ให้ยึดตามนั้น (ลบออกแล้วต้องไม่กลับมา)
+  if (Array.isArray(prod?.lines) && prod.lines.length) return prod.lines;
   const specLines=COFFIN_SPEC[prodName]?.lines||['ทอง','เงิน','ซีด','ขาว'];
   const pmKeys=Object.keys(prod?.priceMap||{}).filter(k=>k!=='__default'&&(prod?.priceMap[k]||0)>0);
   const extra=pmKeys.filter(k=>!specLines.includes(k));
@@ -3125,7 +3130,8 @@ function prodRow(p,i) {
   const specLines=spec?.lines||[];
   const pm=p.priceMap||{};
   const extraKeys=Object.keys(pm).filter(k=>!specLines.includes(k)&&(pm[k]||0)>0);
-  const lines=specLines.length?[...specLines,...extraKeys]:Object.keys(pm);
+  const lines=(Array.isArray(p.lines)&&p.lines.length) ? p.lines
+    : (specLines.length?[...specLines,...extraKeys]:Object.keys(pm));
   const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   let priceCell;
   const hasPm=lines.length&&Object.keys(pm).some(k=>pm[k]>0);
@@ -3155,14 +3161,16 @@ function filterProdTable(val) {
   document.getElementById('prodTbody').innerHTML=data.map((p,i)=>prodRow(p,i)).join('')||emptyRow(6,'ไม่พบสินค้า');
 }
 
-function buildPriceFields(prodName, existingPm) {
+function buildPriceFields(prodName, existingPm, savedLines) {
   const spec=COFFIN_SPEC[prodName];
   const pmKeys=Object.keys(existingPm||{}).filter(k=>k!=='__default'&&(existingPm[k]||0)>0);
   const DEFAULT_LINES=['ทอง','เงิน'];
   const specLines=spec?.lines||[];
-  // รวม specLines + สีเส้น custom ที่ save ไว้ใน priceMap (ไม่ซ้ำกัน)
+  // ถ้าเคยบันทึกรายการสีเส้นไว้แล้ว ยึดตามนั้น — ที่ลบออกจะไม่โผล่กลับมา
   const extraKeys=pmKeys.filter(k=>!specLines.includes(k));
-  const lines=specLines.length?[...specLines,...extraKeys]:(pmKeys.length?pmKeys:DEFAULT_LINES);
+  const lines=(Array.isArray(savedLines)&&savedLines.length)
+    ? savedLines
+    : (specLines.length?[...specLines,...extraKeys]:(pmKeys.length?pmKeys:DEFAULT_LINES));
   const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
   const rows=lines.map(l=>`
     <div class="pf-line-row" style="display:grid;grid-template-columns:1fr 1fr 34px;gap:8px;align-items:center;">
@@ -3197,7 +3205,7 @@ async function showProductModal(id) {
   const p=id?await DB.getProduct(id):null;
   const specNames=Object.keys(COFFIN_SPEC);
   const nameOpts=specNames.map(n=>`<option value="${n}">`).join('');
-  const initPriceFields=buildPriceFields(p?.name||'',p?.priceMap||{});
+  const initPriceFields=buildPriceFields(p?.name||'',p?.priceMap||{},p?.lines);
   const body=`<form class="row g-3">
     <div class="col-sm-4"><label class="form-label">รหัสสินค้า</label>
       <input type="text" class="form-control" id="pf_code" placeholder="เช่น L001" value="${U.esc(p?.code||'')}"></div>
@@ -3228,16 +3236,19 @@ async function saveProduct() {
     if (!name){U.toast('กรุณากรอกชื่อสินค้า','error');return;}
     const id=document.getElementById('pf_id')?.value||'';
     const priceMap={};
+    const lines=[];   // เก็บลำดับสีเส้นที่ตั้งไว้ เพื่อให้ลบแล้วไม่กลับมาอีก
     document.querySelectorAll('.pf-line-row').forEach(row=>{
       const l=row.querySelector('.pf-line-name')?.value.trim();
+      if(!l) return;
+      lines.push(l);
       const v=parseFloat(row.querySelector('.pf-line-price')?.value||'');
-      if(l&&!isNaN(v)&&v>0) priceMap[l]=v;
+      if(!isNaN(v)&&v>0) priceMap[l]=v;
     });
     const defaultPrice=parseFloat(document.getElementById('pf_price')?.value||0)||0;
     const data={code:document.getElementById('pf_code')?.value.trim()||'',name,
       category:document.getElementById('pf_cat')?.value.trim()||'',
       unit:document.getElementById('pf_unit')?.value.trim()||'โลง',
-      price:defaultPrice, priceMap};
+      price:defaultPrice, priceMap, lines};
     if (id){const old=await DB.getProduct(id);await DB.putProduct({...old,...data});U.toast('แก้ไขสินค้าแล้ว ✓');}
     else{await DB.addProduct(data);U.toast('เพิ่มสินค้าแล้ว ✓');}
     closeModal('prodModal');navigate('products');
