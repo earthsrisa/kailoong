@@ -77,7 +77,7 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
   display: flex; align-items: center; justify-content: space-between;
 }
 .order-card-head .cust-name { font-size: 16px; font-weight: 700; color: #1a2332; }
-.order-card-head .cust-count { font-size: 12px; color: #9ca3af; }
+.order-card-head .cust-count { font-size: 12px; color: #6b7280; }
 .order-card-body { padding: 6px 16px; }
 
 /* ── Item row ── */
@@ -150,7 +150,7 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 
 /* ── Divider between pending/done inside card ── */
 .done-divider {
-  font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: .8px;
+  font-size:12.5px; color: #6b7280; text-transform: uppercase; letter-spacing: .8px;
   padding: 8px 0 4px; border-top: 1px dashed #e5e7eb; margin-top: 4px; font-weight: 600;
 }
 
@@ -181,7 +181,7 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .btn-conf-cancel:hover { background: #e5e7eb; }
 
 /* ── Empty / Loading ── */
-.empty-craft { text-align: center; padding: 60px 20px; color: #9ca3af; }
+.empty-craft { text-align: center; padding: 60px 20px; color: #6b7280; }
 .empty-craft i { font-size: 48px; margin-bottom: 16px; display: block; }
 .empty-craft p { font-size: 15px; margin: 0; }
 .spinner-wrap { text-align: center; padding: 60px 20px; color: #6b7280; font-size: 15px; }
@@ -217,22 +217,22 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .sum-head { padding:12px 14px; display:flex; align-items:center; justify-content:space-between;
   cursor:pointer; background:#1a2332; color:#fff; user-select:none; }
 .sum-head-l { display:flex; align-items:center; gap:8px; font-size:14.5px; font-weight:700; }
-.sum-tag { font-size:10.5px; background:rgba(255,255,255,.18); border-radius:10px; padding:1.5px 8px; font-weight:600; }
+.sum-tag { font-size:12px; background:rgba(255,255,255,.18); border-radius:10px; padding:1.5px 8px; font-weight:600; }
 .sum-stats { display:grid; grid-template-columns:1fr 1fr 1fr; border-bottom:1.5px solid #f1f5f9; }
 .sum-stat { padding:13px 8px; text-align:center; border-right:1px solid #f1f5f9; }
 .sum-stat:last-child { border-right:none; }
 .sum-stat b { font-size:28px; font-weight:800; line-height:1; display:block; }
-.sum-stat span { font-size:10.5px; color:#6b7280; margin-top:4px; display:block; }
+.sum-stat span { font-size:12px; color:#6b7280; margin-top:4px; display:block; }
 .sum-prog { padding:11px 14px; border-bottom:1.5px solid #f1f5f9; }
 .sum-prog-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
-.sum-prog-top span { font-size:11.5px; color:#6b7280; font-weight:600; }
+.sum-prog-top span { font-size:12.5px; color:#6b7280; font-weight:600; }
 .sum-prog-top b { font-size:12.5px; font-weight:800; }
 .sum-bar { height:7px; background:#e5e7eb; border-radius:99px; overflow:hidden; }
 .sum-bar i { display:block; height:100%; border-radius:99px; }
 .sum-sec { padding:11px 14px 4px; }
 .sum-sec-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; }
-.sum-sec-head .t { font-size:11px; font-weight:700; letter-spacing:.3px; }
-.sum-sec-head .n { font-size:10.5px; color:#9ca3af; }
+.sum-sec-head .t { font-size:12.5px; font-weight:700; letter-spacing:.3px; }
+.sum-sec-head .n { font-size:12px; color:#6b7280; }
 .sum-row { margin-bottom:10px; }
 .sum-row-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; gap:8px; }
 .sum-row-nm { font-size:13px; font-weight:600; color:#1a2332; word-break:break-word; }
@@ -240,30 +240,30 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .sum-row-bar { display:flex; align-items:center; gap:7px; }
 .sum-row-bar .b { flex:1; height:5px; background:#e5e7eb; border-radius:99px; overflow:hidden; }
 .sum-row-bar .b i { display:block; height:100%; background:#2563eb; }
-.sum-row-bar .c { font-size:10.5px; color:#9ca3af; white-space:nowrap; }
+.sum-row-bar .c { font-size:12px; color:#6b7280; white-space:nowrap; }
 .sum-done-row { display:flex; justify-content:space-between; align-items:center; gap:8px;
   padding:7px 10px; background:#f0fdf4; border-radius:8px; margin-bottom:5px; }
 .sum-done-row .nm { font-size:12.5px; font-weight:600; color:#166534; word-break:break-word; }
-.sum-done-row .q  { font-size:11px; font-weight:700; color:#16a34a; white-space:nowrap; }
-.sum-age { display:inline-block; font-size:10px; font-weight:700; border-radius:9px;
+.sum-done-row .q  { font-size:12.5px; font-weight:700; color:#16a34a; white-space:nowrap; }
+.sum-age { display:inline-block; font-size:12px; font-weight:700; border-radius:9px;
   padding:1px 7px; margin-left:5px; white-space:nowrap; vertical-align:1px; }
 .sum-age-hot  { background:#fee2e2; color:#b91c1c; }
 .sum-age-warn { background:#fef3c7; color:#92400e; }
 .sum-other-toggle { display:flex; justify-content:space-between; align-items:center; cursor:pointer;
   padding:11px 14px; border-top:1px dashed #e5e7eb; user-select:none; }
-.sum-other-toggle .t { font-size:11.5px; color:#6b7280; font-weight:700; }
-.sum-other-toggle .r { font-size:11px; color:#9ca3af; display:flex; align-items:center; gap:6px; }
+.sum-other-toggle .t { font-size:12.5px; color:#6b7280; font-weight:700; }
+.sum-other-toggle .r { font-size:12.5px; color:#6b7280; display:flex; align-items:center; gap:6px; }
 .sum-other-body { padding:0 14px 10px; opacity:.72; }
-.sum-empty { padding:16px 14px; text-align:center; font-size:13px; color:#9ca3af; }
+.sum-empty { padding:16px 14px; text-align:center; font-size:13px; color:#6b7280; }
 .hist-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid #f3f4f6; }
 .hist-row:last-child { border-bottom:none; }
 .hist-av { width:34px; height:34px; border-radius:9px; background:#e0e7ff; color:#3730a3;
   display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; flex-shrink:0; }
 .hist-av.me { background:#dbeafe; color:#1e40af; }
 .hist-nm { flex:1; min-width:0; font-size:14px; font-weight:700; color:#1a2332; }
-.hist-sub { font-size:11px; color:#9ca3af; font-weight:400; margin-top:1px; }
+.hist-sub { font-size:12.5px; color:#6b7280; font-weight:400; margin-top:1px; }
 .hist-q { font-size:17px; font-weight:800; color:#1a2332; white-space:nowrap; }
-.hist-q span { font-size:11px; font-weight:600; color:#9ca3af; }
+.hist-q span { font-size:12.5px; font-weight:600; color:#6b7280; }
 
 /* กัน iOS ซูมหน้าจอเองเวลากดช่องกรอก (Safari ซูมถ้าฟอนต์เล็กกว่า 16px) */
 @media (max-width: 767px) {
@@ -272,14 +272,14 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 }
 .hist-time { display:inline-flex; align-items:center; gap:3px; font-size:12px; color:#2563eb;
   font-weight:600; background:#eff6ff; border-radius:6px; padding:1px 7px; }
-.hist-time i { font-size:10.5px; }
-.hist-time-approx { color:#9ca3af!important; background:#f3f4f6!important; }
+.hist-time i { font-size:12px; }
+.hist-time-approx { color:#6b7280!important; background:#f3f4f6!important; }
 .spark { display:flex; align-items:flex-end; gap:4px; height:38px; }
 .spark-col { flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; }
 .spark-bar { width:100%; background:#dbeafe; border-radius:3px 3px 0 0; min-height:2px; position:relative; }
 .spark-bar.hot { background:#2563eb; }
-.spark-lbl { font-size:9.5px; color:#9ca3af; white-space:nowrap; }
-.spark-val { font-size:10px; font-weight:700; color:#1a2332; }
+.spark-lbl { font-size:11px; color:#6b7280; white-space:nowrap; }
+.spark-val { font-size:12px; font-weight:700; color:#1a2332; }
 
 /* ── รับออเดอร์ ── */
 .btn-neworder { display:flex; align-items:center; justify-content:center; gap:7px; width:100%;
@@ -294,19 +294,19 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .ord-head { background:#16a34a; color:#fff; padding:14px 16px; display:flex;
   align-items:center; justify-content:space-between; position:sticky; top:0; z-index:2; }
 .ord-head h3 { margin:0; font-size:15.5px; font-weight:800; }
-.ord-head .sub { font-size:11.5px; opacity:.85; margin-top:2px; }
+.ord-head .sub { font-size:12.5px; opacity:.85; margin-top:2px; }
 .ord-x { font-size:20px; cursor:pointer; opacity:.9; padding:0 4px; }
 .ord-body { padding:12px; }
 .ord-card { background:#fff; border-radius:12px; padding:12px 14px; margin-bottom:10px; }
 .ord-step { display:flex; align-items:center; gap:7px; margin-bottom:9px; }
 .ord-step b { width:20px; height:20px; border-radius:50%; background:#16a34a; color:#fff;
-  font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  font-size:12.5px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .ord-step span { font-size:13px; font-weight:700; color:#1a2332; }
 .ord-sel { width:100%; border:2px solid #d1d5db; border-radius:9px; padding:10px 11px;
   font-size:15px; font-weight:600; font-family:'Sarabun',sans-serif; background:#fff; color:#1a2332; cursor:pointer; }
 .ord-sel:focus { outline:none; border-color:#16a34a; }
 .ord-sel.filled { border-color:#16a34a; }
-.ord-lbl { font-size:11.5px; font-weight:700; color:#6b7280; margin-bottom:4px; }
+.ord-lbl { font-size:12.5px; font-weight:700; color:#6b7280; margin-bottom:4px; }
 .ord-pills { display:flex; gap:5px; }
 .ord-pill { flex:1; text-align:center; border:2px solid #e5e7eb; border-radius:8px; padding:7px 0;
   font-size:13px; font-weight:600; color:#6b7280; cursor:pointer; background:#fff; font-family:'Sarabun',sans-serif; }
@@ -317,7 +317,7 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .ord-qty button.plus { background:#16a34a; border-color:#16a34a; color:#fff; }
 .ord-qty .n { font-size:32px; font-weight:800; min-width:52px; text-align:center; color:#1a2332; }
 .ord-note { background:#eff6ff; border:1px solid #bfdbfe; border-radius:9px; padding:9px 12px;
-  font-size:11.5px; color:#1e40af; line-height:1.5; margin-bottom:11px; }
+  font-size:12.5px; color:#1e40af; line-height:1.5; margin-bottom:11px; }
 .ord-btn { width:100%; border:none; border-radius:11px; padding:14px; font-size:16px; font-weight:800;
   cursor:pointer; font-family:'Sarabun',sans-serif; background:#16a34a; color:#fff; }
 .ord-btn[disabled] { opacity:.45; pointer-events:none; }
@@ -325,16 +325,16 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
   font-size:13.5px; font-weight:700; color:#6b7280; margin-bottom:10px; cursor:pointer; background:#fff; }
 .ord-list-row { display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid #f1f5f9; }
 .ord-list-row .q { font-size:19px; font-weight:800; color:#1a2332; white-space:nowrap; }
-.ord-list-row .q i { font-size:11.5px; font-weight:600; color:#9ca3af; font-style:normal; }
+.ord-list-row .q i { font-size:12.5px; font-weight:600; color:#6b7280; font-style:normal; }
 .ord-edit-row { padding:11px 16px; border-bottom:1px solid #f1f5f9; background:#fffbeb; }
-.ord-chip { display:inline-block; border-radius:4px; padding:1px 7px; font-size:11.5px; margin-left:4px; }
+.ord-chip { display:inline-block; border-radius:4px; padding:1px 7px; font-size:12.5px; margin-left:4px; }
 .ord-sum { padding:11px 16px; background:#f8fafc; border-top:1px solid #e8ecf0;
   display:flex; justify-content:space-between; align-items:center; }
 .ord-trash { width:30px; height:30px; border-radius:8px; border:1.5px solid #fecaca; background:#fef2f2;
   display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:#dc2626; }
-.craft-badge-mine { display:inline-block; font-size:10px; font-weight:700; background:#dcfce7;
+.craft-badge-mine { display:inline-block; font-size:12px; font-weight:700; background:#dcfce7;
   color:#15803d; border-radius:9px; padding:1px 7px; margin-left:5px; }
-.btn-edit-order { font-size:11.5px; font-weight:700; color:#ea580c; background:#fff7ed;
+.btn-edit-order { font-size:12.5px; font-weight:700; color:#ea580c; background:#fff7ed;
   border:1.5px solid #fed7aa; border-radius:8px; padding:3px 10px; cursor:pointer; font-family:'Sarabun',sans-serif; }
 
 /* ── ฟอร์มรับออเดอร์แบบจอเดียว ── */
@@ -342,26 +342,26 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
   display:flex; align-items:center; gap:10px; }
 .ord-cust .lb { font-size:12px; font-weight:700; color:#6b7280; white-space:nowrap; }
 .ord-cust .ord-sel { flex:1; padding:7px 10px; font-size:14.5px; }
-.ord-lst-hdr { font-size:11.5px; font-weight:700; color:#6b7280; margin-bottom:7px; }
+.ord-lst-hdr { font-size:12.5px; font-weight:700; color:#6b7280; margin-bottom:7px; }
 .ord-cart-row { background:#fff; border-radius:10px; padding:10px 12px; margin-bottom:7px;
   display:flex; align-items:center; gap:9px; transition:box-shadow .25s; }
 .ord-cart-row.hl { box-shadow:0 0 0 2px #16a34a; }
 .ord-cart-row .q { font-size:17px; font-weight:800; color:#1a2332; white-space:nowrap; }
-.ord-cart-row .q i { font-size:10.5px; font-weight:600; color:#9ca3af; font-style:normal; }
+.ord-cart-row .q i { font-size:12px; font-weight:600; color:#6b7280; font-style:normal; }
 .ord-cart-x { width:27px; height:27px; border-radius:7px; border:1.5px solid #fecaca; background:#fef2f2;
   display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:#dc2626; font-size:13px; }
 .ord-cart-empty { background:#fff; border-radius:10px; padding:16px; text-align:center;
-  font-size:12.5px; color:#9ca3af; }
+  font-size:12.5px; color:#6b7280; }
 .ord-addbox { background:#fff; border-radius:12px; padding:12px 13px; border:2px dashed #cbd5e1; }
 /* ── แถบกรองชนิดหีบ ── */
 #type-filter-bar { background:#fff; border-bottom:1.5px solid #e5e7eb; padding:9px 12px; }
-.tf-hd { font-size:11.5px; color:#6b7280; font-weight:700; margin-bottom:7px; }
-.tf-hd i { margin-right:4px; font-size:11px; }
+.tf-hd { font-size:12.5px; color:#6b7280; font-weight:700; margin-bottom:7px; }
+.tf-hd i { margin-right:4px; font-size:12.5px; }
 .tf-chips { display:flex; gap:5px; flex-wrap:wrap; }
 .tf-chip { border:1.5px solid #d1d5db; background:#fff; color:#374151; border-radius:16px;
   padding:5px 13px; font-size:12px; font-weight:600; cursor:pointer;
   font-family:'Sarabun',sans-serif; white-space:nowrap; }
-.tf-chip b { opacity:.65; font-size:11px; font-weight:600; margin-left:2px; }
+.tf-chip b { opacity:.65; font-size:12.5px; font-weight:600; margin-left:2px; }
 .tf-chip.on { border-color:#2563eb; background:#eff6ff; color:#1e3a8a; font-weight:800; }
 .tf-chip.on-all { border-color:#1a2332; background:#1a2332; color:#fff; font-weight:800; }
 .tf-chip.on-all b { opacity:.75; }
@@ -369,7 +369,7 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 /* ── ป้ายชื่อช่างที่แต่ง ── */
 .crafter-row { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
 .crafter { display:inline-flex; align-items:center; gap:4px; background:#e0e7ff; color:#3730a3;
-  border-radius:9px; padding:2px 8px; font-size:10.5px; font-weight:700; }
+  border-radius:9px; padding:2px 8px; font-size:12px; font-weight:700; }
 .crafter .av { width:15px; height:15px; border-radius:50%; background:#4f46e5; color:#fff;
   font-size:8.5px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; }
 .crafter.me { background:#dcfce7; color:#15803d; }
@@ -381,7 +381,7 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 @keyframes cSlide { from{opacity:0;transform:translateY(-5px);} to{opacity:1;transform:translateY(0);} }
 .cstep-hd { display:flex; align-items:center; gap:7px; margin-bottom:6px; }
 .cstep-no { width:21px; height:21px; border-radius:50%; background:#e2e8f0; color:#64748b;
-  font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  font-size:12.5px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .cstep-no.ok { background:#16a34a; color:#fff; }
 .cstep-lb { font-size:13px; font-weight:700; color:#1a2332; }
 .cstep.done .cstep-lb { color:#64748b; font-weight:600; }
@@ -420,7 +420,7 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .ord-foot-sum { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
 .ord-foot-sum span:first-child { font-size:12.5px; color:#6b7280; font-weight:600; }
 .ord-foot-sum b { font-size:16px; font-weight:800; color:#1a2332; }
-.ord-foot-sum i { font-size:11.5px; font-weight:600; color:#6b7280; font-style:normal; }
+.ord-foot-sum i { font-size:12.5px; font-weight:600; color:#6b7280; font-style:normal; }
 </style>
 </head>
 <body>
@@ -652,8 +652,8 @@ async function renderHistory() {
     const sparkHtml = me ? `
       <div style="padding:11px 14px; border-bottom:1.5px solid #f1f5f9;">
         <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;">
-          <span style="font-size:11.5px; color:#6b7280; font-weight:600;">ผลงานฉัน 7 วันล่าสุด</span>
-          <span style="font-size:11.5px; color:#9ca3af;">รวม ${week7} ใบ</span>
+          <span style="font-size:12.5px; color:#6b7280; font-weight:600;">ผลงานฉัน 7 วันล่าสุด</span>
+          <span style="font-size:12.5px; color:#6b7280;">รวม ${week7} ใบ</span>
         </div>
         <div class="spark">
           ${last7.map(x => `<div class="spark-col">
@@ -684,7 +684,7 @@ async function renderHistory() {
             const pct = cmTotal ? Math.round(c.qty/cmTotal*100) : 0;
             return `<div class="hist-row">
               <div class="hist-av${isMe?' me':''}">${esc(initial)}</div>
-              <div class="hist-nm">${esc(c.name)}${isMe?' <span style="font-size:10px;background:#dbeafe;color:#1e40af;border-radius:9px;padding:1px 7px;font-weight:700;">ฉัน</span>':''}
+              <div class="hist-nm">${esc(c.name)}${isMe?' <span style="font-size:12px;background:#dbeafe;color:#1e40af;border-radius:9px;padding:1px 7px;font-weight:700;">ฉัน</span>':''}
                 <div class="hist-sub">${c.lines} รายการ · ${c.days.size} วัน · ${pct}%${c.last ? ' · ล่าสุด ' + new Date(c.last).toLocaleDateString('th-TH',{timeZone:'Asia/Bangkok',day:'numeric',month:'short'}) + ' ' + hhmm(c.last) : ''}</div></div>
               <div class="hist-q">${c.qty} <span>ใบ</span></div>
             </div>`;
@@ -696,9 +696,9 @@ async function renderHistory() {
     const dates = Object.keys(byDate).sort().reverse();
     if (!dates.length) {
       el.innerHTML = summaryHtml + `<div class="empty-craft">
-        <i class="fa-solid fa-calendar-xmark" style="color:#9ca3af;"></i>
+        <i class="fa-solid fa-calendar-xmark" style="color:#6b7280;"></i>
         <p>ไม่พบประวัติงานของคุณใน 30 วันที่ผ่านมา</p>
-        <p style="font-size:13px;color:#9ca3af;">สำหรับ ${esc(_craftsman.name)}</p>
+        <p style="font-size:13px;color:#6b7280;">สำหรับ ${esc(_craftsman.name)}</p>
       </div>`;
       return;
     }
@@ -719,7 +719,7 @@ async function renderHistory() {
         return `<div class="craft-item-row" style="opacity:.85;">
           <div class="craft-item-info">
             <div class="craft-item-name">${esc(it.label)}</div>
-            <div class="craft-item-qty" style="font-size:12px;color:#9ca3af;">${esc(it.customerName)} · ${timeHtml}</div>
+            <div class="craft-item-qty" style="font-size:12px;color:#6b7280;">${esc(it.customerName)} · ${timeHtml}</div>
           </div>
           <div class="craft-item-status">
             <span style="background:#dcfce7;color:#15803d;border-radius:8px;padding:4px 12px;font-size:13px;font-weight:700;">
@@ -738,7 +738,7 @@ async function renderHistory() {
       return `<div class="order-card">
         <div class="order-card-head">
           <div class="cust-name" style="font-size:14px;">${thDate}
-            ${span ? `<span style="font-size:11.5px;color:#9ca3af;font-weight:400;margin-left:6px;"><i class="fa-regular fa-clock" style="margin-right:3px;"></i>${span}</span>` : ''}
+            ${span ? `<span style="font-size:12.5px;color:#6b7280;font-weight:400;margin-left:6px;"><i class="fa-regular fa-clock" style="margin-right:3px;"></i>${span}</span>` : ''}
           </div>
           <span class="cust-count">${items.length} รายการ · ${items.reduce((s,i)=>s+i.craftedQty,0)} ใบ</span>
         </div>
@@ -748,13 +748,13 @@ async function renderHistory() {
 
     el.innerHTML = summaryHtml + `
       <div style="background:#1a2332;color:#fff;border-radius:12px;padding:14px 18px;margin-bottom:14px;display:flex;gap:20px;flex-wrap:wrap;">
-        <div><div style="font-size:11px;opacity:.6;">ผลงานของฉัน</div><div style="font-size:22px;font-weight:700;">${totalQty} ใบ</div></div>
-        <div><div style="font-size:11px;opacity:.6;">รายการ</div><div style="font-size:22px;font-weight:700;">${totalItems}</div></div>
-        <div><div style="font-size:11px;opacity:.6;">วันที่มีงาน</div><div style="font-size:22px;font-weight:700;">${dates.length} วัน</div></div>
+        <div><div style="font-size:12.5px;opacity:.6;">ผลงานของฉัน</div><div style="font-size:22px;font-weight:700;">${totalQty} ใบ</div></div>
+        <div><div style="font-size:12.5px;opacity:.6;">รายการ</div><div style="font-size:22px;font-weight:700;">${totalItems}</div></div>
+        <div><div style="font-size:12.5px;opacity:.6;">วันที่มีงาน</div><div style="font-size:22px;font-weight:700;">${dates.length} วัน</div></div>
       </div>
       ${cards}`;
   } catch(e) {
-    el.innerHTML = `<div class="empty-craft"><i class="fa-solid fa-circle-exclamation" style="color:#ef4444;"></i><p>โหลดประวัติไม่สำเร็จ</p><p style="font-size:13px;color:#9ca3af;">${esc(e.message)}</p></div>`;
+    el.innerHTML = `<div class="empty-craft"><i class="fa-solid fa-circle-exclamation" style="color:#ef4444;"></i><p>โหลดประวัติไม่สำเร็จ</p><p style="font-size:13px;color:#6b7280;">${esc(e.message)}</p></div>`;
   }
 }
 
@@ -865,7 +865,7 @@ async function init() {
     contentEl.innerHTML = `<div class="empty-craft">
       <i class="fa-solid fa-wifi" style="color:#ef4444;"></i>
       <p style="color:#ef4444;font-weight:700;">เชื่อมต่อไม่ได้</p>
-      <p style="font-size:13px;color:#9ca3af;">กรุณาตรวจสอบอินเทอร์เน็ต แล้วกดรีเฟรช</p>
+      <p style="font-size:13px;color:#6b7280;">กรุณาตรวจสอบอินเทอร์เน็ต แล้วกดรีเฟรช</p>
       <button onclick="location.reload()" style="margin-top:12px;padding:8px 20px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;">
         <i class="fa-solid fa-rotate-right me-1"></i>รีเฟรช
       </button>
@@ -883,7 +883,7 @@ async function init() {
   // Empty craftsmen state
   if (!_craftsmen.length) {
     contentEl.innerHTML =
-      `<div class="empty-craft"><i class="fa-solid fa-users-slash"></i><p>ยังไม่มีช่างแต่ง</p><p style="font-size:13px;color:#9ca3af;">ให้ผู้ดูแลเพิ่มข้อมูลช่างในระบบก่อน</p></div>`;
+      `<div class="empty-craft"><i class="fa-solid fa-users-slash"></i><p>ยังไม่มีช่างแต่ง</p><p style="font-size:13px;color:#6b7280;">ให้ผู้ดูแลเพิ่มข้อมูลช่างในระบบก่อน</p></div>`;
   }
 
   // Restore saved craftsman
@@ -1051,7 +1051,7 @@ function renderCraftSteps() {
   html += cstep(n++, 'เลือกลูกค้า', true,
     hasCust
       ? `<div class="cpicked"><span><i class="fa-solid fa-user me-1"></i>${esc(_draft.customerName)}</span>
-           <span style="font-size:11.5px;font-weight:600;color:#16a34a;text-decoration:underline;cursor:pointer;"
+           <span style="font-size:12.5px;font-weight:600;color:#16a34a;text-decoration:underline;cursor:pointer;"
              onclick="_draft.customerId='';_draft.customerName='';paintCraftSteps();">เปลี่ยน</span></div>`
       : `<select class="ord-sel" onchange="onDraftCust(this.value)">
            <option value="">— เลือกลูกค้า —</option>${custOpts}
@@ -1114,7 +1114,7 @@ function renderCraftSteps() {
   }
 
   // ขั้นสุดท้าย จำนวน — อุปกรณ์เสริมมี ±10 เพราะสั่งทีละร้อย
-  html += cstep(n, `จำนวน${isAcc?` <span style="color:#0891b2;font-weight:600;font-size:11.5px;">(${esc(prod.unit||'ชิ้น')})</span>`:''}`, false, `
+  html += cstep(n, `จำนวน${isAcc?` <span style="color:#0891b2;font-weight:600;font-size:12.5px;">(${esc(prod.unit||'ชิ้น')})</span>`:''}`, false, `
     <div class="ord-addrow" style="flex-wrap:wrap;">
       ${isAcc?`<button class="bulk" onclick="draftQty(-10)">−10</button>`:''}
       <button onclick="draftQty(-1)">−</button>
@@ -1252,7 +1252,7 @@ function renderMyRecentOrders() {
         return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f3f4f6;">
           <div style="flex:1;min-width:0;">
             <div style="font-size:14.5px;font-weight:700;color:#1a2332;">${esc(o.customerName||'-')}</div>
-            <div style="font-size:11.5px;color:#9ca3af;margin-top:2px;">
+            <div style="font-size:12.5px;color:#6b7280;margin-top:2px;">
               ${(o.items||[]).length} รายการ · ${q} ใบ · เหลือเวลาแก้ ${editMinsLeft(o)} นาที</div>
           </div>
           <button class="btn-edit-order" onclick="openOrderForm('${o.id}')">แก้ไข</button>
@@ -1289,7 +1289,7 @@ function showConfirmSheet() {
          <div style="flex:1;min-width:0;">${draftLabel(i)}</div>
          <div class="q">${i.qty} <i>ใบ</i></div>
        </div>`).join('') ||
-    `<div style="padding:22px 16px;text-align:center;font-size:13px;color:#9ca3af;">ยังไม่มีรายการ</div>`;
+    `<div style="padding:22px 16px;text-align:center;font-size:13px;color:#6b7280;">ยังไม่มีรายการ</div>`;
 
   const initial = (_draft.customerName || '?').trim().slice(0, 2);
   const totalQ = _draft.items.reduce((a,b)=>a+b.qty, 0);
@@ -1304,7 +1304,7 @@ function showConfirmSheet() {
       <div style="padding:14px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:11px;">
         <div style="width:40px;height:40px;border-radius:11px;background:#dcfce7;color:#15803d;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;flex-shrink:0;">${esc(initial)}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:11px;color:#9ca3af;font-weight:600;">ลูกค้า</div>
+          <div style="font-size:12.5px;color:#6b7280;font-weight:600;">ลูกค้า</div>
           <div style="font-size:17px;font-weight:800;color:#1a2332;">${esc(_draft.customerName||'-')}</div>
         </div>
         ${E ? `<span class="btn-edit-order" style="color:#16a34a;background:#f0fdf4;border-color:#bbf7d0;" onclick="backToItemSheet()">เปลี่ยน</span>` : ''}
@@ -1495,7 +1495,7 @@ function ageBadge(oldestTs, isDone) {
 }
 
 function sumRows(list) {
-  if (!list.length) return `<div style="font-size:12px;color:#9ca3af;padding:2px 0 10px;">ไม่มีรายการ</div>`;
+  if (!list.length) return `<div style="font-size:12px;color:#6b7280;padding:2px 0 10px;">ไม่มีรายการ</div>`;
   return list.map(it => {
     const left = it.total - it.done;
     const pct  = it.total ? Math.round(it.done / it.total * 100) : 0;
@@ -1668,14 +1668,14 @@ function renderCraftOrders() {
   if (!shown.length) {
     el.innerHTML = summaryHtml + (_typeFilter.size
       ? `<div class="empty-craft">
-          <i class="fa-solid fa-filter-circle-xmark" style="color:#9ca3af;"></i>
+          <i class="fa-solid fa-filter-circle-xmark" style="color:#6b7280;"></i>
           <p>ไม่มีงานในชนิดที่เลือก</p>
           <button onclick="pickType('')" style="margin-top:10px;padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:'Sarabun',sans-serif;">ดูทั้งหมด</button>
         </div>`
       : `<div class="empty-craft">
           <i class="fa-solid fa-circle-check" style="color:#16a34a;"></i>
           <p>ไม่มีรายการงานสำหรับ <strong>${esc(_craftsman.name)}</strong></p>
-          <p style="font-size:13px;margin-top:6px;color:#9ca3af;">ยังไม่มีออเดอร์หรือทุกงานเสร็จหมดแล้ว</p>
+          <p style="font-size:13px;margin-top:6px;color:#6b7280;">ยังไม่มีออเดอร์หรือทุกงานเสร็จหมดแล้ว</p>
         </div>`);
     return;
   }
@@ -2003,7 +2003,7 @@ window.addEventListener('DOMContentLoaded', init);
   <button id="btnFilterToday" class="filter-btn" onclick="setDateFilter('today')">📅 วันนี้</button>
   <button id="btnFilterAll" class="filter-btn filter-btn-active" onclick="setDateFilter('all')">📋 ทั้งหมด</button>
   <button id="btnFilterHistory" class="filter-btn" onclick="setDateFilter('history')">📂 ประวัติ</button>
-  <span id="dateFilterLabel" style="font-size:12px;color:#9ca3af;margin-left:4px;"></span>
+  <span id="dateFilterLabel" style="font-size:12px;color:#6b7280;margin-left:4px;"></span>
 </div>
 
 <!-- กรองตามชนิดหีบ (เลือกได้หลายชนิด) -->
