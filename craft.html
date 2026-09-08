@@ -353,6 +353,28 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .ord-cart-empty { background:#fff; border-radius:10px; padding:16px; text-align:center;
   font-size:12.5px; color:#9ca3af; }
 .ord-addbox { background:#fff; border-radius:12px; padding:12px 13px; border:2px dashed #cbd5e1; }
+/* ── แถบกรองชนิดหีบ ── */
+#type-filter-bar { background:#fff; border-bottom:1.5px solid #e5e7eb; padding:9px 12px; }
+.tf-hd { font-size:11.5px; color:#6b7280; font-weight:700; margin-bottom:7px; }
+.tf-hd i { margin-right:4px; font-size:11px; }
+.tf-chips { display:flex; gap:5px; flex-wrap:wrap; }
+.tf-chip { border:1.5px solid #d1d5db; background:#fff; color:#374151; border-radius:16px;
+  padding:5px 13px; font-size:12px; font-weight:600; cursor:pointer;
+  font-family:'Sarabun',sans-serif; white-space:nowrap; }
+.tf-chip b { opacity:.65; font-size:11px; font-weight:600; margin-left:2px; }
+.tf-chip.on { border-color:#2563eb; background:#eff6ff; color:#1e3a8a; font-weight:800; }
+.tf-chip.on-all { border-color:#1a2332; background:#1a2332; color:#fff; font-weight:800; }
+.tf-chip.on-all b { opacity:.75; }
+
+/* ── ป้ายชื่อช่างที่แต่ง ── */
+.crafter-row { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
+.crafter { display:inline-flex; align-items:center; gap:4px; background:#e0e7ff; color:#3730a3;
+  border-radius:9px; padding:2px 8px; font-size:10.5px; font-weight:700; }
+.crafter .av { width:15px; height:15px; border-radius:50%; background:#4f46e5; color:#fff;
+  font-size:8.5px; display:inline-flex; align-items:center; justify-content:center; font-weight:800; }
+.crafter.me { background:#dcfce7; color:#15803d; }
+.crafter.me .av { background:#16a34a; }
+
 /* ── ขั้นตอนไหลลงทีละบรรทัด ── */
 .cstep { padding:9px 0; border-bottom:1px dashed #eef2f6; animation:cSlide .18s ease; }
 .cstep:last-child { border-bottom:none; padding-bottom:2px; }
@@ -479,6 +501,7 @@ function resolvePrice(customerId, prod, trimColor) {
   return (first ? pm[first] : prod.price) || 0;
 }
 let _dateFilter  = 'all'; // 'today' | 'all'
+let _typeFilter  = new Set(); // ชนิดหีบที่เลือกดู (ว่าง = ดูทั้งหมด)
 
 // ── Utilities ──
 function esc(s) {
@@ -519,6 +542,10 @@ function setDateFilter(type) {
       ? new Date().toLocaleDateString('th-TH', {timeZone:'Asia/Bangkok', weekday:'short', day:'numeric', month:'short'})
       : type === 'history' ? 'ย้อนหลัง 30 วัน'
       : `ทั้งหมด ${_orders.length} ออเดอร์`;
+  }
+  if (type === 'history') {
+    const bar = document.getElementById('type-filter-bar');
+    if (bar) bar.style.display = 'none';
   }
   if (_craftsman) {
     if (type === 'history') renderHistory();
@@ -739,6 +766,22 @@ function itemKey(i) {
 function itemKeyLegacy(i) {
   return `${i.productName}|${i.color||''}|${i.trimColor||''}`;
 }
+// คืนชื่อคนแต่ง 1 ชื่อต่อ 1 ใบ เรียงตามเวลาที่กด
+// มี log → ได้ชื่อจริงรายใบ | ไม่มี log (ข้อมูลเก่า) → ใช้ craftedByName ทั้งก้อน
+function crafterNames(entry, craftedQty) {
+  if (!entry || craftedQty <= 0) return [];
+  const out = [];
+  if (Array.isArray(entry.log) && entry.log.length) {
+    entry.log.slice().sort((a,b) => (a.at||0) - (b.at||0)).forEach(L => {
+      const q = L.qty || 0;
+      if (q > 0) for (let i = 0; i < q; i++) out.push(L.byName || 'ไม่ระบุชื่อ');
+      else if (q < 0) for (let i = 0; i < -q && out.length; i++) out.pop(); // undo
+    });
+  }
+  while (out.length < craftedQty) out.push(entry.craftedByName || 'ไม่ระบุชื่อ');
+  return out.slice(0, craftedQty);
+}
+
 // อ่านค่าโดยลองคีย์ใหม่ก่อน แล้ว fallback คีย์เก่า (ข้อมูลก่อนอัปเดตไม่หาย)
 function readCraftEntry(cs, i) {
   if (!cs) return undefined;
@@ -1582,10 +1625,13 @@ function buildGroupedData() {
       if (remainQty <= 0) continue;
 
       if (!custMap[cust].items[k]) {
-        custMap[cust].items[k] = { key: k, label: buildLabel(item), totalQty: 0, craftedQty: 0, sources: [] };
+        custMap[cust].items[k] = { key: k, label: buildLabel(item), productName: item.productName,
+                                   totalQty: 0, craftedQty: 0, by: [], sources: [] };
       }
       custMap[cust].items[k].totalQty   += remainQty;
       custMap[cust].items[k].craftedQty += craftedQty;
+      // ชื่อคนแต่ง 1 ชื่อต่อ 1 ใบ — ตัดส่วนที่จัดส่งไปแล้วออก (ส่งของที่แต่งก่อนไปก่อน)
+      custMap[cust].items[k].by.push(...crafterNames(readCraftEntry(cs, item), craftedRaw).slice(deliveredRaw));
       custMap[cust].items[k].sources.push({ orderId: o.id, orderQty: item.qty, craftedQty: craftedRaw, item });
     }
   }
@@ -1610,6 +1656,8 @@ function renderCraftOrders() {
       : `ทั้งหมด ${_orders.length} ออเดอร์`;
   }
   _groups = buildGroupedData(); // update global lookup for stepItem()
+  renderTypeChips(_groups);            // ชิปนับจากงานทั้งหมดของช่างคนนี้
+  const shown = applyTypeFilter(_groups); // รายการที่จะแสดงหลังกรอง
 
   const el = document.getElementById('craft-content');
 
@@ -1617,16 +1665,22 @@ function renderCraftOrders() {
     <i class="fa-solid fa-plus"></i>รับออเดอร์ใหม่</button>` + renderMyRecentOrders();
   const summaryHtml = newOrderBtn + renderSummaryCard();
 
-  if (!_groups.length) {
-    el.innerHTML = summaryHtml + `<div class="empty-craft">
-      <i class="fa-solid fa-circle-check" style="color:#16a34a;"></i>
-      <p>ไม่มีรายการงานสำหรับ <strong>${esc(_craftsman.name)}</strong></p>
-      <p style="font-size:13px;margin-top:6px;color:#9ca3af;">ยังไม่มีออเดอร์หรือทุกงานเสร็จหมดแล้ว</p>
-    </div>`;
+  if (!shown.length) {
+    el.innerHTML = summaryHtml + (_typeFilter.size
+      ? `<div class="empty-craft">
+          <i class="fa-solid fa-filter-circle-xmark" style="color:#9ca3af;"></i>
+          <p>ไม่มีงานในชนิดที่เลือก</p>
+          <button onclick="pickType('')" style="margin-top:10px;padding:8px 18px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:'Sarabun',sans-serif;">ดูทั้งหมด</button>
+        </div>`
+      : `<div class="empty-craft">
+          <i class="fa-solid fa-circle-check" style="color:#16a34a;"></i>
+          <p>ไม่มีรายการงานสำหรับ <strong>${esc(_craftsman.name)}</strong></p>
+          <p style="font-size:13px;margin-top:6px;color:#9ca3af;">ยังไม่มีออเดอร์หรือทุกงานเสร็จหมดแล้ว</p>
+        </div>`);
     return;
   }
 
-  const hasRemaining = _groups.some(g => g.items.some(it => it.craftedQty < it.totalQty));
+  const hasRemaining = shown.some(g => g.items.some(it => it.craftedQty < it.totalQty));
   let html = summaryHtml;
 
   if (!hasRemaining) {
@@ -1669,6 +1723,60 @@ function renderCustomerCard(group) {
 }
 
 // ── Active item row (remaining > 0) ──
+// ── ชิปกรองชนิดหีบ (นับเฉพาะงานที่ช่างคนนี้รับผิดชอบ) ──
+function renderTypeChips(groups) {
+  const bar = document.getElementById('type-filter-bar');
+  const box = document.getElementById('typeChips');
+  if (!bar || !box) return;
+
+  // นับจำนวนที่ยังค้างแต่ง แยกตามชนิด
+  const cnt = {};
+  groups.forEach(g => g.items.forEach(it => {
+    const left = Math.max(0, it.totalQty - it.craftedQty);
+    const t = it.productName || '?';
+    cnt[t] = (cnt[t] || 0) + left;
+  }));
+  // ล้างชนิดที่ไม่มีแล้วออกจากตัวกรอง
+  for (const t of [..._typeFilter]) if (!(t in cnt)) _typeFilter.delete(t);
+
+  const types = Object.keys(cnt).sort((a,b) => cnt[b] - cnt[a]);
+  if (types.length <= 1) { bar.style.display = 'none'; return; }  // มีชนิดเดียวไม่ต้องกรอง
+  bar.style.display = '';
+
+  const total = Object.values(cnt).reduce((a,b) => a+b, 0);
+  const all = _typeFilter.size === 0;
+  box.innerHTML =
+    `<button class="tf-chip${all?' on-all':''}" onclick="pickType('')">ทั้งหมด <b>${total}</b></button>`
+    + types.map(t => `<button class="tf-chip${_typeFilter.has(t)?' on':''}"
+        data-t="${esc(t)}" onclick="pickType(this.dataset.t)">${esc(t)} <b>${cnt[t]}</b></button>`).join('');
+}
+
+function pickType(t) {
+  if (!t) _typeFilter.clear();
+  else _typeFilter.has(t) ? _typeFilter.delete(t) : _typeFilter.add(t);
+  renderCraftOrders();
+}
+
+// กรองกลุ่มงานตามชนิดที่เลือก — ลูกค้าที่ไม่เหลือรายการจะหายทั้งการ์ด
+function applyTypeFilter(groups) {
+  if (!_typeFilter.size) return groups;
+  return groups
+    .map(g => ({ ...g, items: g.items.filter(it => _typeFilter.has(it.productName || '?')) }))
+    .filter(g => g.items.length);
+}
+
+// ป้ายชื่อช่างที่แต่งรายการนี้ — เขียว = ตัวเอง, ม่วง = ช่างคนอื่น
+function crafterBadges(by) {
+  if (!by || !by.length) return '';
+  const cnt = {};
+  by.forEach(n => { cnt[n] = (cnt[n]||0) + 1; });
+  return `<div class="crafter-row">` + Object.keys(cnt).map(n => {
+    const me = n === _craftsman?.name;
+    return `<span class="crafter${me?' me':''}">
+      <span class="av">${esc(n.trim().slice(0,1))}</span>${esc(n)}${me?' (ฉัน)':''} × ${cnt[n]}</span>`;
+  }).join('') + `</div>`;
+}
+
 function renderItemActive(custName, it) {
   const ec = encC(custName), ek = encC(it.key);
 
@@ -1697,6 +1805,7 @@ function renderItemActive(custName, it) {
       <div class="craft-progress">
         <div class="craft-progress-bar" style="width:${pct}%"></div>
       </div>
+      ${crafterBadges(it.by)}
     </div>
     <div class="craft-item-status">
       <div class="stepper">
@@ -1719,6 +1828,7 @@ function renderItemDone(custName, it) {
     <div class="craft-item-info">
       <div class="craft-item-name">${esc(it.label)}</div>
       <div class="badge-crafted"><i class="fa-solid fa-circle-check"></i>ครบ ${it.totalQty} ใบ</div>
+      ${crafterBadges(it.by)}
     </div>
     <div class="craft-item-status">
       <button class="btn-craft-undo" onclick="stepItem('${ec}','${ek}',-1)">
@@ -1894,6 +2004,12 @@ window.addEventListener('DOMContentLoaded', init);
   <button id="btnFilterAll" class="filter-btn filter-btn-active" onclick="setDateFilter('all')">📋 ทั้งหมด</button>
   <button id="btnFilterHistory" class="filter-btn" onclick="setDateFilter('history')">📂 ประวัติ</button>
   <span id="dateFilterLabel" style="font-size:12px;color:#9ca3af;margin-left:4px;"></span>
+</div>
+
+<!-- กรองตามชนิดหีบ (เลือกได้หลายชนิด) -->
+<div id="type-filter-bar" style="display:none;">
+  <div class="tf-hd"><i class="fa-solid fa-filter"></i>ชนิดหีบ</div>
+  <div class="tf-chips" id="typeChips"></div>
 </div>
 
 <!-- Main content -->
