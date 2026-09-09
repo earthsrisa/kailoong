@@ -810,6 +810,45 @@ function withTimeout(promise, ms, msg) {
   ]);
 }
 
+// ═══════════════════════════════════════
+//  OrdersFeed — ตัวดักฟังออเดอร์ตัวเดียวของทั้งแอพ
+// ═══════════════════════════════════════
+// เดิม: หน้า Dashboard กับหน้าประวัติออเดอร์ ต่างคนต่างเปิด onSnapshot
+// ของตัวเอง แล้ว navigate() ปิดทิ้งทุกครั้งที่เปลี่ยนหน้า
+// → สลับหน้าที = อ่านออเดอร์ทั้ง collection ใหม่ทั้งก้อน
+// → สลับไปมาทั้งวันจนเกินโควตาอ่านของ Firebase (แผนฟรี 50,000 ครั้ง/วัน)
+//   แล้วทุกอย่างพังหมดรวมถึงการบันทึก ("Quota exceeded.")
+//
+// ใหม่: เปิดตัวเดียว ไม่ปิดจนกว่าจะปิดแอพ ใครอยากได้ข้อมูลก็มาสมัครรับ
+// เปลี่ยนหน้ากี่รอบก็ไม่เสียโควตาเพิ่ม
+const OrdersFeed = {
+  _unsub: null,
+  _subs: new Set(),
+  _last: null,
+  subscribe(fn) {
+    this._subs.add(fn);
+    // มีข้อมูลอยู่แล้วก็ส่งให้เลย ไม่ต้องรออ่านรอบใหม่
+    // หน่วงเป็น microtask ให้ผู้เรียกเก็บค่า unsubscribe ให้เสร็จก่อน
+    if (this._last) {
+      const snapshot = this._last;
+      Promise.resolve().then(() => {
+        if (this._subs.has(fn)) { try { fn(snapshot); } catch (e) { console.error(e); } }
+      });
+    }
+    this._start();
+    return () => { this._subs.delete(fn); };   // "ยกเลิก" = แค่เลิกฟัง ไม่ปิดตัวจริง
+  },
+  _start() {
+    if (this._unsub) return;
+    this._unsub = DB._fs.collection('orders').onSnapshot(snap => {
+      const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      this._last = orders;
+      window._allOrdersCache = orders;
+      this._subs.forEach(fn => { try { fn(orders); } catch (e) { console.error('OrdersFeed sub:', e); } });
+    }, err => console.error('OrdersFeed error:', err));
+  }
+};
+
 const DB = {
   _fs: null,
   _cache: {},         // { col: { ts, data } }
@@ -847,6 +886,9 @@ const DB = {
 
   // ── Generic CRUD ──
   async _all(col) {
+    // ออเดอร์: ถ้า OrdersFeed ต่ออยู่แล้ว ใช้ข้อมูลจากมันเลย
+    // มันสดกว่า cache 90 วิ และไม่เสียโควตาอ่านเพิ่มสักครั้ง
+    if (col === 'orders' && OrdersFeed._unsub && OrdersFeed._last) return OrdersFeed._last;
     const now = Date.now();
     const c = this._cache[col];
     if (c && now - c.ts < this._CACHE_TTL) return c.data;
@@ -1310,13 +1352,11 @@ async function renderDashboard(el) {
 
   // ── Real-time listener: auto-update pending list + today card + recent table ──
   if (window._dashUnsubOrders) { window._dashUnsubOrders(); window._dashUnsubOrders = null; }
-  window._dashUnsubOrders = DB._fs.collection('orders').onSnapshot(snap => {
+  window._dashUnsubOrders = OrdersFeed.subscribe(freshOrders => {
     if (window._currentPage !== 'dashboard') {
       if (window._dashUnsubOrders) { window._dashUnsubOrders(); window._dashUnsubOrders = null; }
       return;
     }
-    const freshOrders = snap.docs.map(d => ({id: d.id, ...d.data()}));
-    window._allOrdersCache = freshOrders;
 
     // ── Update pending list (respect current date filter) ──
     const dateStr = document.getElementById('pendingDatePicker')?.value || todayLocal();
@@ -1347,7 +1387,7 @@ async function renderDashboard(el) {
       recentEl.innerHTML = recent.map(o => dashRecentRow(o)).join('')
         || `<tr><td colspan="5"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-inbox"></i><p>ยังไม่มีออเดอร์</p></div></td></tr>`;
     }
-  }, err => console.error('dashboard onSnapshot error:', err));
+  });
 }
 
 // ── หนึ่งแถวในกล่อง "ออเดอร์ล่าสุด" ──
@@ -1415,16 +1455,15 @@ async function renderOrders(el) {
 
   // ── Real-time listener: auto-update order table when any order changes ──
   if (window._ordersUnsub) { window._ordersUnsub(); window._ordersUnsub = null; }
-  window._ordersUnsub = DB._fs.collection('orders').onSnapshot(snap => {
+  window._ordersUnsub = OrdersFeed.subscribe(fresh => {
     if (window._currentPage !== 'orders') {
       if (window._ordersUnsub) { window._ordersUnsub(); window._ordersUnsub = null; }
       return;
     }
-    const fresh = snap.docs.map(d => ({id:d.id, ...d.data()}));
     const freshSorted = [...fresh].sort((a,b)=>b.createdAt-a.createdAt).map(o=>({...o,_total:U.orderTotal(o)}));
     window._allOrders = freshSorted;
     applyOrderFilter(); // re-render with current filters intact
-  }, err => console.error('orders onSnapshot error:', err));
+  });
 }
 
 function renderOrderRows(list) {
