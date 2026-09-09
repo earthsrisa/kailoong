@@ -964,29 +964,41 @@ const DB = {
   },
 
   // ── Sequence helpers ──
-  // ใช้ตัวนับกลางใน Firestore + transaction → เลขไม่ซ้ำแม้เจ้าของกับช่างกดพร้อมกัน
-  // counterKey: 'orders-2569' | 'invoices-2569'
+  // ⚠️ เดิมใช้ runTransaction แต่ Firebase ปฏิเสธ transaction ด้วย
+  // resource-exhausted ("Quota exceeded.") ทั้งที่การเขียนธรรมดายังทำงานปกติ
+  // → ออกเลขออเดอร์ไม่ได้ = บันทึกออเดอร์ไม่ได้เลย
+  //
+  // เปลี่ยนมาใช้ FieldValue.increment แทน มันบวกเลขที่ฝั่งเซิร์ฟเวอร์
+  // เป็น "การเขียนธรรมดา" ไม่ใช่ transaction จึงไม่ติดข้อจำกัดตัวเดียวกัน
+  // และยังกันเลขซ้ำได้เพราะเซิร์ฟเวอร์เป็นคนบวกให้ ไม่ใช่ต่างคนต่างบวกในเครื่อง
+  //
+  // จุดอ่อนเดียว: ถ้าสองเครื่องกดพร้อมกันเป๊ะๆ อาจอ่านค่ากลับมาได้เลขเดียวกัน
+  // → ผู้เรียก (nextOrderNo/nextReceiptNo) เช็คซ้ำกับรายการที่มีอยู่อีกชั้น
   async _nextSeq(counterKey, seedFn) {
     const ref = this._fs.collection('counters').doc(counterKey);
-    // คำนวณเลขเริ่มต้นไว้ก่อน (ใช้เฉพาะครั้งแรกที่ยังไม่มีตัวนับ)
-    let seed = 0;
-    try {
-      const snap = await ref.get();
-      if (!snap.exists) seed = await seedFn();
-    } catch (e) { seed = await seedFn(); }
-    // transaction: อ่าน+เขียนเป็นหน่วยเดียว ใครมาทีหลังจะได้เลขถัดไปเสมอ
-    // ครอบ timeout ไว้ — transaction ต่อเซิร์ฟเวอร์ไม่ได้จะ "ค้าง" ไม่ error
-    // ถ้าปล่อยค้าง ปุ่มบันทึกจะตายถาวรโดยไม่บอกอะไรเลย
-    return await withTimeout(
-      this._fs.runTransaction(async tx => {
-        const d = await tx.get(ref);
-        const cur = d.exists ? (d.data().seq || 0) : seed;
-        tx.set(ref, { seq: cur + 1, updatedAt: Date.now() }, { merge: true });
-        return cur + 1;
-      }),
-      20000,
-      'ออกเลขออเดอร์ไม่สำเร็จ — เน็ตอาจไม่เสถียร ลองใหม่อีกครั้ง'
+    const FV = firebase.firestore.FieldValue;
+    // ครั้งแรกที่ยังไม่มีตัวนับ → ตั้งต้นจากเลขล่าสุดที่ใช้ไปแล้ว
+    const snap0 = await withTimeout(ref.get(), 15000, 'อ่านตัวนับไม่สำเร็จ');
+    if (!snap0.exists) {
+      const seed = await seedFn();
+      await withTimeout(ref.set({ seq: seed, updatedAt: Date.now() }, { merge: true }), 15000, 'ตั้งตัวนับไม่สำเร็จ');
+    }
+    await withTimeout(
+      ref.set({ seq: FV.increment(1), updatedAt: Date.now() }, { merge: true }),
+      15000, 'ออกเลขไม่สำเร็จ — เน็ตอาจไม่เสถียร ลองใหม่อีกครั้ง'
     );
+    const snap = await withTimeout(ref.get(), 15000, 'อ่านเลขกลับไม่สำเร็จ');
+    return (snap.data() || {}).seq || 1;
+  },
+  // กันเลขซ้ำอีกชั้น — ถ้าเลขที่ได้ถูกใช้ไปแล้วให้ขยับขึ้นจนกว่าจะว่าง
+  _uniqueNo(prefix, n, usedSet) {
+    let no = `${prefix}${String(n).padStart(4,'0')}`;
+    let guard = 0;
+    while (usedSet.has(no) && guard++ < 200) {
+      n++;
+      no = `${prefix}${String(n).padStart(4,'0')}`;
+    }
+    return no;
   },
   async nextOrderNo() {
     const yr = new Date().getFullYear() + 543;
@@ -996,7 +1008,8 @@ const DB = {
       const nums = all.filter(o=>o.orderNo?.startsWith(prefix)).map(o=>parseInt(o.orderNo.slice(prefix.length))||0);
       return nums.length ? Math.max(...nums) : 0;
     });
-    return `${prefix}${String(n).padStart(4,'0')}`;
+    const used = new Set((OrdersFeed._last || await this.getOrders()).map(o => o.orderNo).filter(Boolean));
+    return this._uniqueNo(prefix, n, used);
   },
   async nextReceiptNo() {
     const yr = new Date().getFullYear() + 543;
@@ -1006,7 +1019,8 @@ const DB = {
       const nums = all.filter(i=>i.invoiceNo?.startsWith(prefix)).map(i=>parseInt(i.invoiceNo.slice(prefix.length))||0);
       return nums.length ? Math.max(...nums) : 0;
     });
-    return `${prefix}${String(n).padStart(4,'0')}`;
+    const used = new Set((await this.getInvoices()).map(i => i.invoiceNo).filter(Boolean));
+    return this._uniqueNo(prefix, n, used);
   },
   async getEffectivePrice(customerId, productId, defaultPrice, trimColor='') {
     const c = await this.getCustomer(customerId);

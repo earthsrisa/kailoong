@@ -1450,16 +1450,24 @@ async function nextOrderNoCraft() {
         .filter(n => typeof n === 'string' && n.startsWith(prefix))
         .map(n => parseInt(n.slice(prefix.length)) || 0);
       seed = nums.length ? Math.max(...nums) : 0;
+      // ต้องเขียนค่าตั้งต้นก่อน ไม่งั้น increment จะเริ่มนับจาก 0 แล้วเลขไปชนของเก่า
+      await ref.set({ seq: seed, updatedAt: Date.now() }, { merge: true });
     }
-    // ครอบ timeout — transaction ต่อเซิร์ฟเวอร์ไม่ได้จะค้าง ไม่ error
-    // ปล่อยค้าง = ปุ่มบันทึกตายถาวร ต้องให้มันตกไป catch ข้างล่างแทน
-    const n = await withTimeout(db.runTransaction(async tx => {
-      const d = await tx.get(ref);
-      const cur = d.exists ? (d.data().seq || 0) : seed;
-      tx.set(ref, { seq: cur + 1, updatedAt: Date.now() }, { merge: true });
-      return cur + 1;
-    }), 20000, 'transaction timeout');
-    return prefix + String(n).padStart(4, '0');
+    // ⚠️ เดิมใช้ runTransaction แต่ Firebase ปฏิเสธด้วย resource-exhausted
+    // ทั้งที่เขียนธรรมดายังได้ → เปลี่ยนมาใช้ increment (เป็นการเขียนธรรมดา)
+    const FV = firebase.firestore.FieldValue;
+    await withTimeout(
+      ref.set({ seq: FV.increment(1), updatedAt: Date.now() }, { merge: true }),
+      15000, 'increment timeout'
+    );
+    const after = await withTimeout(ref.get(), 15000, 'read-back timeout');
+    let n = (after.data() || {}).seq || 1;
+    // กันเลขซ้ำอีกชั้น — เทียบกับออเดอร์ที่หน้านี้ถืออยู่แล้ว (ไม่เสียโควตาอ่านเพิ่ม)
+    const used = new Set(_orders.map(o => o.orderNo).filter(Boolean));
+    let no = prefix + String(n).padStart(4, '0');
+    let guard = 0;
+    while (used.has(no) && guard++ < 200) { n++; no = prefix + String(n).padStart(4, '0'); }
+    return no;
   } catch (e) {
     console.error('nextOrderNoCraft:', e);
     // สำรองสุดท้าย: ใช้เวลาต่อท้ายกันชนกัน
