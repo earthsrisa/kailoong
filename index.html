@@ -741,6 +741,25 @@ const DB = {
   async init() {
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     this._fs = firebase.firestore();
+    await this._enableOffline();
+  },
+
+  // เก็บข้อมูล Firestore ไว้ในเครื่อง → เปิดแอพเห็นข้อมูลทันที
+  // แล้วค่อยอัปเดตจากเซิร์ฟเวอร์ให้เอง (onSnapshot ยังทำงานปกติ)
+  // ต้องเรียกก่อนอ่าน/เขียนอะไรทั้งสิ้น ไม่งั้นจะ throw
+  async _enableOffline() {
+    if (window._klOfflineTried) return;
+    window._klOfflineTried = true;
+    try {
+      await this._fs.enablePersistence({ synchronizeTabs: true });
+      window._klOfflineOn = true;
+    } catch (e) {
+      // failed-precondition = เปิดหลายแท็บแล้วแท็บอื่นจองไว้
+      // unimplemented    = เบราว์เซอร์ไม่รองรับ (Safari โหมดส่วนตัว ฯลฯ)
+      // ทั้งสองกรณีแอพทำงานได้ปกติ แค่ไม่มี cache
+      window._klOfflineOn = false;
+      console.warn('offline cache off:', e && e.code || e);
+    }
   },
 
   // ── Generic CRUD ──
@@ -5264,6 +5283,76 @@ window.addEventListener('DOMContentLoaded', async () => {
       `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i><p>โหลดข้อมูลไม่ได้ กรุณารีเฟรช</p><button onclick="location.reload()" class="btn btn-primary mt-2">รีเฟรช</button></div>`;
   }
 });
+
+// ═══════════════════════════════════════
+//  SERVICE WORKER + สถานะออฟไลน์
+// ═══════════════════════════════════════
+// sw.js เก็บไฟล์แอพ (HTML/ไอคอน) ไว้ในเครื่อง → เปิดครั้งต่อไปเร็วขึ้นมาก
+// ข้อมูลจาก Firestore ไม่ถูกเก็บที่นี่ (sw.js ปล่อยผ่าน) → ยังสดเสมอ
+function klRegisterSW() {
+  if (!('serviceWorker' in navigator)) return;
+  if (location.protocol === 'file:') return;   // เปิดไฟล์ตรงๆ ใช้ไม่ได้
+  // ครั้งแรกที่ติดตั้ง controller จะเปลี่ยนเองโดยไม่ใช่การอัปเดต — ห้ามรีโหลด
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    // มีเวอร์ชันใหม่รออยู่ตั้งแต่เปิดหน้า
+    if (reg.waiting && navigator.serviceWorker.controller) klShowUpdateBar(reg.waiting);
+    reg.addEventListener('updatefound', () => {
+      const nw = reg.installing;
+      if (!nw) return;
+      nw.addEventListener('statechange', () => {
+        // controller มีค่า = เคยติดตั้งแล้ว แปลว่านี่คือ "อัปเดต" ไม่ใช่ครั้งแรก
+        if (nw.state === 'installed' && navigator.serviceWorker.controller) klShowUpdateBar(nw);
+      });
+    });
+  }).catch(e => console.warn('sw register failed', e));
+
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) return;
+    klReloadOnce();
+  });
+}
+let _klReloading = false;
+function klReloadOnce() {
+  if (_klReloading) return;
+  _klReloading = true;
+  location.reload();
+}
+
+function klShowUpdateBar(worker) {
+  if (document.getElementById('klUpdateBar')) return;
+  const d = document.createElement('div');
+  d.id = 'klUpdateBar';
+  d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:3000;background:#1a2332;color:#fff;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 24px rgba(0,0,0,.3);font-size:15px;';
+  d.innerHTML = `<i class="fa-solid fa-arrows-rotate" style="color:#60a5fa"></i>
+    <span style="flex:1">มีเวอร์ชันใหม่พร้อมใช้</span>
+    <button id="klUpdNow" style="border:0;background:#3b82f6;color:#fff;border-radius:8px;padding:8px 14px;font-weight:600;font-size:15px;">อัปเดต</button>
+    <button id="klUpdLater" style="border:0;background:transparent;color:#9aa8bd;font-size:15px;padding:8px;">ภายหลัง</button>`;
+  document.body.appendChild(d);
+  d.querySelector('#klUpdNow').onclick = () => {
+    d.remove();
+    worker.postMessage({ type: 'SKIP_WAITING' });   // เสร็จแล้ว controllerchange จะรีโหลดเอง
+    setTimeout(klReloadOnce, 1500);                 // เผื่อ controllerchange ไม่ยิง
+  };
+  d.querySelector('#klUpdLater').onclick = () => d.remove();
+}
+
+// ── ป้ายบอกว่าออฟไลน์ ──
+function klOfflineBadge(show) {
+  let b = document.getElementById('klOffBadge');
+  if (!show) { b?.remove(); return; }
+  if (b) return;
+  b = document.createElement('div');
+  b.id = 'klOffBadge';
+  b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(8px + env(safe-area-inset-top));z-index:3000;background:#b45309;color:#fff;border-radius:20px;padding:7px 16px;font-size:14px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.25);';
+  b.innerHTML = '<i class="fa-solid fa-wifi" style="opacity:.7"></i> ออฟไลน์ — ข้อมูลอาจไม่ล่าสุด';
+  document.body.appendChild(b);
+}
+window.addEventListener('online',  () => { klOfflineBadge(false); U.toast?.('กลับมาออนไลน์แล้ว','success'); });
+window.addEventListener('offline', () => klOfflineBadge(true));
+if (!navigator.onLine) klOfflineBadge(true);
+
+klRegisterSW();
 </script>
 </body>
 </html>
