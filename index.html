@@ -135,8 +135,13 @@ body { background: #f0f2f5; margin: 0; }
 .badge-outstanding { background:#fee2e2; color:#991b1b; font-size:12.5px; padding:2px 8px; border-radius:20px; font-weight:600; }
 
 /* ── Today highlight ── */
-.today-card { background: linear-gradient(135deg,#1e3a5f,#2563eb); color: #fff; border-radius: 14px; padding: 20px 24px; }
-.cust-today-card { background: linear-gradient(135deg,#134e4a,#0d9488); color: #fff; border-radius: 14px; padding: 20px 24px; overflow-y:auto;max-height:420px; }
+/* ปลายอ่อนของ gradient เดิมสว่างเกินไป (#2563eb / #0d9488) ตัวหนังสือขาว
+   ที่ทับอยู่ตรงนั้นได้ contrast แค่ 3.7-4.4 ตกเกณฑ์อ่านง่าย (ต้อง 4.5 ขึ้นไป)
+   ทำปลายให้เข้มลงหนึ่งขั้น ตัวหนังสือทุกตัวบนการ์ดผ่านเกณฑ์พร้อมกันหมด
+   ฟ้า  #2563eb → #1d4ed8  (ขาวได้ 6.70)
+   เขียว #0d9488 → #0f766e  (ขาวได้ 5.47) */
+.today-card { background: linear-gradient(135deg,#1e3a5f,#1d4ed8); color: #fff; border-radius: 14px; padding: 20px 24px; }
+.cust-today-card { background: linear-gradient(135deg,#134e4a,#0f766e); color: #fff; border-radius: 14px; padding: 20px 24px; overflow-y:auto;max-height:420px; }
 .btn-card-outline { background:transparent;border:1px solid rgba(255,255,255,.55);color:#fff;border-radius:7px;padding:5px 12px;font-size:13px;cursor:pointer; }
 .btn-card-outline:hover { background:rgba(255,255,255,.15); }
 .btn-card-solid { background:rgba(255,255,255,.22);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:7px;padding:5px 12px;font-size:13px;cursor:pointer;font-weight:600; }
@@ -156,9 +161,32 @@ body { background: #f0f2f5; margin: 0; }
 .today-card h3 { font-size: 15px; font-weight: 700; margin: 0 0 14px; opacity: .85; }
 .today-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.12); font-size: 14px; }
 .today-item:last-child { border-bottom: none; }
-.cust-chip { background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);color:#fff;border-radius:20px;padding:3px 11px;font-size:12px;cursor:pointer;font-weight:500;transition:all .15s;white-space:nowrap;line-height:1.4; }
-.cust-chip:hover { background:rgba(255,255,255,.28); }
-.cust-chip.active { background:rgba(255,255,255,.32);border-color:rgba(255,255,255,.8);font-weight:700; }
+/* ชิปเลือกลูกค้า — เดิมขาวโปร่ง 15% บนพื้นเขียว ตัวหนังสือขาวได้ contrast ~3.4
+   กลางแดดอ่านไม่ออก เปลี่ยนเป็นพื้นขาวทึบ ตัวหนังสือเขียวเข้ม ได้เกิน 12
+   หมายเหตุ: เอกสารแนะนำให้เพิ่มความทึบของพื้นขาว ซึ่งกลับทำให้แย่ลง
+   เพราะพื้นยิ่งสว่าง ตัวหนังสือขาวยิ่งจม */
+.cust-chip { background:rgba(255,255,255,.92);border:none;color:#0f3d38;border-radius:20px;padding:4px 12px;font-size:12.5px;cursor:pointer;font-weight:600;transition:transform .06s,box-shadow .15s;white-space:nowrap;line-height:1.4; }
+.cust-chip:hover { background:#fff; }
+.cust-chip:active { transform:scale(.96); }
+/* active ไม่ได้บอกด้วยสีอย่างเดียว — มีวงแหวนรอบและตัวหนาขึ้นด้วย */
+.cust-chip.active { background:#fff;color:#0b2e2a;font-weight:800;box-shadow:0 0 0 2.5px rgba(255,255,255,.6); }
+
+/* ── การตอบสนองเวลาแตะบนมือถือ ── */
+/* ยุบตัวทันทีที่นิ้วแตะ ให้รู้ว่ากดติดแล้ว ไม่ต้องกดซ้ำ */
+.oc-color:active, .oc-stp:active, .oc-ico:active, .btn-icon:active,
+.bnav-item:active, .oc-trim:active { transform: scale(.96); }
+.oc-color, .oc-stp, .oc-ico, .btn-icon, .bnav-item, .oc-trim { transition: transform .05s ease; }
+
+/* จอสัมผัสไม่มี hover จริง — ถ้าไม่ดักไว้ สีตอน hover จะค้างหลังปล่อยนิ้ว
+   ทำให้ดูเหมือนปุ่มยังถูกเลือกอยู่ ทั้งที่กดไปแล้ว */
+@media (hover: none) {
+  .btn-card-outline:hover { background: transparent; }
+  .btn-card-solid:hover   { background: rgba(255,255,255,.22); }
+  .cust-chip:hover        { background: rgba(255,255,255,.92); }
+  .cust-chip.active:hover { background: #fff; }
+  .btn-neworder-hero:hover { transform: none; box-shadow: 0 2px 10px rgba(0,0,0,.22); }
+  .dash-recent tr:hover   { background: transparent; }
+}
 
 /* ── Scrollable ── */
 .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; display: block; width: 100%; }
@@ -285,9 +313,18 @@ body { background: #f0f2f5; margin: 0; }
   .form-control, .form-control-sm, .form-select, .form-select-sm {
     font-size: 16px !important;
   }
-  /* ปุ่ม −/+ และไอคอนให้กดง่ายขึ้นบนมือถือ */
-  .oc-stp, .ord-cart-x, .oc-ico { min-width: 40px !important; min-height: 40px !important; }
-  .btn-icon { min-width: 38px; min-height: 38px; }
+  /* ปุ่ม −/+ และไอคอน — มาตรฐานนิ้วโป้งคือ 44px เดิมอยู่ 38-40 กดพลาดบ่อย
+     กลุ่มนี้เป็นปุ่มที่กดถี่ที่สุด ขยายจริงไปเลยทั้งขนาดที่เห็นและพื้นที่กด */
+  .oc-stp, .ord-cart-x, .oc-ico { min-width: 44px !important; min-height: 44px !important; }
+
+  /* .btn-icon อยู่เรียงกันหลายปุ่มในแถวเดียว ถ้าขยายจริงจะเบียดกันน่าเกลียด
+     จึงคงขนาดที่ตาเห็นไว้ 38px แต่ขยาย "พื้นที่รับนิ้ว" ที่มองไม่เห็นเป็น 44px
+     (ยื่นออกด้านละ 3px ซึ่งน้อยกว่าช่องไฟระหว่างปุ่ม 6px จึงไม่แย่งกดกัน) */
+  .btn-icon { min-width: 38px; min-height: 38px; position: relative; }
+  .btn-icon::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%); width: 44px; height: 44px;
+  }
 
   /* รายการโลง — แสดง 1 บรรทัดต่อรายการบนมือถือ */
   .ord-item { display: block !important; margin: 2px 0 !important; }
@@ -1128,8 +1165,11 @@ const U = {
     el.className='toast-notif';
     // บนมือถือ (bottom-nav แสดง) เลื่อน toast ขึ้น 72px ไม่ให้ทับ
     const isMobile=window.innerWidth<992;
+    // เดิมใช้ 82px คงที่ — บน iPhone ที่มีแถบขีดล่าง toast จะไปนั่งทับเมนู
+    // env(safe-area-inset-bottom) คือความสูงของแถบนั้น (เครื่องที่ไม่มีจะได้ 0)
+    // ใช้ได้เพราะ meta viewport มี viewport-fit=cover อยู่แล้ว
     const bottom=isMobile?'82px':'24px';
-    el.style.cssText=`position:fixed;bottom:${bottom};right:16px;z-index:9999;min-width:220px;max-width:calc(100vw - 32px);`;
+    el.style.cssText=`position:fixed;bottom:calc(${bottom} + env(safe-area-inset-bottom, 0px));right:16px;z-index:9999;min-width:220px;max-width:calc(100vw - 32px);`;
     el.innerHTML=`<div class="alert alert-${type==='success'?'success':'danger'} shadow-sm d-flex align-items-center gap-2" style="border-radius:10px;font-size:14px;">
       <i class="fa-solid ${type==='success'?'fa-circle-check':'fa-circle-xmark'}"></i>${msg}</div>`;
     document.body.appendChild(el);

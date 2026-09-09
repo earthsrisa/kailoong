@@ -196,12 +196,32 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 
 /* ── Toast ── */
 .craft-toast {
-  position: fixed; bottom: 24px; right: 16px; z-index: 9999;
+  /* บวกความสูงแถบขีดล่างของ iPhone เข้าไป ไม่งั้น toast จะอยู่ต่ำจนโดนบัง */
+  position: fixed; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); right: 16px; z-index: 9999;
   background: #1e293b; color: #fff; border-radius: 12px; padding: 12px 18px;
   font-size: 14px; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,.2);
   animation: toastIn .2s ease;
 }
 @keyframes toastIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── กดง่ายขึ้นสำหรับช่างในโรงงาน (มือเปื้อน แสงจ้า) ── */
+/* ปุ่ม −/+ และปุ่มลบ เดิม 27-36px เล็กกว่ามาตรฐานนิ้วโป้ง 44px */
+.btn-step, .ord-trash, .ord-cart-x { min-width: 44px; min-height: 44px; }
+.ord-x { min-width: 44px; min-height: 44px; display: inline-flex;
+  align-items: center; justify-content: center; }
+
+/* ยุบตัวทันทีที่แตะ ให้รู้ว่ากดติดแล้วโดยไม่ต้องจ้อง */
+.btn-step:active, .ord-trash:active, .ord-cart-x:active, .ord-pill:active,
+.ord-btn:active, .crafter:active { transform: scale(.96); }
+.btn-step, .ord-trash, .ord-cart-x, .ord-pill, .ord-btn { transition: transform .05s ease; }
+
+/* จอสัมผัสไม่มี hover จริง ถ้าไม่ดัก สีจะค้างหลังปล่อยนิ้ว
+   ดูเหมือนปุ่มยังถูกเลือกอยู่ ทั้งที่กดเสร็จไปแล้ว */
+@media (hover: none) {
+  .btn-step-minus:hover        { background: #f3f4f6; }
+  .btn-step-plus:hover         { background: #2563eb; }
+  .btn-step-plus.last-unit:hover { background: #16a34a; }
+}
 
 /* ── All done banner ── */
 .all-done-banner {
