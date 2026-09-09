@@ -800,6 +800,16 @@ async function ensureXLSX() {
 function todayLocal(){
   return new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
 }
+// รอ promise แบบมีเพดานเวลา — งานที่ค้างจะกลายเป็น error ที่เห็นได้
+// แทนที่จะเงียบหายจนปุ่มตาย
+function withTimeout(promise, ms, msg) {
+  let t;
+  return Promise.race([
+    promise.finally(() => clearTimeout(t)),
+    new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg || 'หมดเวลารอ')), ms); })
+  ]);
+}
+
 const DB = {
   _fs: null,
   _cache: {},         // { col: { ts, data } }
@@ -811,19 +821,25 @@ const DB = {
     await this._enableOffline();
   },
 
-  // เก็บข้อมูล Firestore ไว้ในเครื่อง → เปิดแอพเห็นข้อมูลทันที
-  // แล้วค่อยอัปเดตจากเซิร์ฟเวอร์ให้เอง (onSnapshot ยังทำงานปกติ)
-  // ต้องเรียกก่อนอ่าน/เขียนอะไรทั้งสิ้น ไม่งั้นจะ throw
+  // ⚠️ Firestore offline cache — ปิดไว้ (9 ก.ย. 69)
+  //
+  // เปิดแล้วบันทึกออเดอร์ในมือถือไม่ได้ สาเหตุ:
+  // enablePersistence ทำให้ runTransaction (ที่ใช้ออกเลขออเดอร์)
+  // ต้องต่อเซิร์ฟเวอร์ได้จริงเท่านั้น ถ้าเน็ตมือถืออืดหรือ IndexedDB
+  // บน iOS มีปัญหา มันจะ "ค้าง" ไม่ error → doSaveOrder ไม่จบ
+  // → window._saving ค้างเป็น true ตลอด → กดบันทึกอีกกี่ครั้งก็เงียบ
+  //
+  // ถ้าจะเปิดใหม่ ต้องแก้ _nextSeq ให้ไม่ใช้ transaction ก่อน
+  // เปลี่ยน false เป็น true เพื่อทดลองเปิด
+  _OFFLINE_CACHE: false,
   async _enableOffline() {
+    if (!this._OFFLINE_CACHE) { window._klOfflineOn = false; return; }
     if (window._klOfflineTried) return;
     window._klOfflineTried = true;
     try {
       await this._fs.enablePersistence({ synchronizeTabs: true });
       window._klOfflineOn = true;
     } catch (e) {
-      // failed-precondition = เปิดหลายแท็บแล้วแท็บอื่นจองไว้
-      // unimplemented    = เบราว์เซอร์ไม่รองรับ (Safari โหมดส่วนตัว ฯลฯ)
-      // ทั้งสองกรณีแอพทำงานได้ปกติ แค่ไม่มี cache
       window._klOfflineOn = false;
       console.warn('offline cache off:', e && e.code || e);
     }
@@ -910,12 +926,18 @@ const DB = {
       if (!snap.exists) seed = await seedFn();
     } catch (e) { seed = await seedFn(); }
     // transaction: อ่าน+เขียนเป็นหน่วยเดียว ใครมาทีหลังจะได้เลขถัดไปเสมอ
-    return await this._fs.runTransaction(async tx => {
-      const d = await tx.get(ref);
-      const cur = d.exists ? (d.data().seq || 0) : seed;
-      tx.set(ref, { seq: cur + 1, updatedAt: Date.now() }, { merge: true });
-      return cur + 1;
-    });
+    // ครอบ timeout ไว้ — transaction ต่อเซิร์ฟเวอร์ไม่ได้จะ "ค้าง" ไม่ error
+    // ถ้าปล่อยค้าง ปุ่มบันทึกจะตายถาวรโดยไม่บอกอะไรเลย
+    return await withTimeout(
+      this._fs.runTransaction(async tx => {
+        const d = await tx.get(ref);
+        const cur = d.exists ? (d.data().seq || 0) : seed;
+        tx.set(ref, { seq: cur + 1, updatedAt: Date.now() }, { merge: true });
+        return cur + 1;
+      }),
+      20000,
+      'ออกเลขออเดอร์ไม่สำเร็จ — เน็ตอาจไม่เสถียร ลองใหม่อีกครั้ง'
+    );
   },
   async nextOrderNo() {
     const yr = new Date().getFullYear() + 543;
@@ -1620,6 +1642,9 @@ function updateAddItemTotal() {
 
 async function saveAddItems(orderId) {
   if (window._saving){return;} window._saving=true;
+  // กันเหนียว: ถ้ามีอะไรค้างจนโค้ดข้างล่างไม่จบ ปลดล็อกให้กดใหม่ได้
+  clearTimeout(window._savingWatchdog);
+  window._savingWatchdog = setTimeout(() => { window._saving = false; }, 45000);
   try {
     const order=await DB.getOrder(orderId); if(!order)return;
     const newItems=[]; let addQtyErr=false;
@@ -2963,6 +2988,9 @@ function saveOrder() {
 // บันทึกจริง — เรียกจากปุ่ม "ยืนยันบันทึก" ในหน้าตรวจสอบเท่านั้น
 async function doSaveOrder() {
   if (window._saving){return;} window._saving=true;
+  // กันเหนียว: ถ้ามีอะไรค้างจนโค้ดข้างล่างไม่จบ ปลดล็อกให้กดใหม่ได้
+  clearTimeout(window._savingWatchdog);
+  window._savingWatchdog = setTimeout(() => { window._saving = false; }, 45000);
   try {
     const custId=document.getElementById('of_cust')?.value||'';
     if (!custId){U.toast('กรุณาเลือกลูกค้า','error');return;}
@@ -3219,6 +3247,9 @@ async function showCustomerModal(id) {
 
 async function saveCustomer() {
   if (window._saving){return;} window._saving=true;
+  // กันเหนียว: ถ้ามีอะไรค้างจนโค้ดข้างล่างไม่จบ ปลดล็อกให้กดใหม่ได้
+  clearTimeout(window._savingWatchdog);
+  window._savingWatchdog = setTimeout(() => { window._saving = false; }, 45000);
   try {
     const name=document.getElementById('cf_name')?.value.trim();
     if (!name){U.toast('กรุณากรอกชื่อ','error');return;}
@@ -3486,6 +3517,9 @@ function refreshPriceFields(name) {
 
 async function saveProduct() {
   if (window._saving){return;} window._saving=true;
+  // กันเหนียว: ถ้ามีอะไรค้างจนโค้ดข้างล่างไม่จบ ปลดล็อกให้กดใหม่ได้
+  clearTimeout(window._savingWatchdog);
+  window._savingWatchdog = setTimeout(() => { window._saving = false; }, 45000);
   try {
     const name=document.getElementById('pf_name')?.value.trim();
     if (!name){U.toast('กรุณากรอกชื่อสินค้า','error');return;}
@@ -5297,6 +5331,9 @@ async function showExpenseModal(id) {
 
 async function saveExpense() {
   if (window._saving){return;} window._saving=true;
+  // กันเหนียว: ถ้ามีอะไรค้างจนโค้ดข้างล่างไม่จบ ปลดล็อกให้กดใหม่ได้
+  clearTimeout(window._savingWatchdog);
+  window._savingWatchdog = setTimeout(() => { window._saving = false; }, 45000);
   try {
     const dateVal   = document.getElementById('exp_date')?.value;
     const amountStr = document.getElementById('exp_amount')?.value;

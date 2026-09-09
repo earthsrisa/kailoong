@@ -437,15 +437,24 @@ const FIREBASE_CONFIG = {
 if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
 
-// เก็บข้อมูลไว้ในเครื่อง → เปิดหน้าเห็นงานทันที แล้วค่อยอัปเดตจากเซิร์ฟเวอร์
-// ต้องเรียกก่อนอ่าน/เขียน ไม่งั้น throw → init() รอ promise นี้ก่อนเสมอ
-const _offlineReady = db.enablePersistence({ synchronizeTabs: true })
-  .then(() => { window._klOfflineOn = true; })
-  .catch(e => {
-    // failed-precondition = แท็บอื่นจองไว้ / unimplemented = เบราว์เซอร์ไม่รองรับ
-    window._klOfflineOn = false;
-    console.warn('offline cache off:', e && e.code || e);
-  });
+// รอ promise แบบมีเพดานเวลา — งานที่ค้างจะกลายเป็น error ที่จับได้
+function withTimeout(promise, ms, msg) {
+  let t;
+  return Promise.race([
+    promise.finally(() => clearTimeout(t)),
+    new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg || 'หมดเวลารอ')), ms); })
+  ]);
+}
+
+// ⚠️ Firestore offline cache — ปิดไว้ (9 ก.ย. 69)
+// เปิดแล้วบันทึกออเดอร์ในมือถือไม่ได้ (transaction ค้าง ไม่ error)
+// รายละเอียดดูคอมเมนต์ใน index.html ที่ DB._enableOffline
+const _OFFLINE_CACHE = false;
+const _offlineReady = _OFFLINE_CACHE
+  ? db.enablePersistence({ synchronizeTabs: true })
+      .then(() => { window._klOfflineOn = true; })
+      .catch(e => { window._klOfflineOn = false; console.warn('offline cache off:', e && e.code || e); })
+  : Promise.resolve();
 
 // ── State ──
 let _craftsman   = null;   // { id, name, productTypes }
@@ -1358,6 +1367,14 @@ async function submitDraft() {
   if (!_draft.items.length) { toast('⚠️ ยังไม่มีรายการ'); return; }
   _submitting = true;
   document.querySelectorAll('.ord-btn').forEach(b => { b.disabled = true; b.style.opacity = '.5'; });
+  // กันเหนียว: ถ้าค้างจนไม่จบ ปลดปุ่มให้กดใหม่ได้ ไม่ปล่อยให้ตายเงียบ
+  clearTimeout(window._submitWatchdog);
+  window._submitWatchdog = setTimeout(() => {
+    if (!_submitting) return;
+    _submitting = false;
+    document.querySelectorAll('.ord-btn').forEach(b => { b.disabled = false; b.style.opacity = ''; });
+    toast('⚠️ บันทึกนานผิดปกติ ลองกดใหม่อีกครั้ง');
+  }, 45000);
 
   try {
     // เติมราคาเบื้องหลัง — ช่างไม่เคยเห็นตัวเลขนี้
@@ -1413,6 +1430,7 @@ async function submitDraft() {
     document.querySelectorAll('.ord-btn').forEach(b => { b.disabled = false; b.style.opacity = ''; });
   } finally {
     _submitting = false;
+    clearTimeout(window._submitWatchdog);
   }
 }
 
@@ -1433,12 +1451,14 @@ async function nextOrderNoCraft() {
         .map(n => parseInt(n.slice(prefix.length)) || 0);
       seed = nums.length ? Math.max(...nums) : 0;
     }
-    const n = await db.runTransaction(async tx => {
+    // ครอบ timeout — transaction ต่อเซิร์ฟเวอร์ไม่ได้จะค้าง ไม่ error
+    // ปล่อยค้าง = ปุ่มบันทึกตายถาวร ต้องให้มันตกไป catch ข้างล่างแทน
+    const n = await withTimeout(db.runTransaction(async tx => {
       const d = await tx.get(ref);
       const cur = d.exists ? (d.data().seq || 0) : seed;
       tx.set(ref, { seq: cur + 1, updatedAt: Date.now() }, { merge: true });
       return cur + 1;
-    });
+    }), 20000, 'transaction timeout');
     return prefix + String(n).padStart(4, '0');
   } catch (e) {
     console.error('nextOrderNoCraft:', e);
