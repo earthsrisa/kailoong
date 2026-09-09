@@ -1,4 +1,4 @@
-const CACHE = 'kailoong-v47';
+const CACHE = 'kailoong-v48';
 
 // ไฟล์ของแอพที่เก็บไว้ใช้ตอนเน็ตช้า/หลุด
 const ASSETS = [
@@ -56,11 +56,23 @@ self.addEventListener('fetch', e => {
     // ถ้าเน็ตหลุดค่อยใช้ของที่เก็บไว้
     e.respondWith(
       fetch(req).then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        // เก็บเฉพาะที่โหลดสำเร็จ ไม่งั้น 404/500 จะถูกเก็บแล้วเสิร์ฟตอนออฟไลน์
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+        }
         return res;
       }).catch(() =>
-        caches.match(req).then(hit => hit || caches.match('/index.html'))
+        // ignoreSearch: URL ที่มี ?x=1 หรือ #hash จะได้เจอของที่เก็บไว้
+        caches.match(req, { ignoreSearch: true }).then(hit => hit ||
+          new Response(
+            '<meta charset="utf-8"><div style="font-family:sans-serif;text-align:center;padding:60px 20px;color:#374151">' +
+            '<div style="font-size:40px">📶</div><h3>ออฟไลน์</h3>' +
+            '<p style="color:#6b7280">ต่อเน็ตแล้วกดรีเฟรชอีกครั้ง</p>' +
+            '<button onclick="location.reload()" style="padding:10px 22px;border:0;border-radius:8px;background:#3b82f6;color:#fff;font-size:16px">รีเฟรช</button></div>',
+            { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          )
+        )
       )
     );
     return;

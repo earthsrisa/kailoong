@@ -358,6 +358,8 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
     font-size: 12px !important; color: #6b7280 !important; }
   .ord-card-tbl td.c-no::after { content: ' · '; }
   .ord-card-tbl td.c-date br { display: none; }
+  /* ซ่อน br แล้ววันที่กับเวลาจะติดกัน (7 ก.ย. 6915:02) — คั่นด้วยจุด */
+  .ord-card-tbl td.c-date br + span::before { content: ' · '; }
   .ord-card-tbl td.c-date span { font-size: 12px !important; color: #6b7280 !important; }
   .ord-card-tbl td.c-items { grid-area: items; margin-top: 8px !important;
     border-top: 1px solid #f1f5f9 !important; padding-top: 7px !important; }
@@ -375,6 +377,71 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
   }
   .ord-card-tbl .ord-item-d + .ord-item-d::before { content: none !important; }
   .ord-card-tbl .oi-q { font-weight: 800; color: #1a2332; white-space: nowrap; }
+}
+
+/* ═══ กล่อง "ออเดอร์ล่าสุด" — ชื่อลูกค้าเด่น มีวงกลมตัวอักษรนำ ═══ */
+.dash-recent .cust-av {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 34px; height: 34px; border-radius: 11px; margin-right: 10px;
+  background: hsl(var(--h),62%,46%);
+  color: #fff; font-size: 15px; font-weight: 700; line-height: 1;
+  box-shadow: 0 2px 7px hsla(var(--h),62%,40%,.35);
+  vertical-align: middle; user-select: none;
+}
+.dash-recent .cust-nm { font-weight: 800; color: #111827; letter-spacing: -.2px; }
+.dash-recent .new-dot {
+  display: inline-block; background: #ef4444; color: #fff; font-size: 11px; font-weight: 700;
+  border-radius: 20px; padding: 2px 8px; margin-left: 7px; vertical-align: middle; letter-spacing: .2px;
+}
+.dash-recent .c-total .baht { font-size: .82em; opacity: .55; font-weight: 600; }
+.dash-recent .act-lbl { display: none; }
+/* บนคอม: ชื่อใหญ่ขึ้น ยอดเงินหนา */
+@media (min-width: 768px) {
+  .dash-recent td { vertical-align: middle; padding-top: 11px; padding-bottom: 11px; }
+  .dash-recent td.c-cust { font-size: 15px; }
+  .dash-recent td.c-total { font-size: 15px; font-weight: 800; color: #0f766e; text-align: right; }
+  .dash-recent .cust-av { width: 30px; height: 30px; border-radius: 9px; font-size: 13px; margin-right: 8px; }
+  .dash-recent tr:hover { background: #f8fafc; }
+}
+/* บนมือถือ: การ์ดมีแถบสีซ้าย ชื่อใหญ่ วันที่เยื้องใต้ชื่อ */
+@media (max-width: 767px) {
+  .dash-recent tr {
+    border: 1px solid #e6ebf2; border-left: 4px solid #cbd5e1;
+    border-radius: 14px; padding: 13px 14px 11px; margin-bottom: 10px;
+    box-shadow: 0 2px 8px rgba(16,32,58,.05);
+    grid-template-areas: "cust total" "meta total" "items items" "act act";
+    align-items: start;
+  }
+  .dash-recent tr.is-new { border-left-color: #ef4444; background: #fffdfd; }
+  .dash-recent td.c-cust {
+    display: flex !important; align-items: center; min-width: 0;
+    font-size: 17px; font-weight: 800; line-height: 1.25;
+  }
+  /* ชื่อยาวให้ตัด ... ส่วนวงกลมกับป้ายห้ามหด */
+  .dash-recent .cust-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dash-recent td.c-cust > span:not(.cust-nm) { flex: none; }
+  .dash-recent td.c-total {
+    align-self: start; font-size: 18px; font-weight: 800; color: #0f766e; padding-top: 4px !important;
+  }
+  /* วันที่/เวลา เยื้องให้ตรงกับชื่อ (พ้นวงกลม 34px + ช่องไฟ 10px) */
+  .dash-recent td.c-date {
+    display: block !important; margin-left: 44px !important; margin-top: 3px !important;
+    font-size: 12.5px !important;
+  }
+  .dash-recent td.c-items {
+    margin-top: 10px !important; padding-top: 8px !important;
+    border-top: 1px solid #eef2f7 !important;
+  }
+  .dash-recent .ord-item-d { padding: 4px 0 !important; font-size: 13px; }
+  .dash-recent .oi-nm { color: #374151; }
+  .dash-recent td.c-act {
+    margin-top: 8px !important; padding-top: 0 !important; border-top: 0 !important;
+  }
+  .dash-recent td.c-act .btn {
+    flex: none; max-width: none; border-radius: 9px; padding: 5px 14px;
+    font-size: 13px; font-weight: 600; color: #64748b; border-color: #dbe2ea;
+  }
+  .dash-recent .act-lbl { display: inline; margin-left: 6px; }
 }
 
 /* ── ตารางทั่วไป → การ์ด บนมือถือ (ใบเสร็จ / ลูกค้า / สินค้า) ── */
@@ -940,6 +1007,21 @@ const U = {
     return `<span style="white-space:nowrap;">${dt} ${yr}</span><br><span style="color:#6b7280;font-size:12px;">${tm}</span>`;
   },
   esc(s)    { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); },
+  // ตัวอักษรแรกของชื่อ สำหรับวงกลมหน้าชื่อลูกค้า
+  // ภาษาไทยต้องเก็บสระหน้า (เ แ โ ใ ไ) และวรรณยุกต์ที่เกาะอยู่ด้วย
+  // ไม่งั้น "ป้าขวัญ" ได้ "ป" และ "เจ๊หมู" ได้ "เ" ซึ่งอ่านไม่ออก
+  initial(s) {
+    const t = String(s||'').trim();
+    if (!t) return '?';
+    const m = t.match(/^[เแโใไ]?.[ัิ-ฺ็-๎]*/);
+    return this.esc(m ? m[0] : t.charAt(0));
+  },
+  // สีวงกลมคงที่ต่อชื่อ — ลูกค้าคนเดิมได้สีเดิมเสมอ จำง่าย
+  avatarHue(s) {
+    let h = 0, str = String(s||'');
+    for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360;
+    return h;
+  },
   orderTotal(o) {
     const sub=(o.items||[]).reduce((a,i)=>a+(i.qty*i.price),0);
     return sub-(o.discount||0);
@@ -1194,20 +1276,11 @@ async function renderDashboard(el) {
       <a href="#" onclick="navigate('orders');return false;" style="font-size:13px;">ดูทั้งหมด →</a>
     </div>
     <div class="table-scroll">
-      <table class="table-clean ord-card-tbl">
+      <table class="table-clean ord-card-tbl dash-recent">
         <colgroup><col style="width:72px"><col style="width:80px"><col><col style="width:90px"><col style="width:36px"></colgroup>
         <thead><tr><th>วันที่/เวลา</th><th>ลูกค้า</th><th>รายการ</th><th>ยอดรวม</th><th></th></tr></thead>
         <tbody id="dashRecentTbody">
-          ${[...orders].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6).map(o=>`
-          <tr>
-            <td class="c-date" style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
-            <td class="c-cust" style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:12px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;">NEW</span>':''}${craftTakenBadge(o)}</td>
-            <td class="c-items" style="font-size:12px;color:#374151;word-break:break-word;">
-              ${(o.items||[]).map(i=>`<span class="ord-item-d"><span class="oi-nm">${U.esc(itemLabel(i))}</span> <span class="oi-q">×${i.qty}</span></span>`).join('')||'-'}
-            </td>
-            <td class="c-total" style="font-weight:700;font-size:13px;white-space:nowrap;">${U.money(U.orderTotal(o))}</td>
-            <td class="c-act"><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
-          </tr>`).join('')||`<tr><td colspan="5"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-inbox"></i><p>ยังไม่มีออเดอร์</p></div></td></tr>`}
+          ${[...orders].sort((a,b)=>b.createdAt-a.createdAt).slice(0,6).map(o=>dashRecentRow(o)).join('')||`<tr><td colspan="5"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-inbox"></i><p>ยังไม่มีออเดอร์</p></div></td></tr>`}
         </tbody>
       </table>
     </div>
@@ -1249,16 +1322,32 @@ async function renderDashboard(el) {
     const recentEl = document.getElementById('dashRecentTbody');
     if (recentEl) {
       const recent = [...freshOrders].sort((a,b) => b.createdAt - a.createdAt).slice(0, 6);
-      recentEl.innerHTML = recent.map(o => `
-        <tr>
-          <td class="c-date" style="font-size:12px;color:#6b7280;vertical-align:top;">${U.dateCompact(o.createdAt)}</td>
-          <td class="c-cust" style="font-size:13px;"><strong>${U.esc(o.customerName||'-')}</strong>${(Date.now()-o.createdAt)<7200000?'<span style="display:inline-block;background:#ef4444;color:#fff;font-size:12px;font-weight:700;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;">NEW</span>':''}${craftTakenBadge(o)}</td>
-          <td class="c-items" style="font-size:12px;color:#374151;word-break:break-word;">${(o.items||[]).map(i=>`<span class="ord-item-d"><span class="oi-nm">${U.esc(itemLabel(i))}</span> <span class="oi-q">×${i.qty}</span></span>`).join('')||'-'}</td>
-          <td class="c-total" style="font-weight:700;font-size:13px;white-space:nowrap;">${U.money(U.orderTotal(o))}</td>
-          <td class="c-act"><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button></td>
-        </tr>`).join('') || `<tr><td colspan="5"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-inbox"></i><p>ยังไม่มีออเดอร์</p></div></td></tr>`;
+      recentEl.innerHTML = recent.map(o => dashRecentRow(o)).join('')
+        || `<tr><td colspan="5"><div class="empty-state" style="padding:20px"><i class="fa-solid fa-inbox"></i><p>ยังไม่มีออเดอร์</p></div></td></tr>`;
     }
   }, err => console.error('dashboard onSnapshot error:', err));
+}
+
+// ── หนึ่งแถวในกล่อง "ออเดอร์ล่าสุด" ──
+// ใช้ทั้งตอน render ครั้งแรกและตอน onSnapshot อัปเดต จะได้ไม่หลุดกัน
+function dashRecentRow(o) {
+  const name = o.customerName || '-';
+  const hue  = U.avatarHue(name);
+  const isNew = (Date.now() - o.createdAt) < 7200000;   // ใหม่ภายใน 2 ชม.
+  return `
+  <tr${isNew ? ' class="is-new"' : ''}>
+    <td class="c-date">${U.dateCompact(o.createdAt)}</td>
+    <td class="c-cust">
+      <span class="cust-av" style="--h:${hue}">${U.initial(name)}</span>
+      <span class="cust-nm">${U.esc(name)}</span>
+      ${isNew ? '<span class="new-dot">ใหม่</span>' : ''}${craftTakenBadge(o)}
+    </td>
+    <td class="c-items">
+      ${(o.items||[]).map(i=>`<span class="ord-item-d"><span class="oi-nm">${U.esc(itemLabel(i))}</span> <span class="oi-q">×${i.qty}</span></span>`).join('')||'-'}
+    </td>
+    <td class="c-total">${U.money(U.orderTotal(o))}<span class="baht"> ฿</span></td>
+    <td class="c-act"><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i><span class="act-lbl">แก้ไข</span></button></td>
+  </tr>`;
 }
 
 // ═══════════════════════════════════════
