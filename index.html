@@ -1014,12 +1014,14 @@ const DB = {
       }
     }
   },
-  // ⚠️ ลบจริง ใช้ที่เดียวคือตอนกู้คืนข้อมูล (ต้องล้างของเดิมให้เกลี้ยงก่อนเขียนทับ
-  //    ถ้าใช้ soft delete ตรงนั้น ของเก่าจะไม่ถูกล้าง กลายเป็นข้อมูลผีปนกัน)
+  // ⚠️ ลบจริง — ตอนนี้ไม่มีที่ไหนในแอปเรียกใช้แล้ว และ Firestore Rules
+  //    ตั้งเป็น "allow delete: if false" ไว้ ถ้าเรียกจะโดนปฏิเสธอยู่ดี
+  //    เก็บไว้เผื่ออนาคต แต่ให้มันบอกเหตุผลชัด ๆ แทนที่จะพังเงียบ
   async _hardDel(col, id) {
-    await this._fs.collection(col).doc(String(id)).delete();
-    const c = this._cache[col];
-    if (c) c.data = c.data.filter(r => String(r.id) !== String(id));
+    throw new Error(
+      'ระบบปิดการลบถาวรไว้ — ใช้ _del (ถังขยะ) แทน ' +
+      'ถ้าจำเป็นต้องลบจริง ต้องไปแก้ Firestore Rules ก่อน'
+    );
   },
 
   // ── Settings ──
@@ -5375,24 +5377,37 @@ async function confirmRestore() {
 
     U.toast('กำลังกู้คืนข้อมูล...');
 
-    // craftsmen กู้คืนเฉพาะเมื่อไฟล์สำรองมีข้อมูลนั้น (ไฟล์เก่า version < 3 ไม่มี)
+    // ── กู้คืนแบบไม่ลบอะไรเลย ──
+    // เดิม: ลบทั้ง collection ทิ้ง แล้วค่อยเขียนกลับทีละรายการ
+    //       ถ้าพลาดกลางทาง = ลบไปแล้วแต่เขียนไม่ครบ ข้อมูลหายจริง
+    // ใหม่: เขียนทับตรง ๆ ส่วนรายการที่ไม่มีในไฟล์ให้ทำเครื่องหมายว่าลบ
+    //       ข้อมูลเดิมไม่เคยหายไปไหน ยังกดกู้จากถังขยะได้
+    //       และไม่ต้องใช้การลบจริง จึงเข้ากับกฎ "ห้ามลบจริง" ใน Firestore
     const stores = ['customers','products','orders','invoices','expenses'];
     if (Array.isArray(data.craftsmen)) stores.push('craftsmen');
-    for (const store of stores) {
-      const all = await DB._all(store);
-      // ต้องลบจริง ไม่ใช่ soft delete — ไม่งั้นของเดิมจะค้างปนกับของที่กู้คืนเข้ามา
-      for (const item of all) await DB._hardDel(store, item.id);
-    }
 
-    for (const cust of (data.customers||[])) {
-      const { id, ...rest } = cust;
-      await DB._add('customers', { ...rest, id });
+    for (const store of stores) {
+      const incoming = data[store] || [];
+      const incomingIds = new Set(incoming.map(x => String(x.id)));
+
+      // 1) เขียนทับทุกรายการที่มีในไฟล์
+      for (const rec of incoming) {
+        const { id, ...rest } = rec;
+        if (!id) continue;
+        // เขียนทับทั้งเอกสาร และล้างเครื่องหมายลบออก (ของในไฟล์ถือว่ายังใช้อยู่)
+        await DB._fs.collection(store).doc(String(id))
+          .set({ ...rest, isDeleted: rest.isDeleted === true }, { merge: false });
+      }
+
+      // 2) รายการที่มีอยู่ในระบบแต่ไม่มีในไฟล์ → ทำเครื่องหมายว่าลบ ไม่ได้ลบจริง
+      const current = await DB._all(store);
+      for (const old of current) {
+        if (incomingIds.has(String(old.id))) continue;
+        if (old.isDeleted === true) continue;          // ทำเครื่องหมายไว้อยู่แล้ว
+        await DB._del(store, old.id, 'ไม่มีในไฟล์ที่กู้คืน');
+      }
     }
-    for (const prod of (data.products||[])) { await DB._put('products', prod); }
-    for (const order of (data.orders||[])) { await DB._put('orders', order); }
-    for (const inv of (data.invoices||[])) { await DB._put('invoices', inv); }
-    for (const exp of (data.expenses||[])) { await DB._put('expenses', exp); }
-    for (const cm of (data.craftsmen||[])) { await DB._put('craftsmen', cm); }
+    DB._cache = {};   // ข้อมูลเปลี่ยนยกชุด ล้าง cache ให้อ่านใหม่
     // ตั้งค่าร้าน (ชื่อร้าน ที่อยู่ PromptPay ฯลฯ)
     for (const st of (data.settings||[])) {
       const { id, ...rest } = st;
@@ -5421,16 +5436,21 @@ async function confirmRestore() {
     // ── ตรวจนับว่าเข้าครบไหม ──
     // เขียนทีละรายการหลายร้อยครั้ง ถ้าพลาดกลางทางบางรายการจะหายเงียบ ๆ
     DB._cache = {};   // ล้าง cache ให้ไปนับของจริงจากเซิร์ฟเวอร์
+    // นับเฉพาะรายการที่ "ใช้งานอยู่" ทั้งสองฝั่ง
+    // (ไฟล์สำรองเก็บของที่อยู่ในถังขยะมาด้วย และฐานข้อมูลก็ยังมีของที่ทำเครื่องหมายลบ
+    //  ถ้านับดิบ ๆ ทั้งสองฝั่งจะไม่มีทางตรงกัน)
+    const liveCount = arr => (arr||[]).filter(x => x.isDeleted !== true).length;
     const expect = {
-      customers: (data.customers||[]).length, products: (data.products||[]).length,
-      orders:    (data.orders||[]).length,    invoices: (data.invoices||[]).length,
-      expenses:  (data.expenses||[]).length
+      customers: liveCount(data.customers), products: liveCount(data.products),
+      orders:    liveCount(data.orders),    invoices: liveCount(data.invoices),
+      expenses:  liveCount(data.expenses)
     };
-    if (Array.isArray(data.craftsmen)) expect.craftsmen = data.craftsmen.length;
+    if (Array.isArray(data.craftsmen)) expect.craftsmen = liveCount(data.craftsmen);
     const missing = [];
     for (const [col, want] of Object.entries(expect)) {
       try {
-        const got = (await DB._fs.collection(col).get()).size;
+        const snap = await DB._fs.collection(col).get();
+        const got = snap.docs.filter(d => d.data().isDeleted !== true).length;
         if (got !== want) missing.push(`${THAI_COL[col]||col} ${got}/${want}`);
       } catch(e) { missing.push(`${THAI_COL[col]||col} ตรวจไม่ได้`); }
     }
