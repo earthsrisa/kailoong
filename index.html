@@ -867,7 +867,9 @@ const OrdersFeed = {
     // มีข้อมูลอยู่แล้วก็ส่งให้เลย ไม่ต้องรออ่านรอบใหม่
     // หน่วงเป็น microtask ให้ผู้เรียกเก็บค่า unsubscribe ให้เสร็จก่อน
     if (this._last) {
-      const snapshot = this._last;
+      // กรองของที่ลบออกเหมือนกับตอนส่งปกติ ไม่งั้นคนที่มาสมัครทีหลัง
+      // จะได้ข้อมูลดิบที่มีออเดอร์ที่ลบแล้วปนมาด้วย
+      const snapshot = this._last.filter(o => o.isDeleted !== true);
       Promise.resolve().then(() => {
         if (this._subs.has(fn)) { try { fn(snapshot); } catch (e) { console.error(e); } }
       });
@@ -878,10 +880,11 @@ const OrdersFeed = {
   _start() {
     if (this._unsub) return;
     this._unsub = DB._fs.collection('orders').onSnapshot(snap => {
-      const orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      this._last = orders;
-      window._allOrdersCache = orders;
-      this._subs.forEach(fn => { try { fn(orders); } catch (e) { console.error('OrdersFeed sub:', e); } });
+      const raw = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      this._last = raw;                     // ดิบ — ใช้เป็นแหล่งของ _all/ถังขยะ
+      const live = raw.filter(o => o.isDeleted !== true);   // ที่ส่งให้หน้าจอ
+      window._allOrdersCache = live;
+      this._subs.forEach(fn => { try { fn(live); } catch (e) { console.error('OrdersFeed sub:', e); } });
     }, err => console.error('OrdersFeed error:', err));
   }
 };
@@ -977,7 +980,43 @@ const DB = {
     if (c) { const i = c.data.findIndex(r => String(r.id) === String(id)); if (i >= 0) c.data[i] = { id, ...rest }; }
     return id;
   },
-  async _del(col, id) {
+  // ── ลบ = ทำเครื่องหมาย ไม่ได้ลบจริง ──
+  // ทุกการลบในระบบวิ่งผ่านตรงนี้จุดเดียว แก้ที่นี่ที่เดียวจึงครอบคลุม
+  // ออเดอร์ ใบเสร็จ ลูกค้า สินค้า รายจ่าย ช่าง พร้อมกันหมด
+  async _del(col, id, reason) {
+    const mark = {
+      isDeleted: true,
+      deletedAt: Date.now(),
+      deletedBy: null,              // ยังไม่มีล็อกอิน — เติมได้ตอนทำ 0.5
+      deleteReason: (reason || '').trim()
+    };
+    await this._fs.collection(col).doc(String(id)).set(mark, { merge: true });
+    // อัปเดต cache ในเครื่องให้ตรงกัน ไม่ต้องยิงอ่านใหม่
+    const c = this._cache[col];
+    if (c) {
+      const i = c.data.findIndex(r => String(r.id) === String(id));
+      if (i >= 0) c.data[i] = { ...c.data[i], ...mark };
+    }
+  },
+  // เอาเครื่องหมายออก = กู้คืน
+  async _undel(col, id) {
+    const FV = firebase.firestore.FieldValue;
+    await this._fs.collection(col).doc(String(id)).set({
+      isDeleted: false, deletedAt: FV.delete(),
+      deletedBy: FV.delete(), deleteReason: FV.delete()
+    }, { merge: true });
+    const c = this._cache[col];
+    if (c) {
+      const i = c.data.findIndex(r => String(r.id) === String(id));
+      if (i >= 0) {
+        const { deletedAt, deletedBy, deleteReason, ...rest } = c.data[i];
+        c.data[i] = { ...rest, isDeleted: false };
+      }
+    }
+  },
+  // ⚠️ ลบจริง ใช้ที่เดียวคือตอนกู้คืนข้อมูล (ต้องล้างของเดิมให้เกลี้ยงก่อนเขียนทับ
+  //    ถ้าใช้ soft delete ตรงนั้น ของเก่าจะไม่ถูกล้าง กลายเป็นข้อมูลผีปนกัน)
+  async _hardDel(col, id) {
     await this._fs.collection(col).doc(String(id)).delete();
     const c = this._cache[col];
     if (c) c.data = c.data.filter(r => String(r.id) !== String(id));
@@ -1074,42 +1113,50 @@ const DB = {
     return defaultPrice;
   },
 
+  // ── ตัวกรองของที่ถูกลบ ──
+  // _all คืนข้อมูลดิบทั้งหมด (รวมที่ลบแล้ว) และยังทำ cache เหมือนเดิม
+  // ส่วน getter ทุกตัวด้านล่างกรองออกให้ → หน้าจอและรายงานไม่เห็นของที่ลบ
+  // เอกสารเก่าที่ยังไม่มีช่อง isDeleted จะผ่านตัวกรองนี้อัตโนมัติ
+  // (เพราะ undefined !== true) จึงไม่ต้องรันสคริปต์แก้ข้อมูลเก่าเลย
+  _live(col)  { return this._all(col).then(r => r.filter(x => x.isDeleted !== true)); },
+  _trash(col) { return this._all(col).then(r => r.filter(x => x.isDeleted === true)); },
+
   // ── Per-store shortcuts ──
-  getCustomers()   { return this._all('customers'); },
+  getCustomers()   { return this._live('customers'); },
   getCustomer(id)  { return this._get('customers',id); },
   addCustomer(d)   { return this._add('customers',d); },
   putCustomer(d)   { return this._put('customers',d); },
-  delCustomer(id)  { return this._del('customers',id); },
+  delCustomer(id,r)  { return this._del('customers',id,r); },
 
-  getProducts()    { return this._all('products'); },
+  getProducts()    { return this._live('products'); },
   getProduct(id)   { return this._get('products',id); },
   addProduct(d)    { return this._add('products',d); },
   putProduct(d)    { return this._put('products',d); },
-  delProduct(id)   { return this._del('products',id); },
+  delProduct(id,r)   { return this._del('products',id,r); },
 
-  getOrders()      { return this._all('orders'); },
+  getOrders()      { return this._live('orders'); },
   getOrder(id)     { return this._get('orders',id); },
   addOrder(d)      { return this._add('orders',d); },
   putOrder(d)      { return this._put('orders',d); },
-  delOrder(id)     { return this._del('orders',id); },
+  delOrder(id,r)     { return this._del('orders',id,r); },
 
-  getInvoices()    { return this._all('invoices'); },
+  getInvoices()    { return this._live('invoices'); },
   getInvoice(id)   { return this._get('invoices',id); },
   addInvoice(d)    { return this._add('invoices',d); },
   putInvoice(d)    { return this._put('invoices',d); },
-  delInvoice(id)   { return this._del('invoices',id); },
+  delInvoice(id,r)   { return this._del('invoices',id,r); },
 
-  getExpenses()    { return this._all('expenses'); },
+  getExpenses()    { return this._live('expenses'); },
   getExpense(id)   { return this._get('expenses',id); },
   addExpense(d)    { return this._add('expenses',d); },
   putExpense(d)    { return this._put('expenses',d); },
-  delExpense(id)   { return this._del('expenses',id); },
+  delExpense(id,r)   { return this._del('expenses',id,r); },
 
-  getCraftsmen()   { return this._all('craftsmen'); },
+  getCraftsmen()   { return this._live('craftsmen'); },
   getCraftsman(id) { return this._get('craftsmen',id); },
   addCraftsman(d)  { return this._add('craftsmen',d); },
   putCraftsman(d)  { return this._put('craftsmen',d); },
-  delCraftsman(id) { return this._del('craftsmen',id); },
+  delCraftsman(id,r) { return this._del('craftsmen',id,r); },
 };
 
 // ═══════════════════════════════════════
@@ -1219,7 +1266,7 @@ function closeBnavMore() {
 // ═══════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════
-const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน' };
+const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
 
 const SKELETON_CARDS = `
   <div class="row g-3 mb-3">
@@ -1255,7 +1302,7 @@ function navigate(page, opt) {
   document.querySelectorAll('#sidebar .nav-link').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   document.querySelectorAll('#bottom-nav .bnav-item').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   // ถ้าหน้าอยู่ใน more-menu ให้ไฮไลท์ปุ่ม "เพิ่มเติม" แทน
-  const morePages=['products','craftsmen','reports','expenses','settings'];
+  const morePages=['products','craftsmen','reports','expenses','settings','trash'];
   document.getElementById('bnavMoreBtn')?.classList.toggle('active', morePages.includes(page));
   document.querySelectorAll('#bnav-more-menu .bm-item').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   document.getElementById('pageTitle').textContent=PAGE_TITLES[page]||page;
@@ -1268,7 +1315,7 @@ function navigate(page, opt) {
   // Dashboard แสดง skeleton ทันที, หน้าอื่นแสดง spinner
   el.innerHTML = page==='dashboard' ? SKELETON_CARDS
     : '<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>กำลังโหลด...</p></div>';
-  ({dashboard:renderDashboard,orders:renderOrders,invoices:renderInvoices,customers:renderCustomers,products:renderProducts,craftsmen:renderCraftsmen,reports:renderReports,expenses:renderExpenses,settings:renderSettings}[page]||((el)=>{el.innerHTML='<div class="empty-state"><p>ไม่พบหน้านี้</p></div>';}))(el);
+  ({dashboard:renderDashboard,orders:renderOrders,invoices:renderInvoices,customers:renderCustomers,products:renderProducts,craftsmen:renderCraftsmen,reports:renderReports,expenses:renderExpenses,settings:renderSettings,trash:renderTrash}[page]||((el)=>{el.innerHTML='<div class="empty-state"><p>ไม่พบหน้านี้</p></div>';}))(el);
 }
 
 // ═══════════════════════════════════════
@@ -1299,18 +1346,36 @@ function showModal(id,title,body,footer,size='') {
 function closeModal(id) { const el=document.getElementById(id); if(el){try{bootstrap.Modal.getInstance(el)?.hide();}catch(e){}el.remove();} }
 
 // ── Custom Confirm Dialog (แทน browser confirm) ──
-function U_confirm(msg, onYes, {title='ยืนยันการดำเนินการ', yesLabel='ยืนยัน', yesCls='btn-danger', icon='fa-triangle-exclamation', iconColor='#dc2626'}={}) {
+function U_confirm(msg, onYes, {title='ยืนยันการดำเนินการ', yesLabel='ยืนยัน', yesCls='btn-danger', icon='fa-triangle-exclamation', iconColor='#dc2626', askReason=false}={}) {
   // เก็บ callback ไว้ใน window แทนการ serialize เป็น string (ป้องกัน closure หาย)
   window._confirmCb = onYes;
+  const reasonBox = askReason ? `
+    <div style="margin-top:14px;">
+      <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:5px;">
+        เหตุผล <span style="font-weight:400;color:#9ca3af;">(ไม่ใส่ก็ได้)</span>
+      </label>
+      <input id="confirmReason" class="form-control" maxlength="120"
+        placeholder="เช่น ลูกค้ายกเลิก, คีย์ผิด" autocomplete="off">
+      <div style="font-size:12px;color:#6b7280;margin-top:6px;">
+        <i class="fa-solid fa-recycle me-1"></i>กู้คืนได้จากถังขยะในหน้าตั้งค่า
+      </div>
+    </div>` : '';
   showModal('confirmDialog', title,
     `<div class="d-flex align-items-start gap-3">
        <i class="fa-solid ${icon}" style="font-size:28px;color:${iconColor};flex-shrink:0;margin-top:2px;"></i>
        <p style="margin:0;font-size:15px;line-height:1.6;">${msg}</p>
-     </div>`,
-    `<button class="btn ${yesCls}" onclick="closeModal('confirmDialog');window._confirmCb&&window._confirmCb()">
+     </div>${reasonBox}`,
+    `<button class="btn ${yesCls}" onclick="_confirmYes()">
        <i class="fa-solid fa-check me-1"></i>${yesLabel}
      </button>
      <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`);
+}
+// อ่านค่าเหตุผลก่อนปิดกล่อง เพราะปิดแล้ว DOM จะหายไป
+function _confirmYes() {
+  const box = document.getElementById('confirmReason');
+  const reason = box ? box.value.trim() : '';
+  closeModal('confirmDialog');
+  if (window._confirmCb) window._confirmCb(reason);
 }
 
 // ═══════════════════════════════════════
@@ -3229,10 +3294,10 @@ async function doSaveOrder() {
 }
 
 function deleteOrder(id) {
-  U_confirm('ต้องการลบออเดอร์นี้ใช่ไหม? ข้อมูลจะหายไปถาวร', async()=>{
+  U_confirm('ต้องการลบออเดอร์นี้ใช่ไหม?', async(reason)=>{
     // ดึงข้อมูลออเดอร์ก่อนลบ เพื่อส่ง LINE notify
     const order = await DB.getOrder(id);
-    await DB.delOrder(id);
+    await DB.delOrder(id, reason);
     U.toast('ลบออเดอร์แล้ว');
     navigate('orders');
     // แจ้งเตือน LINE กลุ่ม — ลบออเดอร์ (fire-and-forget)
@@ -3252,7 +3317,7 @@ function deleteOrder(id) {
         })
       }).catch(()=>{});
     }
-  });
+  }, {askReason:true});
 }
 
 // ═══════════════════════════════════════
@@ -3402,9 +3467,9 @@ async function deleteCustomer(id) {
   if (hasOrders || hasInvoices) {
     U.toast(`ไม่สามารถลบได้ มีออเดอร์/ใบเสร็จที่เชื่อมกับลูกค้านี้อยู่`, 'error'); return;
   }
-  U_confirm('ต้องการลบลูกค้านี้ใช่ไหม? ข้อมูลจะหายไปถาวร', async()=>{
-    await DB.delCustomer(id);U.toast('ลบลูกค้าแล้ว');navigate('customers');
-  });
+  U_confirm('ต้องการลบลูกค้านี้ใช่ไหม?', async(reason)=>{
+    await DB.delCustomer(id, reason);U.toast('ลบลูกค้าแล้ว');navigate('customers');
+  }, {askReason:true});
 }
 
 // ── ราคาพิเศษต่อลูกค้า ──
@@ -3690,9 +3755,9 @@ async function deleteProduct(id) {
   if (inUse) {
     U.toast('ไม่สามารถลบได้ มีออเดอร์ที่ใช้สินค้านี้อยู่', 'error'); return;
   }
-  U_confirm('ต้องการลบสินค้านี้ใช่ไหม? ข้อมูลจะหายไปถาวร', async()=>{
-    await DB.delProduct(id);U.toast('ลบสินค้าแล้ว');navigate('products');
-  });
+  U_confirm('ต้องการลบสินค้านี้ใช่ไหม?', async(reason)=>{
+    await DB.delProduct(id, reason);U.toast('ลบสินค้าแล้ว');navigate('products');
+  }, {askReason:true});
 }
 
 // ═══════════════════════════════════════
@@ -4520,9 +4585,9 @@ window.addEventListener('load',function(){
 }
 
 function deleteInvoice(id) {
-  U_confirm('ต้องการลบใบเสร็จนี้ใช่ไหม? ข้อมูลจะหายไปถาวร', async()=>{
-    await DB.delInvoice(id);U.toast('ลบใบเสร็จแล้ว');navigate('invoices');
-  });
+  U_confirm('ต้องการลบใบเสร็จนี้ใช่ไหม?', async(reason)=>{
+    await DB.delInvoice(id, reason);U.toast('ลบใบเสร็จแล้ว');navigate('invoices');
+  }, {askReason:true});
 }
 
 async function toggleInvPaid(id, paid) {
@@ -5068,6 +5133,17 @@ async function renderSettings(el) {
             </label>
           </div>
 
+          <hr style="margin:18px 0 14px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">🗑️ ถังขยะ</div>
+            <p style="font-size:13px;color:#6b7280;margin-bottom:10px;">
+              ของที่ลบไปไม่ได้หายจริง มาอยู่ในถังขยะและกู้คืนได้ตลอด
+            </p>
+            <button class="btn btn-outline-secondary w-100" onclick="navigate('trash')">
+              <i class="fa-solid fa-trash-can me-2"></i>เปิดถังขยะ
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
@@ -5154,9 +5230,9 @@ async function saveCraftsman() {
 
 async function deleteCraftsman(id) {
   const returnPage = window._currentPage || 'craftsmen';
-  U_confirm('ต้องการลบช่างคนนี้ใช่ไหม?', async () => {
-    await DB.delCraftsman(id); U.toast('ลบช่างแล้ว'); navigate(returnPage);
-  });
+  U_confirm('ต้องการลบช่างคนนี้ใช่ไหม?', async (reason) => {
+    await DB.delCraftsman(id, reason); U.toast('ลบช่างแล้ว'); navigate(returnPage);
+  }, {askReason:true});
 }
 
 async function saveSettings() {
@@ -5304,7 +5380,8 @@ async function confirmRestore() {
     if (Array.isArray(data.craftsmen)) stores.push('craftsmen');
     for (const store of stores) {
       const all = await DB._all(store);
-      for (const item of all) await DB._del(store, item.id);
+      // ต้องลบจริง ไม่ใช่ soft delete — ไม่งั้นของเดิมจะค้างปนกับของที่กู้คืนเข้ามา
+      for (const item of all) await DB._hardDel(store, item.id);
     }
 
     for (const cust of (data.customers||[])) {
@@ -5371,6 +5448,66 @@ async function confirmRestore() {
 }
 const THAI_COL = { customers:'ลูกค้า', products:'สินค้า', orders:'ออเดอร์',
   invoices:'ใบเสร็จ', expenses:'รายจ่าย', craftsmen:'ช่างแต่ง' };
+
+// ═══════════════════════════════════════
+//  ถังขยะ — ของที่ลบไปแล้ว กู้คืนได้
+// ═══════════════════════════════════════
+const TRASH_COLS = ['orders','invoices','customers','products','expenses','craftsmen'];
+// ป้ายชื่อแต่ละรายการ ให้คนอ่านรู้ว่าลบอะไรไป
+function trashLabel(col, r) {
+  if (col === 'orders')    return `${r.orderNo || 'ออเดอร์'} · ${r.customerName || '-'}`;
+  if (col === 'invoices')  return `${r.invoiceNo || 'ใบเสร็จ'} · ${r.customerName || '-'}`;
+  if (col === 'customers') return r.name || '(ไม่มีชื่อ)';
+  if (col === 'products')  return r.name || '(ไม่มีชื่อ)';
+  if (col === 'craftsmen') return r.name || '(ไม่มีชื่อ)';
+  if (col === 'expenses')  return `${r.category || 'รายจ่าย'} · ${U.money(r.amount||0)} บาท`;
+  return r.id;
+}
+
+async function renderTrash(el) {
+  const groups = await Promise.all(TRASH_COLS.map(c => DB._trash(c).then(rows => ({ col:c, rows }))));
+  const total  = groups.reduce((a,g) => a + g.rows.length, 0);
+
+  const blocks = groups.filter(g => g.rows.length).map(g => `
+    <div class="card-box mb-3">
+      <div class="card-head"><h2>${THAI_COL[g.col]} <span style="color:#9ca3af;font-weight:400;">(${g.rows.length})</span></h2></div>
+      ${g.rows.sort((a,b)=>(b.deletedAt||0)-(a.deletedAt||0)).map(r => `
+        <div style="display:flex;align-items:center;gap:12px;padding:11px 2px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap;">
+          <div style="flex:1;min-width:170px;">
+            <div style="font-size:14.5px;font-weight:700;color:#1a2332;">${U.esc(trashLabel(g.col, r))}</div>
+            <div style="font-size:12.5px;color:#6b7280;margin-top:2px;">
+              ลบเมื่อ ${r.deletedAt ? U.datetime(r.deletedAt) : 'ไม่ทราบเวลา'}
+              ${r.deleteReason ? ` · <span style="color:#b45309;">${U.esc(r.deleteReason)}</span>` : ''}
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline-success" style="white-space:nowrap;font-weight:600;"
+            data-col="${g.col}" data-id="${U.esc(String(r.id))}" onclick="restoreTrashItem(this)">
+            <i class="fa-solid fa-rotate-left me-1"></i>กู้คืน
+          </button>
+        </div>`).join('')}
+    </div>`).join('');
+
+  el.innerHTML = `
+    <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:13px 16px;margin-bottom:16px;font-size:13.5px;color:#075985;">
+      <i class="fa-solid fa-circle-info me-1"></i>
+      ของที่ลบไปจะมาอยู่ที่นี่ ไม่ได้หายจากฐานข้อมูลจริง กดกู้คืนได้ตลอด
+      — และไม่ถูกนับในรายงานหรือยอดเงินใดๆ
+    </div>
+    ${total ? blocks : `<div class="empty-state" style="padding:40px"><i class="fa-solid fa-trash-can"></i><p>ถังขยะว่าง</p></div>`}`;
+}
+
+async function restoreTrashItem(btn) {
+  const col = btn.dataset.col, id = btn.dataset.id;
+  btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+  try {
+    await DB._undel(col, id);
+    U.toast(`กู้คืน${THAI_COL[col]}แล้ว ✓`);
+    navigate('trash');
+  } catch(e) {
+    U.toast('กู้คืนไม่สำเร็จ: ' + e.message, 'error');
+    btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-rotate-left me-1"></i>กู้คืน';
+  }
+}
 
 // ═══════════════════════════════════════
 //  EXPENSES PAGE
@@ -5551,11 +5688,11 @@ async function saveExpense() {
 }
 
 function deleteExpense(id) {
-  U_confirm('ต้องการลบรายจ่ายนี้ใช่ไหม?', async()=>{
-    await DB.delExpense(id);
+  U_confirm('ต้องการลบรายจ่ายนี้ใช่ไหม?', async(reason)=>{
+    await DB.delExpense(id, reason);
     U.toast('ลบรายจ่ายแล้ว');
     navigate('expenses');
-  });
+  }, {askReason:true});
 }
 
 // ═══════════════════════════════════════
