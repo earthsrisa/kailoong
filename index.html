@@ -527,7 +527,9 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 
 /* ── ฟอร์มออเดอร์แบบตะกร้า ── */
 .oc-grid { display:grid; grid-template-columns:1fr; gap:12px; }
-@media (min-width:768px){ .oc-grid { grid-template-columns:1fr 340px; align-items:start; } }
+/* บนคอม: ขั้นตอนอยู่ซ้าย (กว้างคงที่ ปุ่มสีไม่ยืดจนเพี้ยน) รายการอยู่ขวา
+   บนมือถือ: เรียงตาม DOM คือขั้นตอนมาก่อน แล้วรายการตามลงมา */
+@media (min-width:768px){ .oc-grid { grid-template-columns:360px 1fr; align-items:start; } }
 .oc-hdr { font-size:12px; font-weight:700; color:#6b7280; margin-bottom:7px; }
 .oc-row { background:#fff; border:1.5px solid #e8ecf0; border-radius:10px; padding:9px 11px; margin-bottom:7px; transition:box-shadow .25s; }
 .oc-row.hl { box-shadow:0 0 0 2px #2563eb; }
@@ -579,9 +581,16 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-step.active .oc-step-lb { font-size:14.5px; color:#1a2332; }
 .oc-step.active .oc-step-no { width:23px; height:23px; background:#2563eb; color:#fff; font-size:13px; }
 
+/* ช่องเลือกในขั้นตอน — ใหญ่แบบหน้าช่างแต่ง กดง่าย */
+.oc-sel { width:100%; border:2px solid #d1d5db; border-radius:9px; padding:10px 11px;
+  font-size:16px; font-weight:600; font-family:'Sarabun',sans-serif; background:#fff;
+  color:#1a2332; cursor:pointer; }
+.oc-sel:focus { outline:none; border-color:#16a34a; }
+.oc-misc { margin-top:12px; padding-top:11px; border-top:1px dashed #e5e7eb; }
+
 .oc-picked { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
-  background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:8px; padding:7px 10px;
-  font-size:13.5px; font-weight:700; color:#166534; }
+  background:#f0fdf4; border:2px solid #16a34a; border-radius:9px; padding:8px 11px;
+  font-size:14px; font-weight:700; color:#166534; }
 .oc-change { font-size:12.5px; font-weight:600; color:#16a34a; cursor:pointer; text-decoration:underline; }
 .oc-wait { background:#fef3c7; border:1.5px solid #fcd34d; border-radius:8px; padding:7px 10px;
   font-size:12.5px; color:#92400e; font-weight:600; }
@@ -1336,7 +1345,7 @@ function closeBnavMore() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v58';
+const APP_VERSION = 'v59';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -1991,6 +2000,7 @@ async function showCreateOrderModal(editId) {
   const edit = editId ? await DB.getOrder(editId) : null;
 
   window._orderProds  = products;
+  window._orderCusts  = customers;   // ใช้สร้างช่องเลือกลูกค้าในขั้นที่ 1
   // isAccessory() อ่านจาก cache นี้ — เติมให้ด้วย เผื่อยังไม่เคยเข้าหน้า Dashboard
   window._allProductsCache = Object.fromEntries(products.map(p => [p.name, p]));
   window._orderCustId = edit?.customerId || null;
@@ -2006,43 +2016,38 @@ async function showCreateOrderModal(editId) {
   const custOpts = customers.map(c =>
     `<option value="${c.id}" ${edit?.customerId===c.id?'selected':''}>${U.esc(c.name)}</option>`).join('');
 
-  const body = `<form class="row g-3" id="orderForm" onsubmit="return false;">
-    <div class="col-sm-7">
-      <label class="form-label">ลูกค้า <span class="text-danger">*</span></label>
-      <select class="form-select" id="of_cust" required onchange="onOrderCustChange(this)">
-        <option value="">-- เลือกลูกค้า --</option>${custOpts}
-      </select>
-    </div>
-    <div class="col-sm-5">
-      <label class="form-label">วันที่รับออเดอร์</label>
-      <input type="date" class="form-control" id="of_date" value="${edit?U.dateInput(edit.createdAt):todayLocal()}">
-    </div>
+  // โครงเดียวกับหน้าช่างแต่ง: ขั้นตอนไหลลงจากบนสุด ช่องเลือกลูกค้าอยู่ในขั้นที่ 1
+  // (เดิมช่องลูกค้าอยู่นอกขั้นตอน ขั้นที่ 1 เลยได้แต่ชี้ขึ้นไปบอกว่า "เลือกด้านบนก่อน")
+  const body = `<form id="orderForm" onsubmit="return false;">
+    <div class="oc-grid">
+      <div>
+        <div class="oc-add">
+          <div id="oc_steps"></div>
+        </div>
+      </div>
 
-    <div class="col-12">
-      <div class="oc-grid">
-        <div>
-          <div class="oc-hdr" id="ocHdr">รายการสินค้า</div>
-          <div id="ocCart"></div>
-          <div class="oc-tot">
-            <div class="oc-tot-row"><span>ยอดก่อนส่วนลด</span><b id="os_sub">0.00</b></div>
-            <div class="oc-tot-row" style="margin-bottom:8px;">
-              <span>ส่วนลด (บาท)</span>
-              <input type="number" class="form-control form-control-sm" id="of_discount" min="0"
-                value="${edit?.discount||0}" oninput="calcOrderTotal()"
-                style="width:110px;text-align:right;font-weight:700;">
-            </div>
-            <div class="oc-grand"><span>รวมทั้งสิ้น</span><b id="os_total">0.00</b></div>
+      <div>
+        <div class="oc-hdr" id="ocHdr">รายการที่เพิ่มแล้ว</div>
+        <div id="ocCart"></div>
+        <div class="oc-tot">
+          <div class="oc-tot-row"><span>ยอดก่อนส่วนลด</span><b id="os_sub">0.00</b></div>
+          <div class="oc-tot-row" style="margin-bottom:8px;">
+            <span>ส่วนลด (บาท)</span>
+            <input type="number" class="form-control form-control-sm" id="of_discount" min="0"
+              value="${edit?.discount||0}" oninput="calcOrderTotal()"
+              style="width:110px;text-align:right;font-weight:700;">
           </div>
+          <div class="oc-grand"><span>รวมทั้งสิ้น</span><b id="os_total">0.00</b></div>
         </div>
 
-        <div>
-          <div class="oc-add">
-            <div class="oc-add-ttl"><i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้า</div>
-            <div id="oc_steps"></div>
+        <div class="oc-misc">
+          <div>
+            <label class="oc-lbl">วันที่รับออเดอร์</label>
+            <input type="date" class="form-control form-control-sm" id="of_date"
+              value="${edit?U.dateInput(edit.createdAt):todayLocal()}">
           </div>
-
-          <div style="margin-top:10px;">
-            <label class="form-label" style="font-size:12px;">หมายเหตุออเดอร์ (เช่น ชื่อช่าง)</label>
+          <div style="margin-top:9px;">
+            <label class="oc-lbl">หมายเหตุออเดอร์ (เช่น ชื่อช่าง)</label>
             <input type="text" class="form-control form-control-sm" id="of_notes"
               placeholder="หมายเหตุ..." value="${U.esc(edit?.notes||'')}">
           </div>
@@ -2050,6 +2055,9 @@ async function showCreateOrderModal(editId) {
       </div>
     </div>
     <input type="hidden" id="of_editId" value="${edit?.id||''}">
+    <select id="of_cust" class="d-none" onchange="onOrderCustChange(this)">
+      <option value="">-- เลือกลูกค้า --</option>${custOpts}
+    </select>
   </form>`;
 
   showModal('orderModal', edit?`แก้ไขออเดอร์ ${U.esc(edit.orderNo)}`:'รับออเดอร์ใหม่', body,
@@ -2210,21 +2218,28 @@ function renderOcSteps() {
   const hasCust = !!window._orderCustId;
   let n = 1, html = '';
 
-  // ── ขั้น 1 ลูกค้า ──
+  // ── ขั้น 1 ลูกค้า ── (ช่องเลือกอยู่ในขั้นนี้เลย เหมือนหน้าช่างแต่ง)
   const custName = document.getElementById('of_cust')?.selectedOptions?.[0]?.text || '';
   html += ocStep(n++, 'เลือกลูกค้า', true,
     hasCust
-      ? `<div class="oc-picked"><i class="fa-solid fa-user me-1"></i>${U.esc(custName)}
-           <span class="oc-change" onclick="document.getElementById('of_cust')?.focus()">เปลี่ยนด้านบน</span></div>`
-      : `<div class="oc-wait"><i class="fa-solid fa-arrow-up me-1"></i>เลือกลูกค้าที่ช่องด้านบนก่อน</div>`,
+      ? `<div class="oc-picked"><span><i class="fa-solid fa-user me-1"></i>${U.esc(custName)}</span>
+           <span class="oc-change" onclick="ocPickCust('')">เปลี่ยน</span></div>`
+      : `<select class="oc-sel" onchange="ocPickCust(this.value)">
+           <option value="">— เลือกลูกค้า —</option>
+           ${(window._orderCusts||[]).map(c =>
+             `<option value="${U.esc(String(c.id))}">${U.esc(c.name)}</option>`).join('')}
+         </select>`,
     hasCust);
   if (!hasCust) return html;
 
   // ── ขั้น 2 สินค้า ──
   html += ocStep(n++, 'เลือกสินค้า', true,
-    `<select class="form-select form-select-sm" id="oc_prod" onchange="ocProdChange(this.value)">
-       <option value="">-- เลือกสินค้า --</option>${ocProdOptions(prods, cur.productId)}
-     </select>`, !!prod);
+    prod
+      ? `<div class="oc-picked"><span><i class="fa-solid fa-box me-1"></i>${U.esc(prod.name)}</span>
+           <span class="oc-change" onclick="ocProdChange('')">เปลี่ยน</span></div>`
+      : `<select class="oc-sel" id="oc_prod" onchange="ocProdChange(this.value)">
+           <option value="">— เลือกสินค้า —</option>${ocProdOptions(prods, cur.productId)}
+         </select>`, !!prod);
   if (!prod) return html;
 
   const isAcc  = isAccessory(prod.name);
@@ -2342,6 +2357,15 @@ function ocScrollTo(elm) {
   try { smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e) {}
   try { elm.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' }); }
   catch(e) { elm.scrollIntoView(); }   // เบราว์เซอร์เก่าที่ไม่รับ options
+}
+
+// เลือก/เปลี่ยนลูกค้าจากในขั้นที่ 1
+// เขียนค่าลงช่อง of_cust ที่ซ่อนไว้ เพราะส่วนอื่นของระบบอ่านค่าจากช่องนั้น
+function ocPickCust(id) {
+  const sel = document.getElementById('of_cust');
+  if (!sel) return;
+  sel.value = id || '';
+  onOrderCustChange(sel);
 }
 
 // กด "เพิ่มสินค้าอีก" — กลับไปที่ขั้นเลือกสินค้า
