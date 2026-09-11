@@ -566,6 +566,19 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-step-lb { font-size:12.5px; font-weight:700; color:#1a2332; }
 .oc-req { color:#dc2626; font-weight:800; }
 .oc-step.done .oc-step-lb { color:#64748b; font-weight:600; }
+
+/* ── ขั้นที่ทำเสร็จแล้วยุบเหลือบรรทัดเดียว ──
+   เดิมขั้นที่เลือกไปแล้วยังกินที่เต็ม ๆ ฟอร์มเลยยาวจนต้องเลื่อนมือทุกครั้ง
+   ยุบแล้วขั้นที่กำลังทำจะอยู่ใกล้บนสุดเสมอ แต่ยังกดกลับไปแก้ได้ */
+.oc-step.done { padding:4px 0; border-bottom:none; }
+.oc-step.done .oc-step-hd { display:none; }          /* ซ่อนหัวข้อ เพราะบรรทัดสรุปบอกอยู่แล้ว */
+.oc-step.done .oc-picked { padding:6px 10px; font-size:13px; }
+/* ขั้นที่กำลังทำ — กรอบฟ้าเด่น ให้ตาไปหยุดตรงนี้ทันที */
+.oc-step.active { background:#eff6ff; border:2px solid #2563eb; border-radius:11px;
+  padding:10px 11px; margin-top:6px; border-bottom:2px solid #2563eb; }
+.oc-step.active .oc-step-lb { font-size:14.5px; color:#1a2332; }
+.oc-step.active .oc-step-no { width:23px; height:23px; background:#2563eb; color:#fff; font-size:13px; }
+
 .oc-picked { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
   background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:8px; padding:7px 10px;
   font-size:13.5px; font-weight:700; color:#166534; }
@@ -573,6 +586,16 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-wait { background:#fef3c7; border:1.5px solid #fcd34d; border-radius:8px; padding:7px 10px;
   font-size:12.5px; color:#92400e; font-weight:600; }
 .oc-add-ttl { font-size:12.5px; font-weight:800; color:#2563eb; margin-bottom:9px; }
+/* ── กล่องถามหลังเพิ่มรายการ ── */
+.oc-added { background:#f0fdf4; border:2px solid #16a34a; border-radius:12px;
+  padding:12px 13px; margin-bottom:10px; }
+.oc-added-t { font-size:14px; color:#166534; margin-bottom:3px; }
+.oc-added-n { font-size:17px; font-weight:800; color:#14532d; }
+.oc-big { width:100%; border:0; border-radius:12px; padding:15px; font-size:16px; font-weight:800;
+  font-family:'Sarabun',sans-serif; cursor:pointer; margin-bottom:8px; transition:transform .05s ease; }
+.oc-big:active { transform:scale(.97); }
+.oc-big.blue  { background:#2563eb; color:#fff; }
+.oc-big.green { background:#fff; color:#166534; border:2px solid #16a34a; }
 .oc-lbl { font-size:12px; font-weight:700; color:#6b7280; margin-bottom:3px; }
 /* วงกลมสีตัวอย่างในหน้าตั้งค่าสินค้า */
 .pf-sw { width:26px; height:26px; border-radius:50%; flex-shrink:0;
@@ -617,7 +640,7 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
       <div style="width:32px;height:32px;background:#2563eb;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">🪦</div>
       <div>
         <div class="biz-name" id="sidebarBizName">ขายส่งโลงศพ</div>
-        <div class="biz-sub">ระบบหลังบ้าน</div>
+        <div class="biz-sub">ระบบหลังบ้าน <span id="sidebarVer" style="opacity:.65"></span></div>
       </div>
     </div>
   </div>
@@ -1310,6 +1333,12 @@ function closeBnavMore() {
 // ═══════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════
+// ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
+// ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
+// ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
+const APP_VERSION = 'v58';
+const APP_BUILD   = '12 ก.ย. 69';
+
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
 
 const SKELETON_CARDS = `
@@ -1965,6 +1994,7 @@ async function showCreateOrderModal(editId) {
   // isAccessory() อ่านจาก cache นี้ — เติมให้ด้วย เผื่อยังไม่เคยเข้าหน้า Dashboard
   window._allProductsCache = Object.fromEntries(products.map(p => [p.name, p]));
   window._orderCustId = edit?.customerId || null;
+  window._ordJustAdded = null;   // ล้างกล่อง "เพิ่มอีกไหม" ของครั้งก่อน ไม่งั้นเปิดฟอร์มมาเจอค้าง
   // ตะกร้าเก็บใน memory — ไม่ต้องขูดค่าจาก DOM เหมือนเดิม
   window._ordCart = (edit?.items || []).map(i => ({
     productId:i.productId, productName:i.productName, color:i.color||'', trimColor:i.trimColor||'',
@@ -2028,7 +2058,7 @@ async function showCreateOrderModal(editId) {
     'modal-lg');
 
   renderOrdCart();
-  paintOcSteps();
+  paintOcSteps({noScroll:true});   // เพิ่งเปิดฟอร์ม อย่าเพิ่งเลื่อนจอ
 }
 
 async function showEditOrderModal(id) { await showCreateOrderModal(id); }
@@ -2272,9 +2302,52 @@ function renderOcSteps() {
   return html;
 }
 
-function paintOcSteps() {
+function paintOcSteps(opt) {
   const el = document.getElementById('oc_steps');
-  if (el) el.innerHTML = renderOcSteps();
+  if (!el) return;
+
+  // เพิ่งกดเพิ่มรายการ → ถามตรง ๆ ว่าจะเพิ่มอีกไหม แทนที่จะรีเซ็ตฟอร์มเงียบ ๆ
+  // (คนที่ไม่รู้ว่าใส่หลายรายการในใบเดียวได้ จะได้เห็นทุกครั้งจนจำได้)
+  if (window._ordJustAdded) {
+    const j = window._ordJustAdded;
+    el.innerHTML = `
+      <div class="oc-added">
+        <div class="oc-added-t">✓ เพิ่ม <b>${U.esc(j.label)}</b> แล้ว</div>
+        <div class="oc-added-n">ออเดอร์นี้มี ${j.count} รายการ</div>
+      </div>
+      <button type="button" class="oc-big blue" onclick="ocAddMore()">
+        <i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้าอีก</button>
+      <button type="button" class="oc-big green" onclick="saveOrder()">
+        <i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์ ${j.count} รายการ</button>`;
+    ocScrollTo(el.firstElementChild);
+    return;
+  }
+
+  el.innerHTML = renderOcSteps();
+  // ขั้นแรกที่ยังไม่เสร็จ = ขั้นที่กำลังทำ ทำให้เด่นแล้วเลื่อนไปหา
+  const active = el.querySelector('.oc-step:not(.done)');
+  if (!active) return;
+  active.classList.add('active');
+  if (!opt?.noScroll) ocScrollTo(active);
+}
+
+// เลื่อนไปหาขั้นถัดไป — แต่เฉพาะตอนที่มันอยู่นอกจอจริง ๆ
+// จอที่ขยับทั้งที่ไม่จำเป็นคือสิ่งที่ทำให้ผู้สูงอายุงงที่สุด
+function ocScrollTo(elm) {
+  if (!elm) return;
+  const r = elm.getBoundingClientRect();
+  const seen = r.top >= 56 && r.bottom <= window.innerHeight - 16;
+  if (seen) return;
+  let smooth = true;
+  try { smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e) {}
+  try { elm.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' }); }
+  catch(e) { elm.scrollIntoView(); }   // เบราว์เซอร์เก่าที่ไม่รับ options
+}
+
+// กด "เพิ่มสินค้าอีก" — กลับไปที่ขั้นเลือกสินค้า
+function ocAddMore() {
+  window._ordJustAdded = null;
+  paintOcSteps();
 }
 
 
@@ -2341,6 +2414,9 @@ function ocAdd() {
   else { cart.push(nw); hl = cart.length - 1; }
   // รีเซ็ตกลับไปขั้น "เลือกสินค้า" พร้อมกรอกรายการต่อไป
   window._ordCur = {productId:'', color:'', trimColor:'', extra:'', qty:1, price:0};
+  // จำไว้ว่าเพิ่งเพิ่มอะไร เพื่อเอาไปถามว่าจะเพิ่มอีกไหม
+  window._ordJustAdded = { label: ocRowLabel(nw).replace(/<[^>]*>/g, ' ').replace(/\s+/g,' ').trim(),
+                           count: cart.length };
   renderOrdCart(hl);
   paintOcSteps();
 }
@@ -3187,6 +3263,41 @@ async function onOrderCustChange(sel) {
   }
   renderOrdCart();
   paintOcSteps();
+  checkExistingOrderToday();
+}
+
+// ── ลูกค้ารายนี้มีออเดอร์ของวันนี้อยู่แล้วไหม ──
+// ดักนิสัย "เปิดใบใหม่ทุกครั้ง" ตั้งแต่ต้นทาง ไม่ต้องรอให้ผู้ใช้เรียนรู้เอง
+// ถามเฉพาะตอนเปิดใบใหม่และยังไม่ได้ใส่สินค้า จะได้ไม่กวนกลางทาง
+async function checkExistingOrderToday() {
+  try {
+    const custId = window._orderCustId;
+    if (!custId) return;
+    if (document.getElementById('of_editId')?.value) return;      // กำลังแก้ใบเดิม
+    if ((window._ordCart || []).length) return;                   // ใส่ของไปแล้ว
+    const today = new Date(); today.setHours(0,0,0,0);
+    const mine = (await DB.getOrders())
+      .filter(o => String(o.customerId) === String(custId) && o.createdAt >= today.getTime())
+      .sort((a,b) => b.createdAt - a.createdAt);
+    if (!mine.length) return;
+
+    const o = mine[0];
+    const items = (o.items||[]).length;
+    const name  = o.customerName || 'ลูกค้ารายนี้';
+    U_confirm(
+      `<b>${U.esc(name)}</b> มีออเดอร์ของวันนี้อยู่แล้ว<br>
+       <span style="color:#6b7280;font-size:13.5px;">${U.esc(o.orderNo||'')} · ${items} รายการ</span><br><br>
+       จะเพิ่มสินค้าเข้าใบเดิม หรือเปิดใบใหม่?`,
+      () => { closeModal('orderModal'); showAddItemsModal(o.id); },
+      { title:'ลูกค้ารายนี้มีออเดอร์วันนี้แล้ว', icon:'fa-circle-question', iconColor:'#2563eb',
+        yesLabel:'เพิ่มเข้าใบเดิม', yesCls:'btn-primary' }
+    );
+    // ปุ่ม "ยกเลิก" ของกล่องนี้ = เปิดใบใหม่ต่อตามปกติ จึงไม่ต้องผูกอะไรเพิ่ม
+    setTimeout(() => {
+      const c = document.querySelector('#confirmDialog .btn-secondary');
+      if (c) c.innerHTML = '<i class="fa-solid fa-file-circle-plus me-1"></i>เปิดใบใหม่';
+    }, 60);
+  } catch(e) { console.warn('checkExistingOrderToday:', e); }
 }
 
 function calcOrderTotal() {
@@ -5185,6 +5296,13 @@ async function renderSettings(el) {
           </div>
 
           <hr style="margin:18px 0 14px;">
+          <div style="background:#f8fafc;border-radius:9px;padding:10px 12px;font-size:13px;color:#475569;">
+            <i class="fa-solid fa-code-branch me-1"></i>เวอร์ชันที่เครื่องนี้ใช้อยู่
+            <b style="color:#1a2332;">${APP_VERSION}</b>
+            <span style="color:#94a3b8;">· ${APP_BUILD}</span>
+          </div>
+
+          <hr style="margin:18px 0 14px;">
           <div>
             <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">🔔 แจ้งเตือน LINE</div>
             <div id="muteStatus" style="font-size:13px;margin-bottom:10px;">${
@@ -5822,6 +5940,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     await DB.init();
     await DB.loadSettings();
     document.getElementById('sidebarBizName').textContent = CFG.businessName;
+    const verEl = document.getElementById('sidebarVer');
+    if (verEl) verEl.textContent = '· ' + APP_VERSION;
     // เปิดหน้าเดิมที่ค้างไว้ — จาก #hash ก่อน ถ้าไม่มีใช้ที่จำไว้ครั้งล่าสุด
     const hash  = (location.hash || '').replace('#','');
     const saved = (() => { try { return localStorage.getItem('kl_lastPage'); } catch(e) { return null; } })();
