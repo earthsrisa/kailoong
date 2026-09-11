@@ -1,4 +1,4 @@
-const CACHE = 'kailoong-v53';
+const CACHE = 'kailoong-v54';
 
 // ไฟล์ของแอพที่เก็บไว้ใช้ตอนเน็ตช้า/หลุด
 const ASSETS = [

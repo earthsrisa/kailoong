@@ -1316,6 +1316,35 @@ function U_confirm(msg, onYes, {title='ยืนยันการดำเน�
 // ═══════════════════════════════════════
 //  DASHBOARD
 // ═══════════════════════════════════════
+// แถบเตือนว่าไม่ได้สำรองข้อมูลนานแล้ว — โผล่บนสุดของ Dashboard
+// เงียบสนิทถ้าสำรองล่าสุดไม่เกิน 7 วัน จะได้ไม่กวนตาจนคนเลิกสนใจ
+const BACKUP_WARN_DAYS = 7;
+async function backupWarningHtml() {
+  let last = null;
+  try { last = await DB.getSetting('lastBackup'); } catch(e) { return ''; }  // อ่านไม่ได้ก็ไม่ต้องเตือน
+  const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+  if (days !== null && days < BACKUP_WARN_DAYS) return '';
+
+  const msg = last
+    ? `สำรองข้อมูลล่าสุด <strong>${days} วันที่แล้ว</strong>`
+    : `<strong>ยังไม่เคยสำรองข้อมูล</strong>`;
+  const sub = last
+    ? 'ถ้าข้อมูลหายตอนนี้ จะกู้กลับได้แค่ถึงวันที่สำรองไว้'
+    : 'ถ้าข้อมูลหายตอนนี้ จะกู้กลับไม่ได้เลย';
+  return `
+  <div style="background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;
+    border-radius:0 12px 12px 0;padding:13px 16px;margin-bottom:14px;
+    display:flex;align-items:center;gap:13px;flex-wrap:wrap;">
+    <i class="fa-solid fa-shield-halved" style="font-size:21px;color:#b45309;"></i>
+    <div style="flex:1;min-width:190px;">
+      <div style="font-size:14.5px;color:#78350f;">${msg}</div>
+      <div style="font-size:12.5px;color:#92400e;opacity:.85;margin-top:2px;">${sub}</div>
+    </div>
+    <button class="btn btn-warning" style="font-weight:700;white-space:nowrap;"
+      onclick="backupData()"><i class="fa-solid fa-download me-1"></i>สำรองเลย</button>
+  </div>`;
+}
+
 async function renderDashboard(el) {
   const now = new Date(); now.setHours(0,0,0,0);
   const todayTs    = now.getTime();
@@ -1358,6 +1387,7 @@ async function renderDashboard(el) {
   const initDashCust = buildDashCustContent(pendingOrders);
 
   el.innerHTML=`
+  ${await backupWarningHtml()}
   <div class="row g-3 mb-3">
     <!-- ออเดอร์ค้างส่ง + customer filter -->
     <div class="col-xl-4">
@@ -5144,32 +5174,43 @@ async function saveSettings() {
 }
 
 // ── BACKUP ──
+// ดึงข้อมูลทั้งระบบมาเป็นก้อนเดียว — แยกออกมาเพื่อให้ "สำรองก่อนกู้คืน" เรียกใช้ซ้ำได้
+async function buildBackupPayload() {
+  const [customers, products, orders, invoices, expenses, craftsmen] = await Promise.all([
+    DB.getCustomers(), DB.getProducts(), DB.getOrders(), DB.getInvoices(), DB.getExpenses(),
+    DB.getCraftsmen()
+  ]);
+  // settings เก็บเป็น doc เดี่ยว ไม่ได้ผ่าน DB shortcut
+  const setSnap = await DB._fs.collection('settings').get();
+  const settings = setSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return {
+    version: 3,
+    exportedAt: Date.now(),
+    exportedBy: CFG.businessName,
+    data: { customers, products, orders, invoices, expenses, craftsmen, settings }
+  };
+}
+
+// เซฟก้อนข้อมูลลงเครื่องเป็นไฟล์ คืนชื่อไฟล์ที่เซฟ
+function saveBackupFile(backup, prefix) {
+  const json = JSON.stringify(backup, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const now  = new Date();
+  const pad  = n => String(n).padStart(2,'0');
+  const fname= `${prefix}_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
+  const a = document.createElement('a');
+  a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  return fname;
+}
+
 async function backupData() {
   try {
-    const [customers, products, orders, invoices, expenses, craftsmen] = await Promise.all([
-      DB.getCustomers(), DB.getProducts(), DB.getOrders(), DB.getInvoices(), DB.getExpenses(),
-      DB.getCraftsmen()
-    ]);
-    // settings เก็บเป็น doc เดี่ยว ไม่ได้ผ่าน DB shortcut
-    const setSnap = await DB._fs.collection('settings').get();
-    const settings = setSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const backup = {
-      version: 3,
-      exportedAt: Date.now(),
-      exportedBy: CFG.businessName,
-      data: { customers, products, orders, invoices, expenses, craftsmen, settings }
-    };
-    const json = JSON.stringify(backup, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const now  = new Date();
-    const pad  = n => String(n).padStart(2,'0');
-    const fname= `backup_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
-    const a = document.createElement('a');
-    a.href = url; a.download = fname;
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const backup = await buildBackupPayload();
+    const fname  = saveBackupFile(backup, 'backup');
     await DB.setSetting('lastBackup', Date.now());
     U.toast(`✅ สำรองข้อมูลแล้ว — ${fname}`);
     setTimeout(() => navigate('settings'), 800);
@@ -5237,8 +5278,25 @@ async function confirmRestore() {
   const data = window._pendingRestore;
   if (!data) { U.toast('ไม่พบข้อมูลสำหรับกู้คืน', 'error'); return; }
 
+  // ประกาศนอก try เพราะ catch ด้านล่างต้องใช้บอกชื่อไฟล์กู้กลับ
+  let safetyFile = '';
   try {
     closeModal('restoreConfirmModal');
+
+    // ── สำรองของเดิมก่อนเสมอ ──
+    // การกู้คืนคือการ "ลบทิ้งทั้งหมดแล้วเขียนใหม่" ถ้าเลือกไฟล์ผิด
+    // หรือขาดเน็ตกลางคัน ข้อมูลเดิมจะหายโดยไม่มีทางถอย
+    // จึงบังคับเซฟของเดิมลงเครื่องก่อน และถ้าเซฟไม่สำเร็จ = ไม่กู้คืนต่อ
+    U.toast('กำลังสำรองข้อมูลเดิมก่อน...');
+    try {
+      const pre = await buildBackupPayload();
+      safetyFile = saveBackupFile(pre, 'ก่อนกู้คืน');
+    } catch (preErr) {
+      U.toast('สำรองข้อมูลเดิมไม่สำเร็จ — ยกเลิกการกู้คืนเพื่อความปลอดภัย', 'error');
+      console.error('pre-restore backup failed:', preErr);
+      return;
+    }
+
     U.toast('กำลังกู้คืนข้อมูล...');
 
     // craftsmen กู้คืนเฉพาะเมื่อไฟล์สำรองมีข้อมูลนั้น (ไฟล์เก่า version < 3 ไม่มี)
@@ -5277,14 +5335,42 @@ async function confirmRestore() {
         .set({ seq: maxOf(data.invoices, 'invoiceNo', `RC-${yr}-`), updatedAt: Date.now() }, { merge: true });
     } catch(e) { console.error('reset counters:', e); }
 
-    await DB.setSetting('lastBackup', Date.now());
+    // ⚠️ เดิมตรงนี้เขียน lastBackup = ตอนนี้ ซึ่งผิด
+    // การกู้คืนไม่ใช่การสำรอง ถ้าบันทึกแบบนั้นแถบเตือนจะนึกว่าเพิ่งสำรองไป
+    // แล้วเงียบไปอีก 7 วัน ทั้งที่ยังไม่มีไฟล์สำรองของข้อมูลชุดใหม่เลย
+    await DB.setSetting('lastRestore', Date.now());
     window._pendingRestore = null;
-    U.toast('✅ กู้คืนข้อมูลสำเร็จแล้ว!');
-    setTimeout(() => navigate('dashboard'), 800);
+
+    // ── ตรวจนับว่าเข้าครบไหม ──
+    // เขียนทีละรายการหลายร้อยครั้ง ถ้าพลาดกลางทางบางรายการจะหายเงียบ ๆ
+    DB._cache = {};   // ล้าง cache ให้ไปนับของจริงจากเซิร์ฟเวอร์
+    const expect = {
+      customers: (data.customers||[]).length, products: (data.products||[]).length,
+      orders:    (data.orders||[]).length,    invoices: (data.invoices||[]).length,
+      expenses:  (data.expenses||[]).length
+    };
+    if (Array.isArray(data.craftsmen)) expect.craftsmen = data.craftsmen.length;
+    const missing = [];
+    for (const [col, want] of Object.entries(expect)) {
+      try {
+        const got = (await DB._fs.collection(col).get()).size;
+        if (got !== want) missing.push(`${THAI_COL[col]||col} ${got}/${want}`);
+      } catch(e) { missing.push(`${THAI_COL[col]||col} ตรวจไม่ได้`); }
+    }
+
+    if (missing.length) {
+      U.toast('⚠️ กู้คืนแล้วแต่จำนวนไม่ตรง: ' + missing.join(', ') + ' — ไฟล์สำรองของเดิมคือ ' + safetyFile, 'error');
+    } else {
+      U.toast('✅ กู้คืนข้อมูลสำเร็จ ตรวจนับครบทุกรายการแล้ว');
+    }
+    setTimeout(() => navigate('dashboard'), 1200);
   } catch(err) {
-    U.toast('เกิดข้อผิดพลาดระหว่างกู้คืน: ' + err.message, 'error');
+    U.toast('เกิดข้อผิดพลาดระหว่างกู้คืน: ' + err.message
+      + (safetyFile ? ' — กู้กลับได้จากไฟล์ ' + safetyFile : ''), 'error');
   }
 }
+const THAI_COL = { customers:'ลูกค้า', products:'สินค้า', orders:'ออเดอร์',
+  invoices:'ใบเสร็จ', expenses:'รายจ่าย', craftsmen:'ช่างแต่ง' };
 
 // ═══════════════════════════════════════
 //  EXPENSES PAGE
