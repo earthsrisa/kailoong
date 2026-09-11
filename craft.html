@@ -1498,7 +1498,15 @@ async function nextOrderNoCraft() {
   }
 }
 
-function notifyLine(type, items) {
+async function notifyLine(type, items) {
+  // เช็คสวิตช์ปิดแจ้งเตือนของร้าน (ตั้งจากหน้าแอดมิน เก็บใน settings/lineMuteUntil)
+  // เก็บเป็นเวลา "ปิดถึงเมื่อไร" จึงหมดอายุเองโดยไม่ต้องมีใครมาเปิดกลับ
+  try {
+    const snap = await db.collection('settings').doc('lineMuteUntil').get();
+    const until = Number(snap.exists ? snap.data().value : 0) || 0;
+    if (Date.now() < until) { console.log('LINE muted — ไม่ส่ง'); return; }
+  } catch(e) { /* อ่านไม่ได้ = ส่งตามปกติ ปลอดภัยกว่าเงียบ */ }
+
   fetch('/api/notify-line', {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({

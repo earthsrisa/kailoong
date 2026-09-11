@@ -837,6 +837,48 @@ async function ensureXLSX() {
 function todayLocal(){
   return new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'});
 }
+// ═══════════════════════════════════════
+//  สวิตช์ปิดแจ้งเตือน LINE
+// ═══════════════════════════════════════
+// เก็บเป็นเวลา "ปิดถึงเมื่อไร" ตัวเดียว (settings/lineMuteUntil)
+// ข้อดีของการเก็บเป็นเวลาแทน true/false คือมันหมดอายุเอง
+// ไม่ต้องมีตัวจับเวลาคอยนับ และไม่มีทางลืมเปิดกลับ
+//   0 หรือไม่มีค่า = เปิดแจ้งเตือนปกติ
+//   เวลาในอนาคต   = ปิดอยู่จนถึงเวลานั้น
+const MUTE_FOREVER = 4102444800000;   // 1 ม.ค. 2100 = ปิดจนกว่าจะกดเปิดเอง
+
+async function getMuteUntil() {
+  try { return Number(await DB.getSetting('lineMuteUntil')) || 0; }
+  catch(e) { return 0; }              // อ่านไม่ได้ = ถือว่าเปิด ปลอดภัยกว่าเงียบ
+}
+async function setMuteUntil(ts) {
+  await DB.setSetting('lineMuteUntil', ts);
+}
+// ข้อความบอกสถานะ ใช้ทั้งหน้าตั้งค่าและแถบเตือน
+function muteLabel(until) {
+  if (!until || Date.now() >= until) return null;
+  if (until >= MUTE_FOREVER) return 'ปิดอยู่ จนกว่าจะกดเปิดเอง';
+  const mins = Math.ceil((until - Date.now()) / 60000);
+  if (mins < 60) return `ปิดอยู่ อีก ${mins} นาทีจะเปิดเอง`;
+  return `ปิดอยู่ ถึง ${U.datetime(until).replace(/.*? /, '')} น.`;
+}
+
+// ส่งแจ้งเตือน LINE — ทุกที่ในแอปต้องเรียกผ่านตัวนี้ตัวเดียว
+// จะได้มีจุดเช็คสวิตช์จุดเดียว ไม่มีทางหลุด
+async function sendLineNotify(payload) {
+  try {
+    const until = await getMuteUntil();
+    if (Date.now() < until) {
+      console.log('LINE muted — ไม่ส่ง:', payload.type);
+      return;
+    }
+    await fetch('/api/notify-line', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+  } catch(e) { /* แจ้งเตือนล้มเหลวไม่ควรทำให้การบันทึกพัง */ }
+}
+
 // รอ promise แบบมีเพดานเวลา — งานที่ค้างจะกลายเป็น error ที่เห็นได้
 // แทนที่จะเงียบหายจนปุ่มตาย
 function withTimeout(promise, ms, msg) {
@@ -1412,6 +1454,26 @@ async function backupWarningHtml() {
   </div>`;
 }
 
+// แถบบอกว่าแจ้งเตือน LINE ปิดอยู่ — กันลืมว่าปิดค้างไว้
+// (ถึงจะเปิดเองอัตโนมัติ แต่ระหว่างที่ปิดต้องเห็นชัดว่ากลุ่มไม่ได้รับข้อความ)
+async function muteWarningHtml() {
+  const until = await getMuteUntil();
+  const label = muteLabel(until);
+  if (!label) return '';
+  return `
+  <div style="background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #b45309;
+    border-radius:0 12px 12px 0;padding:12px 16px;margin-bottom:14px;
+    display:flex;align-items:center;gap:13px;flex-wrap:wrap;">
+    <i class="fa-solid fa-bell-slash" style="font-size:20px;color:#b45309;"></i>
+    <div style="flex:1;min-width:180px;">
+      <div style="font-size:14.5px;color:#78350f;font-weight:700;">แจ้งเตือน LINE ${U.esc(label)}</div>
+      <div style="font-size:12.5px;color:#92400e;opacity:.85;margin-top:2px;">กลุ่มจะไม่ได้รับข้อความรับ/แก้/ลบออเดอร์</div>
+    </div>
+    <button class="btn btn-warning" style="font-weight:700;white-space:nowrap;"
+      onclick="setMute(0)"><i class="fa-solid fa-bell me-1"></i>เปิดเลย</button>
+  </div>`;
+}
+
 async function renderDashboard(el) {
   const now = new Date(); now.setHours(0,0,0,0);
   const todayTs    = now.getTime();
@@ -1454,6 +1516,7 @@ async function renderDashboard(el) {
   const initDashCust = buildDashCustContent(pendingOrders);
 
   el.innerHTML=`
+  ${await muteWarningHtml()}
   ${await backupWarningHtml()}
   <div class="row g-3 mb-3">
     <!-- ออเดอร์ค้างส่ง + customer filter -->
@@ -1876,16 +1939,13 @@ async function saveAddItems(orderId) {
     if (newItems.length > 0) {
       const addItemKeys = newItems.map(it => `${it.productName}|${it.color||''}|${it.trimColor||''}`);
       const todayAdd = await getTodayOrdersSummary({ currentOrderId: orderId, actionType: 'edit', actionItemKeys: addItemKeys });
-      fetch('/api/notify-line', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          type: 'edit',
-          customerName: order.customerName,
-          items: newItems.map(it => ({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType: 'added' })),
-          createdAt: order.createdAt,
-          todayOrders: todayAdd
-        })
-      }).catch(()=>{});
+      sendLineNotify({
+        type: 'edit',
+        customerName: order.customerName,
+        items: newItems.map(it => ({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType: 'added' })),
+        createdAt: order.createdAt,
+        todayOrders: todayAdd
+      });
     }
     closeModal('addItemsModal');
     navigate(window._addItemsOriginPage || 'orders');
@@ -3249,17 +3309,13 @@ async function doSaveOrder() {
           : [{ name: `(เปลี่ยนชื่อจาก "${old.customerName}" → "${data.customerName}")`, qty: 0, color: '', trimColor: '', changeType: 'modified' }];
         const actionItemKeys = notifyItems.map(it => `${it.name}|${it.color||''}|${it.trimColor||''}`);
         const todayEdit = await getTodayOrdersSummary({ currentOrderId: editId, actionType: 'edit', actionItemKeys });
-        fetch('/api/notify-line', {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            type: 'edit',
-            customerName: data.customerName,
-            items: notifyItems,
-            createdAt: data.createdAt,
-            todayOrders: todayEdit
-          })
-        }).catch(()=>{});
+        sendLineNotify({
+          type: 'edit',
+          customerName: data.customerName,
+          items: notifyItems,
+          createdAt: data.createdAt,
+          todayOrders: todayEdit
+        });
       }
     } else {
       data.orderNo=await DB.nextOrderNo();
@@ -3269,18 +3325,14 @@ async function doSaveOrder() {
       // แจ้งเตือน LINE กลุ่ม — ออเดอร์ใหม่ (fire-and-forget)
       const lineItems = data.items.map(it=>({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'' }));
       const todayNew = await getTodayOrdersSummary({ currentOrderId: newOrderId, actionType: 'new' });
-      fetch('/api/notify-line', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          type: 'new',
-          orderNo: data.orderNo,
-          customerName: data.customerName,
-          items: lineItems,
-          createdAt: data.createdAt,
-          todayOrders: todayNew
-        })
-      }).catch(()=>{});
+      sendLineNotify({
+        type: 'new',
+        orderNo: data.orderNo,
+        customerName: data.customerName,
+        items: lineItems,
+        createdAt: data.createdAt,
+        todayOrders: todayNew
+      });
     }
     closeModal('orderModal');
     navigate(editId ? 'orders' : 'dashboard');
@@ -3306,18 +3358,14 @@ function deleteOrder(id) {
     if (order) {
       const lineItems = (order.items||[]).map(it=>({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'' }));
       const todayDel = await getTodayOrdersSummary(); // cache แล้วไม่มีออเดอร์ที่ลบ
-      fetch('/api/notify-line', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          type: 'delete',
-          orderNo: order.orderNo,
-          customerName: order.customerName,
-          items: lineItems,
-          createdAt: order.createdAt,
-          todayOrders: todayDel
-        })
-      }).catch(()=>{});
+      sendLineNotify({
+        type: 'delete',
+        orderNo: order.orderNo,
+        customerName: order.customerName,
+        items: lineItems,
+        createdAt: order.createdAt,
+        todayOrders: todayDel
+      });
     }
   }, {askReason:true});
 }
@@ -5049,6 +5097,7 @@ async function renderSettings(el) {
     DB.getOrders(), DB.getCustomers(), DB.getProducts(), DB.getInvoices(), DB.getCraftsmen()
   ]);
   const lastBackup = await DB.getSetting('lastBackup');
+  const muteUntil  = await getMuteUntil();
   window._settingsCraftsmen = craftsmen;
 
   el.innerHTML=`
@@ -5133,6 +5182,27 @@ async function renderSettings(el) {
               <i class="fa-solid fa-upload me-2"></i>เลือกไฟล์ backup เพื่อกู้คืน
               <input type="file" accept=".json" style="display:none;" onchange="restoreData(this)">
             </label>
+          </div>
+
+          <hr style="margin:18px 0 14px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">🔔 แจ้งเตือน LINE</div>
+            <div id="muteStatus" style="font-size:13px;margin-bottom:10px;">${
+              muteLabel(muteUntil)
+                ? `<span style="color:#b45309;font-weight:700;"><i class="fa-solid fa-bell-slash me-1"></i>${muteLabel(muteUntil)}</span>`
+                : `<span style="color:#16a34a;font-weight:700;"><i class="fa-solid fa-bell me-1"></i>เปิดอยู่ — แจ้งกลุ่มทุกครั้งที่รับ/แก้/ลบออเดอร์</span>`
+            }</div>
+            <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px;">
+              ปิดไว้ตอนทดสอบระบบ จะได้ไม่กวนกลุ่ม — มีผลทั้งหน้านี้และหน้าช่างแต่ง
+            </p>
+            <div class="d-flex gap-2 flex-wrap">
+              ${muteLabel(muteUntil)
+                ? `<button class="btn btn-success" style="font-weight:700;" onclick="setMute(0)">
+                     <i class="fa-solid fa-bell me-1"></i>เปิดแจ้งเตือนเลย</button>`
+                : `<button class="btn btn-outline-warning" onclick="setMute(1)">ปิด 1 ชั่วโมง</button>
+                   <button class="btn btn-outline-warning" onclick="setMute(3)">ปิด 3 ชั่วโมง</button>
+                   <button class="btn btn-outline-danger" onclick="setMute('forever')">ปิดจนกว่าจะเปิดเอง</button>`}
+            </div>
           </div>
 
           <hr style="margin:18px 0 14px;">
@@ -5482,6 +5552,19 @@ function trashLabel(col, r) {
   if (col === 'craftsmen') return r.name || '(ไม่มีชื่อ)';
   if (col === 'expenses')  return `${r.category || 'รายจ่าย'} · ${U.money(r.amount||0)} บาท`;
   return r.id;
+}
+
+// ตั้งเวลาปิดแจ้งเตือน — hours เป็นตัวเลขชั่วโมง, 'forever' = จนกว่าจะกดเปิดเอง, 0 = เปิดเลย
+async function setMute(hours) {
+  try {
+    const ts = hours === 'forever' ? MUTE_FOREVER
+             : hours ? Date.now() + hours * 3600000
+             : 0;
+    await setMuteUntil(ts);
+    U.toast(ts ? `ปิดแจ้งเตือน LINE แล้ว ${hours === 'forever' ? '(จนกว่าจะเปิดเอง)' : `${hours} ชั่วโมง`}`
+                : 'เปิดแจ้งเตือน LINE แล้ว ✓');
+    navigate('settings');
+  } catch(e) { U.toast('ตั้งค่าไม่สำเร็จ: ' + e.message, 'error'); }
 }
 
 async function renderTrash(el) {
