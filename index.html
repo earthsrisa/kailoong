@@ -532,10 +532,10 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 @media (min-width:768px){ .oc-grid { grid-template-columns:360px 1fr; align-items:start; } }
 .oc-hdr { display:flex; align-items:baseline; justify-content:space-between; gap:8px;
   font-size:15px; font-weight:800; color:#1a2332; margin-bottom:4px; }
-/* แถวรายการ — เรียงแนวนอน: เลขลำดับ · ชื่อ+จำนวน · ยอด+ปุ่ม */
-.oc-row { display:flex; gap:10px; background:#fff; border:none; border-bottom:1px solid #f1f5f9;
-  border-radius:0; padding:11px 2px; margin-bottom:0; transition:background .25s; }
-.oc-row:last-child { border-bottom:none; }
+/* แถวรายการ — เป็นการ์ดแยกใบชัดเจน มีกรอบ+เงาบางๆ ไม่กลืนกัน */
+.oc-row { display:flex; gap:11px; background:#fff; border:1.5px solid #e2e8f0;
+  border-radius:12px; padding:12px 13px; margin-bottom:10px;
+  box-shadow:0 1px 3px rgba(16,32,58,.05); }
 /* แถวที่เพิ่งเพิ่ม — กะพริบเขียวหลายครั้งให้เห็นชัดว่า "เพิ่งใส่อันนี้เข้าไป" */
 .oc-row.hl { animation:ocRowPulse 2.6s ease; border-radius:9px; }
 @keyframes ocRowPulse {
@@ -595,7 +595,9 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-right { text-align:right; flex:none; }
 .oc-sum { font-size:15.5px; font-weight:800; color:#1a2332; white-space:nowrap; }
 .oc-acts { display:flex; gap:5px; justify-content:flex-end; margin-top:5px; }
-.oc-calc-l { font-size:13px; color:#6b7280; margin-top:2px; }
+/* จำนวน × ราคา — ตัวใหญ่ขึ้น เข้มขึ้น เน้นเลขจำนวนเป็นตัวหนา คนแก่มองเห็นชัด */
+.oc-calc-l { font-size:15.5px; color:#334155; margin-top:3px; font-weight:600; }
+.oc-calc-l b { font-size:18px; font-weight:800; color:#1a2332; }
 .oc-note-view { font-size:12.5px; color:#92400e; background:#fffbeb; border-radius:6px;
   padding:3px 8px; margin-top:5px; display:inline-block; }
 .oc-hdr-n { font-size:13px; font-weight:600; color:#6b7280; }
@@ -1390,7 +1392,7 @@ function closeBnavMore() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v61';
+const APP_VERSION = 'v62';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2434,8 +2436,8 @@ function paintCustBar() {
     </div>`;
 }
 
-// ปุ่มบันทึกที่แถบล่าง — นับจำนวน "หีบ" (รวมจำนวนของสินค้าที่เป็นโลง)
-// อุปกรณ์เสริมนับแยกเป็น "ชิ้น" จะได้ไม่เอาไปปนกับจำนวนหีบ
+// ปุ่มบันทึกที่แถบล่าง — นับจำนวน "ใบ" (รวมจำนวนของสินค้าที่เป็นโลง)
+// อุปกรณ์เสริมนับแยกเป็น "ชิ้น" จะได้ไม่เอาไปปนกับจำนวนใบ
 function syncSaveBtn() {
   const btn = document.getElementById('ocSaveBtn');
   if (!btn) return;
@@ -2447,8 +2449,8 @@ function syncSaveBtn() {
   }
   let label;
   if (!cart.length)          label = 'บันทึกออเดอร์';
-  else if (coffins && accs)  label = `บันทึกออเดอร์ ${coffins} หีบ + ${accs} ชิ้น`;
-  else if (coffins)          label = `บันทึกออเดอร์ ${coffins} หีบ`;
+  else if (coffins && accs)  label = `บันทึกออเดอร์ ${coffins} ใบ + ${accs} ชิ้น`;
+  else if (coffins)          label = `บันทึกออเดอร์ ${coffins} ใบ`;
   else                       label = `บันทึกออเดอร์ ${accs} ชิ้น`;
   btn.innerHTML = `<i class="fa-solid fa-check me-1"></i>${label}`;
 }
@@ -2609,7 +2611,7 @@ function renderOrdCart(hl) {
       <span class="oc-nu">${i+1}</span>
       <div class="oc-mid">
         <div class="oc-name">${ocRowLabel(x)}</div>
-        <div class="oc-calc-l">${x.qty} × ${U.money(x.price)}</div>
+        <div class="oc-calc-l"><b>${x.qty}</b> × ${U.money(x.price)}</div>
         ${noteShown}
       </div>
       <div class="oc-right">
