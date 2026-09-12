@@ -536,7 +536,18 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-row { display:flex; gap:10px; background:#fff; border:none; border-bottom:1px solid #f1f5f9;
   border-radius:0; padding:11px 2px; margin-bottom:0; transition:background .25s; }
 .oc-row:last-child { border-bottom:none; }
-.oc-row.hl { background:#eff6ff; }
+/* แถวที่เพิ่งเพิ่ม — กะพริบเขียวหลายครั้งให้เห็นชัดว่า "เพิ่งใส่อันนี้เข้าไป" */
+.oc-row.hl { animation:ocRowPulse 2.6s ease; border-radius:9px; }
+@keyframes ocRowPulse {
+  0%   { background:#dcfce7; box-shadow:inset 0 0 0 2px #16a34a; }
+  12%  { background:#86efac; }
+  24%  { background:#dcfce7; }
+  36%  { background:#86efac; }
+  48%  { background:#dcfce7; }
+  60%  { background:#86efac; }
+  72%  { background:#dcfce7; }
+  100% { background:transparent; box-shadow:inset 0 0 0 0 transparent; }
+}
 .oc-row.editing { display:block; background:#fffbeb; border:2px solid #f59e0b;
   border-radius:10px; padding:10px 11px; margin:7px 0; }
 .oc-top { display:flex; align-items:center; gap:8px; }
@@ -622,6 +633,9 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-picked { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
   background:#f0fdf4; border:2px solid #16a34a; border-radius:9px; padding:8px 11px;
   font-size:14px; font-weight:700; color:#166534; }
+.oc-picked > span:first-child { display:flex; align-items:center; gap:7px; min-width:0; }
+.oc-sw-sm { width:20px; height:20px; border-radius:50%; flex:none;
+  box-shadow:inset 0 -2px 4px rgba(0,0,0,.14); }
 .oc-change { font-size:12.5px; font-weight:600; color:#16a34a; cursor:pointer; text-decoration:underline; }
 .oc-wait { background:#fef3c7; border:1.5px solid #fcd34d; border-radius:8px; padding:7px 10px;
   font-size:12.5px; color:#92400e; font-weight:600; }
@@ -1376,7 +1390,7 @@ function closeBnavMore() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v60';
+const APP_VERSION = 'v61';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2282,17 +2296,22 @@ function renderOcSteps() {
   const lines  = isAcc ? [] : getProductLines(prod.name, prods);
 
   // ── ขั้น 3 สีโลง (ข้ามถ้าเป็นอุปกรณ์เสริม หรือสินค้าไม่มีสี) ──
+  // เลือกเสร็จ → ยุบเป็นกล่องเขียว + ปุ่มเปลี่ยน เหมือนขั้นลูกค้า/สินค้า
   let colorDone = true;
   if (colors.length) {
     colorDone = !!cur.color;
     html += ocStep(n++, 'เลือกสีโลง', true,
-      `<div class="oc-colors">${colors.map(c =>
-        `<button type="button" class="oc-color ${cur.color===c?'on':''}" onclick="ocColor('${U.esc(c)}')">
-           <span class="tick"><i class="fa-solid fa-circle-check"></i></span>
-           <span class="sw" style="${COLOR_SWATCH[c]||'background:#e5e7eb;'}"></span>
-           <span class="nm">${U.esc(c)}</span>
-         </button>`
-      ).join('')}</div>`, colorDone);
+      colorDone
+        ? `<div class="oc-picked"><span>
+             <span class="oc-sw-sm" style="${COLOR_SWATCH[cur.color]||'background:#e5e7eb;'}"></span>
+             สีโลง: ${U.esc(cur.color)}</span>
+             <span class="oc-change" onclick="ocColor('')">เปลี่ยน</span></div>`
+        : `<div class="oc-colors">${colors.map(c =>
+            `<button type="button" class="oc-color" onclick="ocColor('${U.esc(c)}')">
+               <span class="sw" style="${COLOR_SWATCH[c]||'background:#e5e7eb;'}"></span>
+               <span class="nm">${U.esc(c)}</span>
+             </button>`
+          ).join('')}</div>`, colorDone);
     if (!colorDone) return html;
   }
 
@@ -2301,12 +2320,14 @@ function renderOcSteps() {
   if (lines.length) {
     trimDone = !!cur.trimColor;
     html += ocStep(n++, 'เลือกสีเส้น', true,
-      `<select class="form-select form-select-sm" onchange="ocTrim(this.value)">
-         <option value="">-- เลือกสีเส้น --</option>
-         ${lines.map(l => `<option value="${U.esc(l)}" ${cur.trimColor===l?'selected':''}>${U.esc(l)} ${TRIM_ICON[l]||'▫'}</option>`).join('')}
-       </select>
-       ${cur.trimColor ? `<div class="oc-picked" style="margin-top:7px;background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a;">
-         เส้น${U.esc(cur.trimColor)}<span class="oc-trim-tag" style="font-size:17px;">${TRIM_ICON[cur.trimColor]||'▫'}</span></div>` : ''}`,
+      trimDone
+        ? `<div class="oc-picked"><span>เส้น${U.esc(cur.trimColor)}
+             <span class="oc-trim-tag" style="font-size:17px;">${TRIM_ICON[cur.trimColor]||'▫'}</span></span>
+             <span class="oc-change" onclick="ocTrim('')">เปลี่ยน</span></div>`
+        : `<select class="oc-sel" onchange="ocTrim(this.value)">
+             <option value="">— เลือกสีเส้น —</option>
+             ${lines.map(l => `<option value="${U.esc(l)}">${U.esc(l)} ${TRIM_ICON[l]||'▫'}</option>`).join('')}
+           </select>`,
       trimDone);
     if (!trimDone) return html;
   }
@@ -2413,14 +2434,23 @@ function paintCustBar() {
     </div>`;
 }
 
-// ปุ่มบันทึกที่แถบล่าง — เปลี่ยนข้อความตามจำนวนรายการจริง
+// ปุ่มบันทึกที่แถบล่าง — นับจำนวน "หีบ" (รวมจำนวนของสินค้าที่เป็นโลง)
+// อุปกรณ์เสริมนับแยกเป็น "ชิ้น" จะได้ไม่เอาไปปนกับจำนวนหีบ
 function syncSaveBtn() {
   const btn = document.getElementById('ocSaveBtn');
   if (!btn) return;
-  const n = (window._ordCart || []).length;
-  btn.innerHTML = n
-    ? `<i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์ ${n} รายการ`
-    : `<i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์`;
+  const cart = window._ordCart || [];
+  let coffins = 0, accs = 0;
+  for (const x of cart) {
+    if (isAccessory(x.productName)) accs += (x.qty || 0);
+    else coffins += (x.qty || 0);
+  }
+  let label;
+  if (!cart.length)          label = 'บันทึกออเดอร์';
+  else if (coffins && accs)  label = `บันทึกออเดอร์ ${coffins} หีบ + ${accs} ชิ้น`;
+  else if (coffins)          label = `บันทึกออเดอร์ ${coffins} หีบ`;
+  else                       label = `บันทึกออเดอร์ ${accs} ชิ้น`;
+  btn.innerHTML = `<i class="fa-solid fa-check me-1"></i>${label}`;
 }
 
 // เลือก/เปลี่ยนลูกค้าจากในขั้นที่ 1
@@ -2598,7 +2628,12 @@ function renderOrdCart(hl) {
     : `<span>รายการในออเดอร์นี้</span><span class="oc-hdr-n">ยังไม่มี</span>`;
   syncSaveBtn();
   calcOrderTotal();
-  if (hl != null) setTimeout(() => document.querySelector('.oc-row.hl')?.classList.remove('hl'), 900);
+  // เลื่อนแถวที่เพิ่งเพิ่มให้เห็น แล้วปล่อยกะพริบจนจบ (2.6 วิ)
+  if (hl != null) {
+    const row = document.querySelector('.oc-row.hl');
+    ocScrollTo(row);
+    setTimeout(() => row?.classList.remove('hl'), 2600);
+  }
 }
 
 
