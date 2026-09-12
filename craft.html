@@ -1762,7 +1762,9 @@ function renderCraftOrders() {
     </div>`;
   }
 
-  html += _groups.map(g => renderCustomerCard(g)).join('');
+  // ใช้ shown (ผ่านตัวกรองชนิดแล้ว) ไม่ใช่ _groups ทั้งหมด
+  // นี่คือบั๊กที่ทำให้กดชิปกรองแล้วไม่มีอะไรเปลี่ยน
+  html += shown.map(g => renderCustomerCard(g)).join('');
   el.innerHTML = html;
 }
 
@@ -2119,7 +2121,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v62</span>
+      <span style="opacity:.6;margin-left:6px;">· v63</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">
