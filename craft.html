@@ -362,17 +362,44 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
   display:flex; align-items:center; gap:10px; }
 .ord-cust .lb { font-size:12px; font-weight:700; color:#6b7280; white-space:nowrap; }
 .ord-cust .ord-sel { flex:1; padding:7px 10px; font-size:14.5px; }
-.ord-lst-hdr { font-size:12.5px; font-weight:700; color:#6b7280; margin-bottom:7px; }
-.ord-cart-row { background:#fff; border-radius:10px; padding:10px 12px; margin-bottom:7px;
-  display:flex; align-items:center; gap:9px; transition:box-shadow .25s; }
-.ord-cart-row.hl { box-shadow:0 0 0 2px #16a34a; }
-.ord-cart-row .q { font-size:17px; font-weight:800; color:#1a2332; white-space:nowrap; }
-.ord-cart-row .q i { font-size:12px; font-weight:600; color:#6b7280; font-style:normal; }
-.ord-cart-x { width:27px; height:27px; border-radius:7px; border:1.5px solid #fecaca; background:#fef2f2;
-  display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:#dc2626; font-size:13px; }
-.ord-cart-empty { background:#fff; border-radius:10px; padding:16px; text-align:center;
-  font-size:12.5px; color:#6b7280; }
-.ord-addbox { background:#fff; border-radius:12px; padding:12px 13px; border:2px dashed #cbd5e1; }
+.ord-lst-hdr { display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  font-size:15px; font-weight:800; color:#1a2332; margin-bottom:6px; }
+.ord-hdr-n { font-size:13px; font-weight:600; color:#6b7280; }
+/* แถวรายการ — การ์ดแยกใบชัด มีเลขลำดับ + จำนวนตัวใหญ่ (ช่างไม่เห็นราคา) */
+.ord-cart-row { background:#fff; border:1.5px solid #e2e8f0; border-radius:12px; padding:11px 12px;
+  margin-bottom:9px; display:flex; align-items:flex-start; gap:10px; box-shadow:0 1px 3px rgba(16,32,58,.05); }
+.ord-cnu { width:22px; height:22px; border-radius:50%; background:#eef2f7; color:#64748b;
+  font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; flex:none; margin-top:2px; }
+.ord-cqty { font-size:15px; color:#334155; margin-top:4px; font-weight:600; }
+.ord-cqty b { font-size:19px; font-weight:800; color:#1a2332; }
+.ord-cart-row.hl { animation:ordRowPulse 2.6s ease; }
+@keyframes ordRowPulse {
+  0%{background:#dcfce7} 12%{background:#86efac} 24%{background:#dcfce7} 36%{background:#86efac}
+  48%{background:#dcfce7} 60%{background:#86efac} 72%{background:#dcfce7} 100%{background:#fff}
+}
+.ord-cart-x { width:38px; height:38px; border-radius:9px; border:1.5px solid #fecaca; background:#fef2f2;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; color:#dc2626; font-size:15px; }
+.ord-cart-empty { background:#fff; border:1.5px dashed #e5e7eb; border-radius:10px; padding:16px; text-align:center;
+  font-size:13px; color:#6b7280; }
+.ord-addbox { background:#fff; border-radius:12px; padding:12px 13px; border:1px solid #e8ecf0; }
+/* แถบชื่อลูกค้าติดบนสุด */
+.ord-custbar-w { }
+.ord-custbar { display:flex; align-items:center; gap:10px; background:#f0fdf4;
+  border:2px solid #16a34a; border-radius:11px; padding:9px 12px; }
+.ord-cav { width:32px; height:32px; border-radius:9px; background:#16a34a; color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; flex:none; }
+.ord-cav-l { font-size:11.5px; color:#15803d; line-height:1.2; }
+.ord-cav-n { font-size:16.5px; font-weight:800; color:#14532d; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cchange { font-size:12.5px; font-weight:700; color:#16a34a; text-decoration:underline; cursor:pointer; flex:none; }
+.csw { width:20px; height:20px; border-radius:50%; flex:none; box-shadow:inset 0 -2px 4px rgba(0,0,0,.14); }
+/* เส้นคั่นหนา แยก "กำลังทำ" ออกจาก "รายการที่เพิ่มแล้ว" */
+.ord-sepbar { height:9px; background:#eef1f5; margin:6px 13px; border-radius:5px; }
+/* กล่องถามหลังเพิ่มรายการ */
+.ord-added { background:#f0fdf4; border:2px solid #16a34a; border-radius:12px; padding:12px 13px; margin-bottom:10px; }
+.ord-added-t { font-size:14.5px; color:#166534; }
+.ord-big { width:100%; border:0; border-radius:12px; padding:15px; font-size:16px; font-weight:800;
+  font-family:'Sarabun',sans-serif; cursor:pointer; }
+.ord-big.blue { background:#2563eb; color:#fff; }
 /* ── แถบกรองชนิดหีบ ── */
 #type-filter-bar { background:#fff; border-bottom:1.5px solid #e5e7eb; padding:9px 12px; }
 .tf-hd { font-size:12.5px; color:#6b7280; font-weight:700; margin-bottom:7px; }
@@ -407,8 +434,9 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .cstep.done .cstep-lb { color:#64748b; font-weight:600; }
 .creq { color:#dc2626; font-weight:800; }
 .cpicked { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;
-  background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:9px; padding:8px 11px;
+  background:#f0fdf4; border:2px solid #16a34a; border-radius:9px; padding:8px 11px;
   font-size:14px; font-weight:700; color:#166534; }
+.cpicked > span:first-child { display:flex; align-items:center; gap:7px; min-width:0; }
 .cwait { background:#fef3c7; border:1.5px solid #fcd34d; border-radius:9px; padding:8px 11px;
   font-size:13px; color:#92400e; font-weight:600; }
 /* สีโลง — เต็มบรรทัด แบ่งครึ่ง */
@@ -541,6 +569,7 @@ function resolvePrice(customerId, prod, trimColor) {
 }
 let _dateFilter  = 'all'; // 'today' | 'all'
 let _typeFilter  = new Set(); // ชนิดหีบที่เลือกดู (ว่าง = ดูทั้งหมด)
+let _draftJustAdded = null;   // กล่อง "เพิ่มอีกไหม" หลังกดเพิ่มรายการ
 
 // ── Utilities ──
 function esc(s) {
@@ -1033,6 +1062,8 @@ function openOrderForm(editId) {
   if (!_craftsman) { toast('กรุณาเลือกชื่อช่างก่อน'); return; }
   if (!_customers.length || !_products.length) { toast('กำลังโหลดข้อมูล กรุณารอสักครู่'); loadOrderRefData(); return; }
   _editOrderId = editId || null;
+  _draftJustAdded = null;   // ล้างกล่อง "เพิ่มอีกไหม" ของครั้งก่อน
+  _cur = {productId:'', color:'', trimColor:'', extra:'', qty:1};
   if (editId) {
     const o = _orders.find(x => x.id === editId);
     if (!o) { toast('ไม่พบออเดอร์'); return; }
@@ -1089,31 +1120,34 @@ function renderCraftSteps() {
   const hasCust = !!_draft.customerId;
   let n = 1, html = '';
 
-  // ขั้น 1 ลูกค้า
-  const custOpts = _customers.map(c =>
-    `<option value="${c.id}" ${_draft.customerId===c.id?'selected':''}>${esc(c.name)}</option>`).join('');
-  html += cstep(n++, 'เลือกลูกค้า', true,
-    hasCust
-      ? `<div class="cpicked"><span><i class="fa-solid fa-user me-1"></i>${esc(_draft.customerName)}</span>
-           <span style="font-size:12.5px;font-weight:600;color:#16a34a;text-decoration:underline;cursor:pointer;"
-             onclick="_draft.customerId='';_draft.customerName='';paintCraftSteps();">เปลี่ยน</span></div>`
-      : `<select class="ord-sel" onchange="onDraftCust(this.value)">
-           <option value="">— เลือกลูกค้า —</option>${custOpts}
-         </select>`,
-    hasCust);
-  if (!hasCust) return html;
+  // ── ขั้น 1 ลูกค้า ──
+  // ยังไม่เลือก → โชว์ช่องเลือกเป็นขั้นแรก
+  // เลือกแล้ว → ไม่แสดงขั้นนี้ เพราะชื่อลูกค้าไปอยู่แถบเขียวติดบนสุดแทน (paintCustBar)
+  if (!hasCust) {
+    const custOpts = _customers.map(c =>
+      `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    html += cstep(1, 'เลือกลูกค้า', true,
+      `<select class="ord-sel" onchange="onDraftCust(this.value)">
+         <option value="">— เลือกลูกค้า —</option>${custOpts}
+       </select>`, false);
+    return html;
+  }
 
-  // ขั้น 2 สินค้า
+  // ── ขั้น 1 สินค้า (ลูกค้าอยู่บนแถบแล้ว) ──
+  // เลือกเสร็จ → ยุบเป็นกล่องเขียว + เปลี่ยน เหมือนสีโลง/สีเส้น
   const sorted = _products.slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
-  const opt = p => `<option value="${p.id}" ${_cur.productId===p.id?'selected':''}>${esc(p.name)}</option>`;
+  const opt = p => `<option value="${p.id}">${esc(p.name)}</option>`;
   const coffins = sorted.filter(p => !isAccessory(p.name));
   const accs    = sorted.filter(p =>  isAccessory(p.name));
   html += cstep(n++, 'เลือกสินค้า', true,
-    `<select class="ord-sel ${_cur.productId?'filled':''}" onchange="onDraftProd(this.value)">
-       <option value="">— เลือกสินค้า —</option>
-       ${coffins.length?`<optgroup label="⚰️ โลง">${coffins.map(opt).join('')}</optgroup>`:''}
-       ${accs.length?`<optgroup label="🔧 อุปกรณ์เสริม (ไม่ต้องแต่ง)">${accs.map(opt).join('')}</optgroup>`:''}
-     </select>`, !!prod);
+    prod
+      ? `<div class="cpicked"><span><i class="fa-solid fa-box me-1"></i>${esc(prod.name)}</span>
+           <span class="cchange" onclick="onDraftProd('')">เปลี่ยน</span></div>`
+      : `<select class="ord-sel" onchange="onDraftProd(this.value)">
+           <option value="">— เลือกสินค้า —</option>
+           ${coffins.length?`<optgroup label="⚰️ โลง">${coffins.map(opt).join('')}</optgroup>`:''}
+           ${accs.length?`<optgroup label="🔧 อุปกรณ์เสริม (ไม่ต้องแต่ง)">${accs.map(opt).join('')}</optgroup>`:''}
+         </select>`, !!prod);
   if (!prod) return html;
 
   const isAcc  = isAccessory(prod.name);
@@ -1122,28 +1156,35 @@ function renderCraftSteps() {
   const extras = isAcc ? null : COFFIN_SPEC[prod.name]?.extra;
 
   // ขั้น 3 สีโลง (ข้ามถ้าไม่มีสี เช่น ไม้สัก หรืออุปกรณ์เสริม)
+  // เลือกเสร็จ → ยุบเป็นกล่องเขียว + เปลี่ยน
   if (colors.length) {
     const done = !!_cur.color;
     html += cstep(n++, 'เลือกสีโลง', true,
-      `<div class="ccolors">${colors.map(c =>
-        `<button class="ccolor ${_cur.color===c?'on':''}" onclick="setDraftColor('${esc(c)}')">
-           <span class="tick"><i class="fa-solid fa-circle-check"></i></span>
-           <span class="sw" style="${COLOR_SWATCH[c]||'background:#e5e7eb;border:2px solid #cbd5e1;'}"></span>
-           <span class="nm">${esc(c)}</span>
-         </button>`).join('')}</div>`, done);
+      done
+        ? `<div class="cpicked"><span>
+             <span class="csw" style="${COLOR_SWATCH[_cur.color]||'background:#e5e7eb;'}"></span>
+             สีโลง: ${esc(_cur.color)}</span>
+             <span class="cchange" onclick="setDraftColor('')">เปลี่ยน</span></div>`
+        : `<div class="ccolors">${colors.map(c =>
+            `<button class="ccolor" onclick="setDraftColor('${esc(c)}')">
+               <span class="sw" style="${COLOR_SWATCH[c]||'background:#e5e7eb;border:2px solid #cbd5e1;'}"></span>
+               <span class="nm">${esc(c)}</span>
+             </button>`).join('')}</div>`, done);
     if (!done) return html;
   }
 
-  // ขั้น 4 สีเส้น
+  // ขั้น 4 สีเส้น — เลือกเสร็จ → ยุบเป็นกล่องเขียว + เปลี่ยน
   if (lines.length) {
     const done = !!_cur.trimColor;
     html += cstep(n++, 'เลือกสีเส้น', true,
-      `<select class="ord-sel" onchange="setDraftTrim(this.value)">
-         <option value="">— เลือกสีเส้น —</option>
-         ${lines.map(l => `<option value="${esc(l)}" ${_cur.trimColor===l?'selected':''}>${esc(l)} ${TRIM_ICON[l]||'▫'}</option>`).join('')}
-       </select>
-       ${_cur.trimColor?`<div class="cpicked" style="margin-top:7px;background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a;">
-         เส้น${esc(_cur.trimColor)}<span style="font-size:18px;">${TRIM_ICON[_cur.trimColor]||'▫'}</span></div>`:''}`,
+      done
+        ? `<div class="cpicked"><span>เส้น${esc(_cur.trimColor)}
+             <span style="font-size:18px;">${TRIM_ICON[_cur.trimColor]||'▫'}</span></span>
+             <span class="cchange" onclick="setDraftTrim('')">เปลี่ยน</span></div>`
+        : `<select class="ord-sel" onchange="setDraftTrim(this.value)">
+             <option value="">— เลือกสีเส้น —</option>
+             ${lines.map(l => `<option value="${esc(l)}">${esc(l)} ${TRIM_ICON[l]||'▫'}</option>`).join('')}
+           </select>`,
       done);
     if (!done) return html;
   }
@@ -1174,8 +1215,46 @@ function renderCraftSteps() {
 
 function paintCraftSteps() {
   const el = document.getElementById('ordSteps');
-  if (el) el.innerHTML = renderCraftSteps();
+  if (!el) return;
+  // เพิ่งกดเพิ่มรายการ → ถามว่าจะเพิ่มอีกไหม แทนที่จะรีเซ็ตเงียบ ๆ
+  if (_draftJustAdded) {
+    el.innerHTML = `
+      <div class="ord-added">
+        <div class="ord-added-t"><i class="fa-solid fa-circle-check me-1"></i>เพิ่ม <b>${esc(_draftJustAdded.label)}</b> แล้ว</div>
+      </div>
+      <button type="button" class="ord-big blue" onclick="craftAddMore()">
+        <i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้าอีก</button>`;
+  } else {
+    el.innerHTML = renderCraftSteps();
+  }
+  paintCustBar();
 }
+
+// แถบชื่อลูกค้าติดบนสุด — เห็นตลอดว่ากำลังทำออเดอร์ให้ใคร
+function paintCustBar() {
+  const bar = document.getElementById('ordCustBar');
+  if (!bar) return;
+  if (!_draft.customerId) { bar.innerHTML = ''; return; }
+  bar.innerHTML = `
+    <div class="ord-custbar">
+      <span class="ord-cav">${craftInitial(_draft.customerName)}</span>
+      <div style="flex:1;min-width:0;">
+        <div class="ord-cav-l">ลูกค้า</div>
+        <div class="ord-cav-n">${esc(_draft.customerName)}</div>
+      </div>
+      <span class="cchange" onclick="_draft.customerId='';_draft.customerName='';_draftJustAdded=null;paintCraftSteps();">เปลี่ยน</span>
+    </div>`;
+}
+// ตัวอักษรแรกของชื่อ (เก็บสระหน้า+วรรณยุกต์ของไทยไว้)
+function craftInitial(s) {
+  const t = String(s||'').trim();
+  if (!t) return '?';
+  const m = t.match(/^[เแโใไ]?.[ัิ-ฺ็-๎]*/);
+  return esc(m ? m[0] : t.charAt(0));
+}
+// กด "เพิ่มสินค้าอีก" → กลับไปกรอกรายการต่อไป
+function craftAddMore() { _draftJustAdded = null; paintCraftSteps(); }
+
 function setDraftTrim(t) { _cur.trimColor = t; paintCraftSteps(); }
 
 function showItemSheet() {
@@ -1188,10 +1267,7 @@ function showItemSheet() {
       <span class="ord-x" onclick="closeOrderSheet()">&times;</span>
     </div>
 
-    <div style="padding:11px 13px 0;">
-      <div class="ord-lst-hdr" id="ordCartHdr">รายการที่เพิ่มแล้ว</div>
-      <div id="ordCart"></div>
-    </div>
+    <div id="ordCustBar" style="padding:11px 13px 0;"></div>
 
     <div style="padding:11px 13px;">
       <div class="ord-addbox">
@@ -1199,11 +1275,14 @@ function showItemSheet() {
       </div>
     </div>
 
+    <div class="ord-sepbar"></div>
+
+    <div style="padding:11px 13px 0;">
+      <div class="ord-lst-hdr" id="ordCartHdr">รายการในออเดอร์นี้</div>
+      <div id="ordCart"></div>
+    </div>
+
     <div class="ord-foot">
-      <div class="ord-foot-sum">
-        <span id="ordSumL">ยังไม่มีรายการ</span>
-        <span><b id="ordSumQ">0</b> <i>ใบ</i></span>
-      </div>
       <button class="ord-btn" id="ordSaveBtn" onclick="goConfirm()" disabled>
         <i class="fa-solid fa-clipboard-check me-1"></i>ตรวจสอบและบันทึก
       </button>
@@ -1218,19 +1297,33 @@ function renderCart(hlIndex) {
   el.innerHTML = _draft.items.length
     ? _draft.items.map((i, n) => `
         <div class="ord-cart-row${hlIndex===n?' hl':''}">
-          <div style="flex:1;min-width:0;">${draftLabel(i)}</div>
-          <span class="q">${i.qty}<i> ใบ</i></span>
-          <span class="ord-cart-x" onclick="delDraftItem(${n})"><i class="fa-solid fa-xmark"></i></span>
+          <span class="ord-cnu">${n+1}</span>
+          <div style="flex:1;min-width:0;">
+            <div>${draftLabel(i)}</div>
+            <div class="ord-cqty"><b>${i.qty}</b> ใบ</div>
+          </div>
+          <span class="ord-cart-x" onclick="delDraftItem(${n})"><i class="fa-solid fa-trash"></i></span>
         </div>`).join('')
-    : `<div class="ord-cart-empty">ยังไม่มีรายการ — เพิ่มด้านล่าง</div>`;
+    : `<div class="ord-cart-empty">ยังไม่มีรายการ</div>`;
 
   const n = _draft.items.length, tot = _draft.items.reduce((a,b)=>a+b.qty, 0);
   const hdr = document.getElementById('ordCartHdr');
-  if (hdr) hdr.textContent = n ? `รายการที่เพิ่มแล้ว (${n})` : 'รายการที่เพิ่มแล้ว';
-  const sl = document.getElementById('ordSumL'); if (sl) sl.textContent = n ? `${n} รายการ` : 'ยังไม่มีรายการ';
-  const sq = document.getElementById('ordSumQ'); if (sq) sq.textContent = tot;
-  const bt = document.getElementById('ordSaveBtn'); if (bt) bt.disabled = !n;
-  if (hlIndex != null) setTimeout(() => { document.querySelector('.ord-cart-row.hl')?.classList.remove('hl'); }, 900);
+  if (hdr) hdr.innerHTML = n
+    ? `<span>รายการในออเดอร์นี้</span><span class="ord-hdr-n">${n} รายการ · ${tot} ใบ</span>`
+    : `<span>รายการในออเดอร์นี้</span><span class="ord-hdr-n">ยังไม่มี</span>`;
+  const bt = document.getElementById('ordSaveBtn');
+  if (bt) {
+    bt.disabled = !n;
+    bt.innerHTML = n
+      ? `<i class="fa-solid fa-clipboard-check me-1"></i>ตรวจสอบและบันทึก ${tot} ใบ`
+      : `<i class="fa-solid fa-clipboard-check me-1"></i>ตรวจสอบและบันทึก`;
+  }
+  // เลื่อนไปหาแถวที่เพิ่งเพิ่ม แล้วปล่อยกะพริบจนจบ (2.6 วิ)
+  if (hlIndex != null) {
+    const row = document.querySelector('.ord-cart-row.hl');
+    row?.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    setTimeout(() => row?.classList.remove('hl'), 2600);
+  }
 }
 
 
@@ -1266,6 +1359,8 @@ function addToCart() {
   let idx;
   if (exIdx >= 0) { _draft.items[exIdx].qty += nw.qty; idx = exIdx; }
   else { _draft.items.push(nw); idx = _draft.items.length - 1; }
+  // จำไว้ว่าเพิ่งเพิ่มอะไร เพื่อเอาไปถามว่าจะเพิ่มอีกไหม
+  _draftJustAdded = { label: draftLabel(nw).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim() };
   _cur = {productId:'', color:'', trimColor:'', extra:'', qty:1};
   renderCart(idx);
   paintCraftSteps();
@@ -1380,7 +1475,12 @@ function bumpDraftItem(n, d) {
   const v = it.qty + d; if (v < 1) return;
   it.qty = v; showConfirmSheet();
 }
-function delDraftItem(n) { _draft.items.splice(n, 1); showConfirmSheet(); }
+function delDraftItem(n) {
+  _draft.items.splice(n, 1);
+  // อยู่หน้ากรอก (มี ordCart) → รีเฟรชตะกร้าอยู่ที่เดิม / อยู่หน้ายืนยัน → วาดหน้ายืนยันใหม่
+  if (document.getElementById('ordCart')) renderCart();
+  else showConfirmSheet();
+}
 
 // ── บันทึกจริง ──
 let _submitting = false;
@@ -2121,7 +2221,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v63</span>
+      <span style="opacity:.6;margin-left:6px;">· v64</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">
