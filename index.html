@@ -530,12 +530,17 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 /* บนคอม: ขั้นตอนอยู่ซ้าย (กว้างคงที่ ปุ่มสีไม่ยืดจนเพี้ยน) รายการอยู่ขวา
    บนมือถือ: เรียงตาม DOM คือขั้นตอนมาก่อน แล้วรายการตามลงมา */
 @media (min-width:768px){ .oc-grid { grid-template-columns:360px 1fr; align-items:start; } }
-.oc-hdr { font-size:12px; font-weight:700; color:#6b7280; margin-bottom:7px; }
-.oc-row { background:#fff; border:1.5px solid #e8ecf0; border-radius:10px; padding:9px 11px; margin-bottom:7px; transition:box-shadow .25s; }
-.oc-row.hl { box-shadow:0 0 0 2px #2563eb; }
-.oc-row.editing { background:#fffbeb; border-color:#f59e0b; }
+.oc-hdr { display:flex; align-items:baseline; justify-content:space-between; gap:8px;
+  font-size:15px; font-weight:800; color:#1a2332; margin-bottom:4px; }
+/* แถวรายการ — เรียงแนวนอน: เลขลำดับ · ชื่อ+จำนวน · ยอด+ปุ่ม */
+.oc-row { display:flex; gap:10px; background:#fff; border:none; border-bottom:1px solid #f1f5f9;
+  border-radius:0; padding:11px 2px; margin-bottom:0; transition:background .25s; }
+.oc-row:last-child { border-bottom:none; }
+.oc-row.hl { background:#eff6ff; }
+.oc-row.editing { display:block; background:#fffbeb; border:2px solid #f59e0b;
+  border-radius:10px; padding:10px 11px; margin:7px 0; }
 .oc-top { display:flex; align-items:center; gap:8px; }
-.oc-name { flex:1; min-width:0; font-size:13.5px; font-weight:700; color:#1a2332; word-break:break-word; }
+.oc-name { flex:1; min-width:0; font-size:14.5px; font-weight:700; color:#1a2332; word-break:break-word; }
 .oc-chip { display:inline-block; border-radius:4px; padding:0 6px; font-size:12px; margin-left:4px; white-space:nowrap; }
 .oc-ico { width:27px; height:27px; border-radius:7px; display:flex; align-items:center; justify-content:center;
   cursor:pointer; flex-shrink:0; font-size:12px; border:1.5px solid #e5e7eb; background:#f8fafc; color:#64748b; }
@@ -556,7 +561,33 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-qn { font-size:18px; font-weight:800; min-width:28px; text-align:center; }
 .oc-pr { flex:1; min-width:80px; border:2px solid #fcd34d; border-radius:7px; padding:5px 7px;
   font-size:13.5px; font-weight:700; text-align:right; font-family:inherit; }
-.oc-add { background:#fff; border:2px dashed #cbd5e1; border-radius:12px; padding:12px 13px; }
+/* กล่องขั้นตอน — เอากรอบประออก ดูสะอาดขึ้นและไม่ทำให้สับสนว่าคืออะไร */
+.oc-add { background:#fff; border:1px solid #e8ecf0; border-radius:12px; padding:12px 13px; }
+
+/* ── แถบชื่อลูกค้าติดบนสุด ── */
+.oc-custbar { display:flex; align-items:center; gap:10px; background:#f0fdf4;
+  border:2px solid #16a34a; border-radius:11px; padding:9px 12px; margin-bottom:12px; }
+.oc-cav { width:32px; height:32px; border-radius:9px; background:#16a34a; color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; flex:none; }
+.oc-cav-l { font-size:11.5px; color:#15803d; line-height:1.2; }
+.oc-cav-n { font-size:16.5px; font-weight:800; color:#14532d;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* เส้นคั่นหนา แยก "กำลังทำอะไร" ออกจาก "เพิ่มอะไรไปแล้ว" */
+.oc-sep { height:9px; background:#eef1f5; border-radius:5px; margin:14px 0 12px; }
+
+/* ── แถวรายการในตะกร้า ── */
+.oc-nu { width:22px; height:22px; border-radius:50%; background:#eef2f7; color:#64748b;
+  font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center;
+  flex:none; margin-top:2px; }
+.oc-mid { flex:1; min-width:0; }
+.oc-right { text-align:right; flex:none; }
+.oc-sum { font-size:15.5px; font-weight:800; color:#1a2332; white-space:nowrap; }
+.oc-acts { display:flex; gap:5px; justify-content:flex-end; margin-top:5px; }
+.oc-calc-l { font-size:13px; color:#6b7280; margin-top:2px; }
+.oc-note-view { font-size:12.5px; color:#92400e; background:#fffbeb; border-radius:6px;
+  padding:3px 8px; margin-top:5px; display:inline-block; }
+.oc-hdr-n { font-size:13px; font-weight:600; color:#6b7280; }
 /* ── ขั้นตอนไหลลงทีละบรรทัด ── */
 .oc-step { padding:9px 0; border-bottom:1px dashed #eef2f6; animation:ocSlide .18s ease; }
 .oc-step:last-child { border-bottom:none; padding-bottom:2px; }
@@ -636,8 +667,8 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-tot-row b { font-size:14px; font-weight:700; color:#1a2332; }
 .oc-grand { display:flex; justify-content:space-between; align-items:center;
   border-top:2px solid #1a2332; padding-top:8px; margin-top:2px; }
-.oc-grand span { font-size:14px; font-weight:800; }
-.oc-grand b { font-size:20px; font-weight:800; color:#1a2332; }
+.oc-grand span { font-size:15px; font-weight:800; }
+.oc-grand b { font-size:24px; font-weight:800; color:#0f766e; }
 </style>
 </head>
 <body>
@@ -1345,7 +1376,7 @@ function closeBnavMore() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v59';
+const APP_VERSION = 'v60';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2019,6 +2050,7 @@ async function showCreateOrderModal(editId) {
   // โครงเดียวกับหน้าช่างแต่ง: ขั้นตอนไหลลงจากบนสุด ช่องเลือกลูกค้าอยู่ในขั้นที่ 1
   // (เดิมช่องลูกค้าอยู่นอกขั้นตอน ขั้นที่ 1 เลยได้แต่ชี้ขึ้นไปบอกว่า "เลือกด้านบนก่อน")
   const body = `<form id="orderForm" onsubmit="return false;">
+    <div id="ocCustBar"></div>
     <div class="oc-grid">
       <div>
         <div class="oc-add">
@@ -2027,7 +2059,8 @@ async function showCreateOrderModal(editId) {
       </div>
 
       <div>
-        <div class="oc-hdr" id="ocHdr">รายการที่เพิ่มแล้ว</div>
+        <div class="oc-sep"></div>
+        <div class="oc-hdr" id="ocHdr">รายการในออเดอร์นี้</div>
         <div id="ocCart"></div>
         <div class="oc-tot">
           <div class="oc-tot-row"><span>ยอดก่อนส่วนลด</span><b id="os_sub">0.00</b></div>
@@ -2061,7 +2094,8 @@ async function showCreateOrderModal(editId) {
   </form>`;
 
   showModal('orderModal', edit?`แก้ไขออเดอร์ ${U.esc(edit.orderNo)}`:'รับออเดอร์ใหม่', body,
-    `<button class="btn btn-primary" onclick="saveOrder()"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึก</button>
+    `<button class="btn btn-success" id="ocSaveBtn" style="font-weight:800;font-size:16px;padding:12px 20px;"
+       onclick="saveOrder()"><i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์</button>
      <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,
     'modal-lg');
 
@@ -2325,20 +2359,21 @@ function paintOcSteps(opt) {
   // (คนที่ไม่รู้ว่าใส่หลายรายการในใบเดียวได้ จะได้เห็นทุกครั้งจนจำได้)
   if (window._ordJustAdded) {
     const j = window._ordJustAdded;
+    // ปุ่มบันทึกอยู่ที่แถบล่างของหน้าต่างปุ่มเดียว ไม่ใส่ซ้ำตรงนี้
+    // (ของเดิมมีปุ่มบันทึก 2 ที่ ทำให้ไม่รู้ว่าต้องกดอันไหน)
     el.innerHTML = `
       <div class="oc-added">
-        <div class="oc-added-t">✓ เพิ่ม <b>${U.esc(j.label)}</b> แล้ว</div>
-        <div class="oc-added-n">ออเดอร์นี้มี ${j.count} รายการ</div>
+        <div class="oc-added-t"><i class="fa-solid fa-circle-check me-1"></i>เพิ่ม <b>${U.esc(j.label)}</b> แล้ว</div>
       </div>
       <button type="button" class="oc-big blue" onclick="ocAddMore()">
-        <i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้าอีก</button>
-      <button type="button" class="oc-big green" onclick="saveOrder()">
-        <i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์ ${j.count} รายการ</button>`;
+        <i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้าอีก</button>`;
     ocScrollTo(el.firstElementChild);
+    paintCustBar();
     return;
   }
 
   el.innerHTML = renderOcSteps();
+  paintCustBar();
   // ขั้นแรกที่ยังไม่เสร็จ = ขั้นที่กำลังทำ ทำให้เด่นแล้วเลื่อนไปหา
   const active = el.querySelector('.oc-step:not(.done)');
   if (!active) return;
@@ -2357,6 +2392,35 @@ function ocScrollTo(elm) {
   try { smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch(e) {}
   try { elm.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'center' }); }
   catch(e) { elm.scrollIntoView(); }   // เบราว์เซอร์เก่าที่ไม่รับ options
+}
+
+// แถบชื่อลูกค้าติดบนสุด — เห็นตลอดว่ากำลังทำออเดอร์ให้ใคร
+// (ของเดิมพอเพิ่มรายการแล้วชื่อลูกค้าหายไปเลย)
+function paintCustBar() {
+  const bar = document.getElementById('ocCustBar');
+  if (!bar) return;
+  const sel  = document.getElementById('of_cust');
+  const name = sel?.selectedOptions?.[0]?.text || '';
+  if (!window._orderCustId || !name) { bar.innerHTML = ''; return; }
+  bar.innerHTML = `
+    <div class="oc-custbar">
+      <span class="oc-cav">${U.initial(name)}</span>
+      <div style="flex:1;min-width:0;">
+        <div class="oc-cav-l">ลูกค้า</div>
+        <div class="oc-cav-n">${U.esc(name)}</div>
+      </div>
+      <span class="oc-change" onclick="ocPickCust('')">เปลี่ยน</span>
+    </div>`;
+}
+
+// ปุ่มบันทึกที่แถบล่าง — เปลี่ยนข้อความตามจำนวนรายการจริง
+function syncSaveBtn() {
+  const btn = document.getElementById('ocSaveBtn');
+  if (!btn) return;
+  const n = (window._ordCart || []).length;
+  btn.innerHTML = n
+    ? `<i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์ ${n} รายการ`
+    : `<i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์`;
 }
 
 // เลือก/เปลี่ยนลูกค้าจากในขั้นที่ 1
@@ -2473,9 +2537,11 @@ function ocRowLabel(x) {
     : x.color === 'ดำ' ? 'background:#111;color:#fff;'
     : 'background:#fff;color:#111;border:1.5px solid #333;';
   const isChrist = x.trimColor === 'คริสต์';
+  // กรองค่า '-' ออกเหมือนที่ทำกับสี ไม่งั้นจะขึ้นป้ายว่า "เส้น-" ซึ่งอ่านไม่รู้เรื่อง
+  const hasTrim = x.trimColor && x.trimColor !== '-';
   return `<span>${U.esc(x.productName)}</span>`
     + (x.color && x.color !== '-' ? `<span class="oc-chip" style="${cs}">${U.esc(x.color)}</span>` : '')
-    + (x.trimColor ? `<span class="oc-chip" style="background:${isChrist?'#dbeafe':'#f3f4f6'};color:${isChrist?'#1e40af':'#374151'};border:1px solid #e5e7eb;">${isChrist?'✝คริสต์':'เส้น'+U.esc(x.trimColor)}</span>` : '')
+    + (hasTrim ? `<span class="oc-chip" style="background:${isChrist?'#dbeafe':'#f3f4f6'};color:${isChrist?'#1e40af':'#374151'};border:1px solid #e5e7eb;">${isChrist?'✝คริสต์':'เส้น'+U.esc(x.trimColor)}</span>` : '')
     + (x.extra ? `<span class="oc-chip" style="background:#fef3c7;color:#92400e;">${U.esc(x.extra)}</span>` : '');
 }
 
@@ -2505,24 +2571,32 @@ function renderOrdCart(hl) {
         </div>
       </div>`;
     }
+    // ช่องหมายเหตุ: ซ่อนไว้จนกว่าจะกดแก้ไข หรือมีข้อความอยู่แล้ว
+    // เดิมเปิดค้างทุกแถว ทำให้ดูเหมือนต้องกรอก ทั้งที่ไม่ต้อง และรกตา
+    const noteShown = (x.specialNote||'').trim()
+      ? `<div class="oc-note-view"><i class="fa-solid fa-note-sticky me-1"></i>${U.esc(x.specialNote)}</div>` : '';
     return `<div class="oc-row${hl===i?' hl':''}">
-      <div class="oc-top">
+      <span class="oc-nu">${i+1}</span>
+      <div class="oc-mid">
         <div class="oc-name">${ocRowLabel(x)}</div>
-        <span class="oc-ico" onclick="ocEdit(${i})"><i class="fa-solid fa-pen"></i></span>
-        <span class="oc-ico del" onclick="ocDel(${i})"><i class="fa-solid fa-trash"></i></span>
+        <div class="oc-calc-l">${x.qty} × ${U.money(x.price)}</div>
+        ${noteShown}
       </div>
-      <div class="oc-calc">
-        <span class="l">${x.qty} × ${U.money(x.price)}</span>
-        <span class="r">${U.money(x.qty * x.price)}</span>
+      <div class="oc-right">
+        <div class="oc-sum">${U.money(x.qty * x.price)}</div>
+        <div class="oc-acts">
+          <span class="oc-ico" onclick="ocEdit(${i})" title="แก้ไข"><i class="fa-solid fa-pen"></i></span>
+          <span class="oc-ico del" onclick="ocDel(${i})" title="ลบ"><i class="fa-solid fa-trash"></i></span>
+        </div>
       </div>
-      ${note}
     </div>`;
-  }).join('') : `<div class="oc-empty">ยังไม่มีรายการ — เพิ่มสินค้าทางขวา</div>`;
+  }).join('') : `<div class="oc-empty">ยังไม่มีรายการ</div>`;
 
   const hdr = document.getElementById('ocHdr');
-  if (hdr) hdr.textContent = cart.length
-    ? `รายการสินค้า (${cart.length}) · ${cart.reduce((a,b)=>a+b.qty,0)} ชิ้น`
-    : 'รายการสินค้า';
+  if (hdr) hdr.innerHTML = cart.length
+    ? `<span>รายการในออเดอร์นี้</span><span class="oc-hdr-n">${cart.length} รายการ · ${cart.reduce((a,b)=>a+b.qty,0)} ชิ้น</span>`
+    : `<span>รายการในออเดอร์นี้</span><span class="oc-hdr-n">ยังไม่มี</span>`;
+  syncSaveBtn();
   calcOrderTotal();
   if (hl != null) setTimeout(() => document.querySelector('.oc-row.hl')?.classList.remove('hl'), 900);
 }
