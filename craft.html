@@ -265,14 +265,24 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .sum-sec-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:9px; }
 .sum-sec-head .t { font-size:12.5px; font-weight:700; letter-spacing:.3px; }
 .sum-sec-head .n { font-size:12px; color:#6b7280; }
-.sum-row { margin-bottom:10px; }
-.sum-row-top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; gap:8px; }
-.sum-row-nm { font-size:13px; font-weight:600; color:#1a2332; word-break:break-word; }
-.sum-row-lf { font-size:12px; font-weight:700; color:#ea580c; white-space:nowrap; }
-.sum-row-bar { display:flex; align-items:center; gap:7px; }
-.sum-row-bar .b { flex:1; height:5px; background:#e5e7eb; border-radius:99px; overflow:hidden; }
-.sum-row-bar .b i { display:block; height:100%; background:#2563eb; }
-.sum-row-bar .c { font-size:12px; color:#6b7280; white-space:nowrap; }
+/* แถวสรุป — บรรทัดเดียว (เดิม 2 บรรทัด: ชื่อ+เหลือ / แถบ+ตัวเลข) สูงลดครึ่ง */
+.sum-row { display:flex; align-items:center; gap:9px; padding:8px 0; border-bottom:1px solid #f6f8fa; }
+.sum-row:last-child { border-bottom:none; }
+.sum-row-nm { flex:1; min-width:0; font-size:13px; font-weight:600; color:#1a2332; word-break:break-word; }
+.sum-row-ct { font-size:12px; color:#94a3b8; white-space:nowrap; }
+.sum-row-lf { font-size:14px; font-weight:800; color:#ea580c; white-space:nowrap; min-width:52px; text-align:right; }
+
+/* แถบสรุปบนสุด — เห็นตลอดแม้พับการ์ดไว้ */
+.sum-lead { padding:11px 14px 12px; }
+.sum-lead-t { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:7px; }
+.sum-lead-b { font-size:21px; font-weight:800; color:#ea580c; }
+.sum-lead-b.ok { color:#16a34a; }
+.sum-lead-s { font-size:12.5px; color:#64748b; white-space:nowrap; }
+.sum-head-r { font-size:12px; font-weight:600; opacity:.85; display:flex; align-items:center; gap:5px; }
+/* ปุ่มกาง "ดูอีก N แบบ" */
+.sum-more { display:flex; justify-content:space-between; align-items:center; cursor:pointer;
+  padding:9px 14px; font-size:12.5px; font-weight:600; color:#475569;
+  background:#fafbfc; border-top:1px solid #f1f5f9; }
 .sum-done-row { display:flex; justify-content:space-between; align-items:center; gap:8px;
   padding:7px 10px; background:#f0fdf4; border-radius:8px; margin-bottom:5px; }
 .sum-done-row .nm { font-size:12.5px; font-weight:600; color:#166534; word-break:break-word; }
@@ -1711,26 +1721,43 @@ function ageBadge(oldestTs, isDone) {
   return '';
 }
 
-function sumRows(list) {
+// แถวสรุป 1 บรรทัด: ชื่อ · เสร็จ/ทั้งหมด · เหลือเท่าไร
+// limit = โชว์กี่แถวก่อนพับ (null = โชว์หมด เช่นในส่วนช่างคนอื่น)
+function sumRows(list, limit) {
   if (!list.length) return `<div style="font-size:12px;color:#6b7280;padding:2px 0 10px;">ไม่มีรายการ</div>`;
-  return list.map(it => {
+  const row = it => {
     const left = it.total - it.done;
-    const pct  = it.total ? Math.round(it.done / it.total * 100) : 0;
     if (left <= 0) {
       return `<div class="sum-done-row">
         <span class="nm">${esc(it.label)}</span>
         <span class="q">เสร็จ ${it.done}/${it.total}</span></div>`;
     }
     return `<div class="sum-row">
-      <div class="sum-row-top">
-        <span class="sum-row-nm">${esc(it.label)}${ageBadge(it.oldest, false)}</span>
-        <span class="sum-row-lf">เหลือ ${left}</span>
-      </div>
-      <div class="sum-row-bar">
-        <span class="b"><i style="width:${pct}%;"></i></span>
-        <span class="c">${it.done}/${it.total}</span>
-      </div></div>`;
-  }).join('');
+      <span class="sum-row-nm">${esc(it.label)}${ageBadge(it.oldest, false)}</span>
+      <span class="sum-row-ct">${it.done}/${it.total}</span>
+      <span class="sum-row-lf">เหลือ ${left}</span>
+    </div>`;
+  };
+  if (!limit || list.length <= limit) return list.map(row).join('');
+
+  // เกินโควตา → โชว์แถวแรก ๆ ที่เหลือซ่อนไว้ให้กดกาง (เรียงมาแล้วจากเหลือมากสุด)
+  const open = localStorage.getItem('craft_sum_all') === '1';
+  return list.slice(0, limit).map(row).join('')
+    + `<div id="sumMoreBody" style="display:${open ? 'block' : 'none'};">${list.slice(limit).map(row).join('')}</div>`
+    + `<div class="sum-more" onclick="toggleSumMore()">
+         <span id="sumMoreLbl">${open ? 'ย่อรายการ' : `ดูอีก ${list.length - limit} แบบ`}</span>
+         <i id="sumMoreChev" class="fa-solid fa-chevron-${open ? 'up' : 'down'}"></i>
+       </div>`;
+}
+function toggleSumMore() {
+  const b = document.getElementById('sumMoreBody'); if (!b) return;
+  const open = b.style.display === 'none';
+  b.style.display = open ? 'block' : 'none';
+  localStorage.setItem('craft_sum_all', open ? '1' : '0');
+  const l = document.getElementById('sumMoreLbl');
+  const c = document.getElementById('sumMoreChev');
+  if (c) c.className = 'fa-solid fa-chevron-' + (open ? 'up' : 'down');
+  if (l) l.textContent = open ? 'ย่อรายการ' : `ดูอีก ${b.childElementCount} แบบ`;
 }
 
 function renderSummaryCard() {
@@ -1744,26 +1771,30 @@ function renderSummaryCard() {
   const mineLeft = mine.reduce((a, x) => a + (x.total - x.done), 0);
   const othLeft  = other.reduce((a, x) => a + (x.total - x.done), 0);
   const tag  = _dateFilter === 'today' ? 'วันนี้' : 'ทั้งหมด';
-  const open = localStorage.getItem('craft_sum_open') !== '0';
+  // ค่าเริ่มต้น = พับไว้ (เดิมกางไว้) — ตัวเลขสำคัญยังเห็นตลอดที่แถบด้านบน
+  // ใครชอบกางไว้ กางครั้งเดียวแล้วระบบจำให้
+  const open = localStorage.getItem('craft_sum_open') === '1';
   const othOpen = localStorage.getItem('craft_sum_other') === '1';
 
-  const body = !tot
+  // แถบสรุปบนสุด — เห็นตลอดไม่ว่าพับหรือกาง
+  const lead = !tot
     ? `<div class="sum-empty">ไม่มีรายการในช่วงนี้</div>`
-    : `<div class="sum-stats">
-        <div class="sum-stat"><b style="color:${left ? '#ea580c' : '#16a34a'};">${left}</b><span>เหลือต้องแต่ง</span></div>
-        <div class="sum-stat"><b style="color:#16a34a;">${done}</b><span>แต่งเสร็จแล้ว</span></div>
-        <div class="sum-stat"><b style="color:#1a2332;">${tot}</b><span>ทั้งหมด</span></div>
-      </div>
-      <div class="sum-prog">
-        <div class="sum-prog-top"><span>ความคืบหน้ารวม</span><b style="color:${col};">${pct}%</b></div>
+    : `<div class="sum-lead">
+        <div class="sum-lead-t">
+          <span class="sum-lead-b${left ? '' : ' ok'}">${left ? `เหลือ ${left} ใบ` : 'เสร็จหมดแล้ว'}</span>
+          <span class="sum-lead-s">เสร็จ ${done} · <b style="color:${col};">${pct}%</b></span>
+        </div>
         <div class="sum-bar"><i style="width:${pct}%;background:${col};"></i></div>
-      </div>
+      </div>`;
+
+  // รายละเอียด — ซ่อนไว้ใต้ปุ่มกาง
+  const body = !tot ? '' : `
       <div class="sum-sec">
         <div class="sum-sec-head">
           <span class="t" style="color:#2563eb;">งานของฉัน</span>
-          <span class="n">${mineLeft ? 'เหลือ ' + mineLeft + ' ใบ' : 'เสร็จหมดแล้ว'}</span>
+          <span class="n">${mine.length} แบบ</span>
         </div>
-        ${sumRows(mine)}
+        ${sumRows(mine, 5)}
       </div>
       ${other.length ? `
       <div class="sum-other-toggle" onclick="toggleSumOther()">
@@ -1779,8 +1810,10 @@ function renderSummaryCard() {
     <div class="sum-head" onclick="toggleSumCard()">
       <span class="sum-head-l"><i class="fa-solid fa-clipboard-list"></i>สรุปหีบทั้งร้าน
         <span class="sum-tag">${tag}</span></span>
-      <i id="sumChev" class="fa-solid fa-chevron-${open ? 'up' : 'down'}"></i>
+      <span class="sum-head-r"><span id="sumLbl">${open ? 'ซ่อน' : 'ดูรายละเอียด'}</span>
+        <i id="sumChev" class="fa-solid fa-chevron-${open ? 'up' : 'down'}"></i></span>
     </div>
+    ${lead}
     <div id="sumBody" style="display:${open ? 'block' : 'none'};">${body}</div>
   </div>`;
 }
@@ -1791,7 +1824,9 @@ function toggleSumCard() {
   b.style.display = open ? 'block' : 'none';
   localStorage.setItem('craft_sum_open', open ? '1' : '0');
   const c = document.getElementById('sumChev');
+  const l = document.getElementById('sumLbl');
   if (c) c.className = 'fa-solid fa-chevron-' + (open ? 'up' : 'down');
+  if (l) l.textContent = open ? 'ซ่อน' : 'ดูรายละเอียด';
 }
 function toggleSumOther() {
   const b = document.getElementById('sumOtherBody'); if (!b) return;
@@ -2291,7 +2326,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v66</span>
+      <span style="opacity:.6;margin-left:6px;">· v67</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">
