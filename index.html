@@ -844,14 +844,55 @@ function isOrderFullyDelivered(order) {
   const ds = order.deliveryStatus || {};
   const items = order.items || [];
   if (!items.length) return !!order.isDelivered;
-  return items.every(i => {
-    const k = `${i.productName}|${i.color||''}|${i.trimColor||''}|${i.extra||''}`;
-    return getDeliveredQty(ds[k], i.qty, order.isDelivered) >= i.qty;
-  });
+  // ⚠️ ต้องรวมจำนวนตาม key ก่อนเทียบ ห้ามเทียบทีละบรรทัด
+  // สินค้าเดียวกัน (ชื่อ+สี+เส้น+ขนาดเดียวกัน) ถูกแยกเป็นหลายบรรทัดในใบเดียวได้
+  // แต่ deliveryStatus เก็บเป็น "ยอดรวมต่อ key" ไม่ได้เก็บรายบรรทัด
+  // ถ้าเทียบทีละบรรทัดจะได้ผลผิด เช่น 6 บรรทัด บรรทัดละ 1 ส่งไปจริง 5
+  // → เทียบทีละบรรทัดได้ 5>=1 ครบทุกบรรทัด = "ส่งครบ" ทั้งที่ยังเหลือ 1
+  const need = {};
+  items.forEach(i => { const k = deliverKey(i); need[k] = (need[k]||0) + (Number(i.qty)||0); });
+  return Object.entries(need).every(([k, q]) => getDeliveredQty(ds[k], q, order.isDelivered) >= q);
 }
 // ── deliverKey: key สำหรับ deliveryStatus/billedStatus (รวม extra ต่างจาก craftStatus) ──
 function deliverKey(i) {
   return `${i.productName}|${i.color||''}|${i.trimColor||''}|${i.extra||''}`;
+}
+
+// ── ตรึงสถานะจัดส่งของรายการเดิม ก่อนเพิ่ม/แก้รายการในออเดอร์ที่ส่งครบแล้ว ──
+//
+// ปัญหาเดิม: ออเดอร์ที่ส่งครบแล้วมักมีแค่ธง isDelivered:true โดยไม่มี
+//   deliveryStatus รายชิ้น (ออเดอร์เก่าทั้งหมดเป็นแบบนี้) ส่วน getDeliveredQty
+//   ตีความว่า "ไม่มีข้อมูลรายชิ้น + ธงเป็น true = ชิ้นนี้ส่งแล้ว"
+//   → พอเพิ่มของใหม่เข้าไปในออเดอร์นั้น ของใหม่ก็พลอยถูกนับว่าส่งแล้วไปด้วย
+//   → ไม่ขึ้นรายการรอส่ง ไม่ถูกออกบิล หายเงียบโดยไม่มี error
+//
+// วิธีแก้: เขียนจำนวนที่ส่งไปแล้วของรายการ "เดิม" ลงเป็นรายชิ้นก่อน
+//   แล้วค่อยปลดธง → ของเดิมยังนับว่าส่งครบเหมือนเดิม ของใหม่เริ่มที่ 0
+//
+// originalItems = รายการก่อนแก้ (ต้องเก็บไว้ก่อนไปยุ่งกับ order.items)
+// ออเดอร์ที่ยังส่งไม่ครบ (isDelivered ไม่ใช่ true) คืนค่าเดิมทันที ไม่แตะอะไร
+function freezeDeliveryBeforeEdit(order, originalItems) {
+  if (!order || order.isDelivered !== true) return order;
+  const ds = { ...(order.deliveryStatus || {}) };
+  const at = order.deliveredAt || order.createdAt || Date.now();
+  // รวมจำนวนตาม key ก่อน — ออเดอร์เดียวมีสินค้าชื่อ/สี/เส้นเดียวกันแยกหลายบรรทัดได้
+  // (เช่น "บ่าง" x1 ห้าบรรทัด) ซึ่ง deliveryStatus เก็บเป็นยอดรวมต่อ key
+  const sumByKey = {};
+  (originalItems || []).forEach(i => {
+    const k = deliverKey(i);
+    sumByKey[k] = (sumByKey[k] || 0) + (Number(i.qty) || 0);
+  });
+  Object.entries(sumByKey).forEach(([k, q]) => {
+    const already = ds[k] && ds[k].deliveredQty !== undefined ? ds[k].deliveredQty : 0;
+    ds[k] = { deliveredQty: Math.max(already, q), deliveredAt: (ds[k] && ds[k].deliveredAt) || at };
+  });
+  // ตอนนี้ deliveryStatus ครบทุกชิ้นแล้ว จึงคิดธงใหม่จากของจริงได้ตรง ๆ
+  // (ตั้ง false ไว้ก่อนเพื่อไม่ให้ getDeliveredQty ใช้ธงเก่าเป็น fallback อีก)
+  //   เพิ่มของใหม่  → ชิ้นใหม่ยังไม่มีใน ds → ธงเป็น false ถูกต้อง
+  //   ลบของออกเฉย ๆ → ที่เหลือยังส่งครบ → ธงกลับเป็น true เหมือนเดิม
+  const out = { ...order, deliveryStatus: ds, isDelivered: false };
+  out.isDelivered = isOrderFullyDelivered(out);
+  return out;
 }
 // ── แยกอุปกรณ์เสริมออกจากโลง ──
 // เกณฑ์หลัก: ช่อง "หน่วย" ของสินค้า ถ้าไม่ใช่ "โลง" = อุปกรณ์เสริม
@@ -1418,7 +1459,7 @@ function closeBnavMore() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v67';
+const APP_VERSION = 'v68';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2018,6 +2059,10 @@ async function saveAddItems(orderId) {
   window._savingWatchdog = setTimeout(() => { window._saving = false; }, 45000);
   try {
     const order=await DB.getOrder(orderId); if(!order)return;
+    // สำเนารายการ "ก่อนแก้" ไว้ (copy ทีละชิ้น) — ข้างล่างมีการบวก qty ทับของเดิม
+    // ต้องใช้ค่าก่อนแก้ในการตรึงสถานะจัดส่ง ไม่งั้นของที่เพิ่งเพิ่มจะถูกนับว่าส่งแล้ว
+    const origItems = (order.items||[]).map(i => ({...i}));
+    let qtyBumped = false;
     const newItems=[]; let addQtyErr=false;
     document.querySelectorAll('#addItemsBody tr').forEach(row=>{
       const m=row.id?.match(/airow_(\d+)/); if(!m)return;
@@ -2034,7 +2079,7 @@ async function saveAddItems(orderId) {
       const extra=document.getElementById(`aiextra_${i}`)?.value||'';
       // duplicate check รวม extra ด้วย (โลงขนาดต่างกัน = คนละรายการ)
       const existingIdx=(order.items||[]).findIndex(x=>x.productId===prodId&&(x.color||'')===color&&(x.trimColor||'')===trimColor&&(x.extra||'')===extra);
-      if (existingIdx>=0) { order.items[existingIdx].qty+=qty; }
+      if (existingIdx>=0) { order.items[existingIdx].qty+=qty; qtyBumped=true; }
       else { newItems.push({productId:prodId,productName,qty,price,color,trimColor,extra}); }
     });
     if(addQtyErr){U.toast('จำนวนต้องมากกว่า 0','error');return;}
@@ -2044,7 +2089,12 @@ async function saveAddItems(orderId) {
     const extraNotes=document.getElementById('addItemNotes')?.value.trim();
     order.items=[...(order.items||[]),...newItems];
     if (extraNotes) order.notes=(order.notes?order.notes+' | ':'')+extraNotes;
-    await DB.putOrder(order);
+    // มีของเพิ่มเข้ามาจริง (ชิ้นใหม่ หรือบวกจำนวนของเดิม)
+    // → ถ้าออเดอร์นี้เคยส่งครบแล้ว ต้องตรึงของเดิมไว้ก่อนปลดธง ไม่งั้นของใหม่หายเงียบ
+    const toSave = (newItems.length || qtyBumped)
+      ? freezeDeliveryBeforeEdit(order, origItems)
+      : order;
+    await DB.putOrder(toSave);
     U.toast('เพิ่มรายการเข้าออเดอร์แล้ว ✓');
     // แจ้งเตือน LINE — แสดงเฉพาะรายการที่เพิ่มเข้ามา
     if (newItems.length > 0) {
@@ -3032,9 +3082,11 @@ function pendDeliver(el) {
         const ds = {...(o.deliveryStatus||{})};
         for (const [k, qty] of Object.entries(keyMap)) ds[k] = {deliveredQty: qty, deliveredAt};
         const next = {...o, deliveryStatus: ds};
-        // ตั้ง isDelivered เมื่อส่งครบทุก item ในออเดอร์
-        const full = (o.items||[]).every(i => (ds[deliverKey(i)]?.deliveredQty ?? 0) >= i.qty);
-        if (full) { next.isDelivered = true; next.deliveredAt = deliveredAt; }
+        // ตั้งธง "ส่งครบ" ผ่านฟังก์ชันกลาง (มันรวมจำนวนตาม key ให้แล้ว)
+        // ส่ง isDelivered:false เข้าไปเพื่อไม่ให้ใช้ธงเก่าเป็น fallback — ตรงนี้ ds คือความจริง
+        // และเขียนธงทุกครั้งไม่ว่าครบหรือไม่ครบ ธงจะได้ตรงกับของจริงเสมอ
+        next.isDelivered = isOrderFullyDelivered({...next, isDelivered: false});
+        if (next.isDelivered) next.deliveredAt = deliveredAt;
         await DB.putOrder(next);
       }));
       delete window._pendSel[gid];
@@ -3551,7 +3603,9 @@ async function doSaveOrder() {
     if (editId) {
       const old=await DB.getOrder(editId);
       savedOrderNo = old?.orderNo || '';
-      await DB.putOrder({...old,...data,id:editId});
+      // แก้รายการในออเดอร์ที่ส่งครบแล้ว → ตรึงของเดิมไว้ก่อน แล้วคิดธงส่งครบใหม่
+      // ถ้าออเดอร์ยังส่งไม่ครบ ฟังก์ชันนี้คืนค่าเดิมทันที ไม่แตะอะไรเลย
+      await DB.putOrder(freezeDeliveryBeforeEdit({...old,...data,id:editId}, old?.items||[]));
       U.toast('แก้ไขออเดอร์แล้ว ✓');
       // แจ้งเตือน LINE กลุ่ม — แก้ไขออเดอร์ (เฉพาะรายการที่เปลี่ยน)
       const oldItemMap = {};
@@ -3591,6 +3645,11 @@ async function doSaveOrder() {
       }
     } else {
       data.orderNo=await DB.nextOrderNo();
+      // ออเดอร์ใหม่ต้องมีธงนี้ติดมาเสมอ (ไม่ใช่ปล่อยว่าง) เพื่อให้ขั้นต่อไป
+      // ดึงเฉพาะออเดอร์ที่ยังส่งไม่ครบจากเซิร์ฟเวอร์ได้ — ถ้าไม่มีช่องนี้
+      // เอกสารจะไม่เข้าเงื่อนไข where และออเดอร์จะหายจากหน้าจอโดยไม่มี error
+      // ค่า false มีความหมายเท่ากับ "ไม่มีช่องนี้" ทุกประการ จึงไม่กระทบของเดิม
+      data.isDelivered = false;
       savedOrderNo = data.orderNo;
       const newOrderId = await DB.addOrder(data);
       U.toast('บันทึกออเดอร์แล้ว ✓');

@@ -926,7 +926,13 @@ function isOrderFullyDelivered(order) {
   const ds = order.deliveryStatus || {};
   const items = order.items || [];
   if (!items.length) return !!order.isDelivered;
-  return items.every(i => getDeliveredQty(ds[deliverKey(i)], i.qty, order.isDelivered) >= i.qty);
+  // ⚠️ ต้องรวมจำนวนตาม key ก่อนเทียบ ห้ามเทียบทีละบรรทัด (ตรงกับ index.html)
+  // สินค้าเดียวกันถูกแยกเป็นหลายบรรทัดในใบเดียวได้ แต่ deliveryStatus เก็บเป็นยอดรวมต่อ key
+  // เทียบทีละบรรทัดจะได้ผลผิด เช่น 6 บรรทัด บรรทัดละ 1 ส่งจริง 5 → นับว่า "ส่งครบ"
+  // ผลคือออเดอร์หลุดจากหน้าช่าง ทั้งที่ยังเหลือของต้องแต่ง
+  const need = {};
+  items.forEach(i => { const k = deliverKey(i); need[k] = (need[k]||0) + (Number(i.qty)||0); });
+  return Object.entries(need).every(([k, q]) => getDeliveredQty(ds[k], q, order.isDelivered) >= q);
 }
 
 // ── Check if this craftsman can work on this item ──
@@ -1591,6 +1597,10 @@ async function submitDraft() {
       const data = {
         customerId: _draft.customerId, customerName: _draft.customerName,
         items, discount: 0, notes: '', createdAt: now,
+        // ธงนี้ต้องติดมากับออเดอร์ใหม่เสมอ (ต้องตรงกับ index.html)
+        // เพื่อให้ขั้นต่อไปดึงเฉพาะออเดอร์ที่ยังส่งไม่ครบจากเซิร์ฟเวอร์ได้
+        // ถ้าไม่มีช่องนี้ เอกสารจะไม่เข้าเงื่อนไข where แล้วหายจากหน้าจอเงียบ ๆ
+        isDelivered: false,
         orderNo: await nextOrderNoCraft(),
         createdByCraftsmanId: _craftsman.id,
         createdByCraftsmanName: _craftsman.name,
@@ -2326,7 +2336,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v67</span>
+      <span style="opacity:.6;margin-left:6px;">· v68</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">
