@@ -194,6 +194,18 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 }
 #refreshBtn:hover { background: rgba(255,255,255,.22); }
 
+/* ปุ่มกลับหน้าแอดมิน — โผล่เฉพาะคนที่เข้ามาจากหน้าแอดมิน (ดู kl_fromAdmin)
+   ช่างที่เปิดหน้านี้เองจะไม่เห็นปุ่มนี้เลย */
+#backToAdmin {
+  background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.3);
+  border-radius: 8px; min-width: 44px; height: 38px; display: none; align-items: center;
+  justify-content: center; gap: 6px; cursor: pointer; color: #fff; font-size: 14px;
+  text-decoration: none; padding: 0 12px; margin-right: 11px; white-space: nowrap;
+  font-weight: 600; transition: all .15s; flex: none;
+}
+#backToAdmin:hover { background: rgba(255,255,255,.22); color: #fff; }
+#backToAdmin:active { transform: scale(.96); }
+
 /* ── Toast ── */
 .craft-toast {
   /* บวกความสูงแถบขีดล่างของ iPhone เข้าไป ไม่งั้น toast จะอยู่ต่ำจนโดนบัง */
@@ -2254,17 +2266,32 @@ window.addEventListener('online',  () => { klOfflineBadge(false); toast('กล�
 window.addEventListener('offline', () => klOfflineBadge(true));
 if (!navigator.onLine) klOfflineBadge(true);
 
+// ── ปุ่มกลับหน้าแอดมิน ──
+// หน้าแอดมินฝากธงไว้ใน sessionStorage ตอนกดลิงก์มาที่นี่
+// sessionStorage ผูกกับแท็บเดียว ปิดแท็บแล้วหาย และไม่ข้ามไปเครื่องอื่น
+// → ช่างที่เปิดหน้านี้เองจะไม่มีธง จึงไม่เห็นปุ่มนี้
+window.addEventListener('DOMContentLoaded', () => {
+  let fromAdmin = false;
+  try { fromAdmin = sessionStorage.getItem('kl_fromAdmin') === '1'; } catch(e) {}
+  if (!fromAdmin) return;
+  const b = document.getElementById('backToAdmin');
+  if (b) b.style.display = 'flex';
+});
+
 window.addEventListener('DOMContentLoaded', init);
 klRegisterSW();
 </script>
 
 <!-- Header -->
 <div id="header">
-  <div>
+  <a id="backToAdmin" href="/index.html" title="กลับหน้าแอดมิน">
+    <i class="fa-solid fa-arrow-left"></i><span>กลับ</span>
+  </a>
+  <div style="flex:1;min-width:0;">
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v65</span>
+      <span style="opacity:.6;margin-left:6px;">· v66</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">

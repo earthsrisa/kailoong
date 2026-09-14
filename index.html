@@ -934,6 +934,15 @@ async function setMuteUntil(ts) {
   await DB.setSetting('lineMuteUntil', ts);
 }
 
+// ── ไปหน้าช่างแต่ง ──
+// ฝากธงไว้ในความจำของแท็บ เพื่อให้หน้าช่างรู้ว่า "คนนี้มาจากหน้าแอดมิน"
+// แล้วโชว์ปุ่มกลับให้ — ช่างที่เปิดหน้าช่างเองจะไม่มีธงนี้ จึงไม่เห็นปุ่ม
+// คืน true เพื่อให้ลิงก์พาไปตามปกติ (ในแท็บเดิม)
+function goCraftPage() {
+  try { sessionStorage.setItem('kl_fromAdmin', '1'); } catch(e) {}
+  return true;
+}
+
 // ── สวิตช์เปิด-ปิดปุ่มรับออเดอร์ของช่างแต่ง ──
 // เก็บใน settings/craftOrderEnabled — หน้าช่างฟังแบบ real-time
 // ค่าเริ่มต้นคือ "เปิด" เพื่อให้ร้านที่ยังไม่เคยตั้งค่าทำงานเหมือนเดิม
@@ -1409,7 +1418,7 @@ function closeBnavMore() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v65';
+const APP_VERSION = 'v66';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -5195,7 +5204,7 @@ async function renderReports(el) {
 // ═══════════════════════════════════════
 async function renderCraftsmen(el) {
   document.getElementById('topbarActions').innerHTML =
-    `<a href="/craft.html" target="_blank" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>เปิดหน้าช่าง</a>
+    `<a href="/craft.html" onclick="return goCraftPage()" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-hammer me-1"></i>เปิดหน้าช่าง</a>
      <button class="btn btn-primary btn-sm" onclick="showCraftsmanModal()"><i class="fa-solid fa-plus me-1"></i>เพิ่มช่าง</button>`;
 
   const [craftsmen, products] = await Promise.all([DB.getCraftsmen(), DB.getProducts()]);
@@ -5342,7 +5351,7 @@ async function renderCraftsmen(el) {
         <div style="font-size:14px;font-weight:600;color:#0369a1;margin-bottom:8px;"><i class="fa-solid fa-circle-info me-2"></i>วิธีใช้งาน</div>
         <ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;line-height:1.9;">
           <li>เพิ่มรายชื่อช่างแต่งพร้อมระบุประเภทหีบที่รับผิดชอบ</li>
-          <li>ช่างเปิดหน้า <a href="/craft.html" target="_blank" style="color:#2563eb;font-weight:600;">craft.html</a> → เลือกชื่อตัวเอง → จะเห็นเฉพาะรายการที่ตัวเองรับผิดชอบ</li>
+          <li>ช่างเปิดหน้า <a href="/craft.html" onclick="return goCraftPage()" style="color:#2563eb;font-weight:600;">craft.html</a> → เลือกชื่อตัวเอง → จะเห็นเฉพาะรายการที่ตัวเองรับผิดชอบ</li>
           <li>ช่างกดติ๊กเสร็จแล้ว ระบบจะแสดงสถานะ "✅ แต่งเสร็จแล้ว" ในหน้ารายการรอส่ง</li>
           <li>ถ้าไม่ระบุประเภทหีบ ช่างคนนั้นจะเห็นทุกรายการ</li>
         </ul>
@@ -5519,7 +5528,7 @@ async function renderSettings(el) {
         <div class="modal-body">
           <p style="font-size:13px;color:#6b7280;margin-bottom:14px;">
             จัดการรายชื่อช่างแต่งและประเภทหีบที่ช่างแต่ละคนรับผิดชอบ
-            <a href="/craft.html" target="_blank" style="margin-left:10px;font-size:13px;color:#2563eb;"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>เปิดหน้าช่าง</a>
+            <a href="/craft.html" onclick="return goCraftPage()" style="margin-left:10px;font-size:13px;color:#2563eb;"><i class="fa-solid fa-hammer me-1"></i>เปิดหน้าช่าง</a>
           </p>
           <div id="craftsmenList">${renderCraftsmenRows(craftsmen, products)}</div>
         </div>
