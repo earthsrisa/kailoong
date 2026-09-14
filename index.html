@@ -933,6 +933,23 @@ async function getMuteUntil() {
 async function setMuteUntil(ts) {
   await DB.setSetting('lineMuteUntil', ts);
 }
+
+// ── สวิตช์เปิด-ปิดปุ่มรับออเดอร์ของช่างแต่ง ──
+// เก็บใน settings/craftOrderEnabled — หน้าช่างฟังแบบ real-time
+// ค่าเริ่มต้นคือ "เปิด" เพื่อให้ร้านที่ยังไม่เคยตั้งค่าทำงานเหมือนเดิม
+async function getCraftOrderEnabled() {
+  try {
+    const v = await DB.getSetting('craftOrderEnabled');
+    return v === undefined || v === null ? true : v !== false;
+  } catch(e) { return true; }   // อ่านไม่ได้ = ถือว่าเปิด จะได้ไม่บล็อกช่างโดยไม่ตั้งใจ
+}
+async function setCraftOrder(on) {
+  try {
+    await DB.setSetting('craftOrderEnabled', !!on);
+    U.toast(on ? 'เปิดให้ช่างรับออเดอร์ได้แล้ว ✓' : 'ปิดการรับออเดอร์ของช่างแล้ว');
+    navigate('settings');
+  } catch(e) { U.toast('ตั้งค่าไม่สำเร็จ: ' + e.message, 'error'); }
+}
 // ข้อความบอกสถานะ ใช้ทั้งหน้าตั้งค่าและแถบเตือน
 function muteLabel(until) {
   if (!until || Date.now() >= until) return null;
@@ -1392,7 +1409,7 @@ function closeBnavMore() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v64';
+const APP_VERSION = 'v65';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -5344,6 +5361,7 @@ async function renderSettings(el) {
   ]);
   const lastBackup = await DB.getSetting('lastBackup');
   const muteUntil  = await getMuteUntil();
+  const craftOn    = await getCraftOrderEnabled();
   window._settingsCraftsmen = craftsmen;
 
   el.innerHTML=`
@@ -5456,6 +5474,24 @@ async function renderSettings(el) {
                    <button class="btn btn-outline-warning" onclick="setMute(3)">ปิด 3 ชั่วโมง</button>
                    <button class="btn btn-outline-danger" onclick="setMute('forever')">ปิดจนกว่าจะเปิดเอง</button>`}
             </div>
+          </div>
+
+          <hr style="margin:18px 0 14px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">🔨 ปุ่มรับออเดอร์ของช่างแต่ง</div>
+            <div style="font-size:13px;margin-bottom:10px;">${
+              craftOn
+                ? `<span style="color:#16a34a;font-weight:700;"><i class="fa-solid fa-lock-open me-1"></i>เปิดอยู่ — ช่างรับออเดอร์เองได้</span>`
+                : `<span style="color:#b45309;font-weight:700;"><i class="fa-solid fa-lock me-1"></i>ปิดอยู่ — ช่างรับออเดอร์ไม่ได้</span>`
+            }</div>
+            <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px;">
+              ปิดแล้วปุ่ม "รับออเดอร์ใหม่" ในหน้าช่างจะกดไม่ได้ทันที ไม่ต้องให้ช่างรีเฟรช
+              — งานแต่งหีบยังกดได้ตามปกติ
+            </p>
+            <button class="btn ${craftOn ? 'btn-outline-danger' : 'btn-success'}" style="font-weight:700;"
+              onclick="setCraftOrder(${craftOn ? 'false' : 'true'})">
+              <i class="fa-solid fa-${craftOn ? 'lock' : 'lock-open'} me-1"></i>${craftOn ? 'ปิดไม่ให้ช่างรับออเดอร์' : 'เปิดให้ช่างรับออเดอร์'}
+            </button>
           </div>
 
           <hr style="margin:18px 0 14px;">

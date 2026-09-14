@@ -306,6 +306,13 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
   background:#16a34a; color:#fff; border:none; border-radius:12px; padding:13px;
   font-size:15.5px; font-weight:800; font-family:'Sarabun',sans-serif; cursor:pointer; margin-bottom:14px; }
 .btn-neworder:active { background:#15803d; }
+/* ปุ่มรับออเดอร์ตอนเจ้าของปิดสวิตช์ — สีเทา กดไม่ได้ บอกเหตุผลชัด */
+.neworder-off { display:flex; align-items:center; gap:11px; width:100%;
+  background:#f1f5f9; color:#64748b; border:1.5px dashed #cbd5e1; border-radius:12px;
+  padding:13px; margin-bottom:14px; }
+.neworder-off i { font-size:20px; color:#94a3b8; flex:none; }
+.neworder-off .t { font-size:15px; font-weight:800; color:#475569; }
+.neworder-off .s { font-size:12.5px; color:#64748b; margin-top:1px; }
 .ord-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:9998;
   display:flex; align-items:flex-end; justify-content:center; padding:0; }
 .ord-sheet { background:#f0f2f5; width:100%; max-width:480px; max-height:94vh; overflow-y:auto;
@@ -570,6 +577,8 @@ function resolvePrice(customerId, prod, trimColor) {
 let _dateFilter  = 'all'; // 'today' | 'all'
 let _typeFilter  = new Set(); // ชนิดหีบที่เลือกดู (ว่าง = ดูทั้งหมด)
 let _draftJustAdded = null;   // กล่อง "เพิ่มอีกไหม" หลังกดเพิ่มรายการ
+let _craftOrderEnabled = true; // เจ้าของเปิดให้ช่างรับออเดอร์ไหม (ฟัง real-time จาก settings)
+let _unsubCraftSetting = null;
 
 // ── Utilities ──
 function esc(s) {
@@ -923,6 +932,7 @@ async function init() {
 
   // Start real-time listener for orders immediately
   startOrdersListener();
+  startCraftSettingListener();   // ฟังสวิตช์เปิด-ปิดการรับออเดอร์
   loadOrderRefData(); // โหลดลูกค้า/สินค้าเบื้องหลัง (ไม่บล็อกหน้าจอ)
 
   // Load craftsmen with timeout + retry
@@ -993,6 +1003,23 @@ async function init() {
   }, err => console.error('craftsmen snapshot error:', err));
 }
 
+// ── ฟังสวิตช์ "ให้ช่างรับออเดอร์ได้ไหม" จากหน้าแอดมิน ──
+// ใช้ onSnapshot เพื่อให้ปิดแล้วมีผลกับเครื่องช่างทันที ไม่ต้องรีเฟรช
+// (เอกสารเดียว = อ่านแค่ครั้งแรก + เฉพาะตอนค่าเปลี่ยน แทบไม่กินโควตา)
+function startCraftSettingListener() {
+  if (_unsubCraftSetting) _unsubCraftSetting();
+  _unsubCraftSetting = db.collection('settings').doc('craftOrderEnabled').onSnapshot(snap => {
+    const v = snap.exists ? snap.data().value : undefined;
+    // ยังไม่เคยตั้งค่า = เปิด (ร้านที่ใช้อยู่เดิมจะไม่โดนบล็อกโดยไม่ตั้งใจ)
+    const on = (v === undefined || v === null) ? true : v !== false;
+    if (on === _craftOrderEnabled) return;
+    _craftOrderEnabled = on;
+    if (!on) closeOrderSheet();          // ปิดสวิตช์ตอนช่างเปิดฟอร์มค้างอยู่
+    if (_craftsman) renderCraftOrders();
+    toast(on ? '✅ เจ้าของร้านเปิดให้รับออเดอร์แล้ว' : '🔒 เจ้าของร้านปิดการรับออเดอร์ชั่วคราว');
+  }, err => console.warn('craftOrderEnabled listener:', err));
+}
+
 // ── Real-time orders listener ──
 function startOrdersListener() {
   if (_unsubOrders) _unsubOrders(); // cleanup previous
@@ -1060,6 +1087,8 @@ function editMinsLeft(o) {
 
 function openOrderForm(editId) {
   if (!_craftsman) { toast('กรุณาเลือกชื่อช่างก่อน'); return; }
+  // เจ้าของปิดสวิตช์ไว้ — รับออเดอร์ใหม่ไม่ได้ (แต่ยังแก้ใบที่รับไปแล้วได้)
+  if (!editId && !_craftOrderEnabled) { toast('⚠️ เจ้าของร้านปิดการรับออเดอร์ไว้ชั่วคราว'); return; }
   if (!_customers.length || !_products.length) { toast('กำลังโหลดข้อมูล กรุณารอสักครู่'); loadOrderRefData(); return; }
   _editOrderId = editId || null;
   _draftJustAdded = null;   // ล้างกล่อง "เพิ่มอีกไหม" ของครั้งก่อน
@@ -1488,6 +1517,11 @@ async function submitDraft() {
   if (_submitting) return;
   if (!_draft.customerId) { toast('⚠️ กรุณาเลือกลูกค้า'); return; }
   if (!_draft.items.length) { toast('⚠️ ยังไม่มีรายการ'); return; }
+  // กันกรณีเปิดฟอร์มค้างไว้แล้วเจ้าของเพิ่งปิดสวิตช์ระหว่างนั้น
+  if (!_editOrderId && !_craftOrderEnabled) {
+    toast('⚠️ เจ้าของร้านปิดการรับออเดอร์ไว้ บันทึกไม่ได้');
+    closeOrderSheet(); return;
+  }
   _submitting = true;
   document.querySelectorAll('.ord-btn').forEach(b => { b.disabled = true; b.style.opacity = '.5'; });
   // กันเหนียว: ถ้าค้างจนไม่จบ ปลดปุ่มให้กดใหม่ได้ ไม่ปล่อยให้ตายเงียบ
@@ -1832,8 +1866,17 @@ function renderCraftOrders() {
 
   const el = document.getElementById('craft-content');
 
-  const newOrderBtn = `<button class="btn-neworder" onclick="openOrderForm()">
-    <i class="fa-solid fa-plus"></i>รับออเดอร์ใหม่</button>` + renderMyRecentOrders();
+  // ปุ่มรับออเดอร์ — เจ้าของปิดสวิตช์แล้วจะเป็นสีเทากดไม่ได้ พร้อมบอกเหตุผล
+  const newOrderBtn = (_craftOrderEnabled
+    ? `<button class="btn-neworder" onclick="openOrderForm()">
+         <i class="fa-solid fa-plus"></i>รับออเดอร์ใหม่</button>`
+    : `<div class="neworder-off">
+         <i class="fa-solid fa-lock"></i>
+         <div>
+           <div class="t">ปิดรับออเดอร์ชั่วคราว</div>
+           <div class="s">เจ้าของร้านปิดไว้ — งานแต่งหีบยังกดได้ตามปกติ</div>
+         </div>
+       </div>`) + renderMyRecentOrders();
   const summaryHtml = newOrderBtn + renderSummaryCard();
 
   if (!shown.length) {
@@ -2221,7 +2264,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v64</span>
+      <span style="opacity:.6;margin-left:6px;">· v65</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">
