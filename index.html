@@ -2281,6 +2281,8 @@ function showOrderConfirm() {
           </div>
         </div>
 
+        <div id="ocMergeNote"></div>
+
         <div style="font-size:12px;font-weight:700;color:#6b7280;margin-bottom:2px;">
           รายการที่สั่ง (${cart.length} รายการ · ${pcs} ชิ้น)</div>
         ${rows}
@@ -2311,6 +2313,23 @@ function showOrderConfirm() {
     </div>`;
   ov.addEventListener('click', e => { if (e.target === ov) closeOrderConfirm(); });
   document.body.appendChild(ov);
+
+  // ── บอกล่วงหน้าว่าของจะไปรวมกับใบเดิม (ไม่ใช่คำถาม กดต่อได้เลย) ──
+  // เติมทีหลังแบบไม่บล็อก เพราะต้องไปหาใบเดิมก่อน ถ้าหาไม่เจอก็ปล่อยว่างไว้เฉย ๆ
+  if (!isEdit) {
+    const custId = window._orderCustId;
+    const atTs = dateStr ? new Date(dateStr + 'T12:00:00+07:00').getTime() : Date.now();
+    findMergeableOrder(custId, atTs).then(o => {
+      const box = document.getElementById('ocMergeNote');
+      if (!box || !o) return;
+      box.innerHTML = `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:11px;
+        padding:10px 13px;margin-bottom:12px;font-size:13.5px;color:#1e40af;font-weight:600;">
+        <i class="fa-solid fa-layer-group me-1"></i>จะรวมเข้าใบเดิมของวันนี้
+        <span style="font-weight:800;">${U.esc(o.orderNo||'')}</span>
+        <div style="font-size:12px;color:#3b82f6;font-weight:500;margin-top:2px;">
+          ไม่ได้เปิดใบใหม่ ของทั้งหมดจะอยู่ในใบเดียวกัน</div></div>`;
+    }).catch(()=>{});
+  }
 }
 
 
@@ -3479,37 +3498,52 @@ async function onOrderCustChange(sel) {
   checkExistingOrderToday();
 }
 
-// ── ลูกค้ารายนี้มีออเดอร์ของวันนี้อยู่แล้วไหม ──
-// ดักนิสัย "เปิดใบใหม่ทุกครั้ง" ตั้งแต่ต้นทาง ไม่ต้องรอให้ผู้ใช้เรียนรู้เอง
-// ถามเฉพาะตอนเปิดใบใหม่และยังไม่ได้ใส่สินค้า จะได้ไม่กวนกลางทาง
+// ── ช่วงเวลาที่ช่างยังแก้ออเดอร์ที่ตัวเองรับได้ (ต้องตรงกับ craft.html) ──
+const EDIT_WINDOW_MS = 30 * 60 * 1000;
+
+// ── หาใบของลูกค้ารายนี้ "ในวันเดียวกัน" ที่ยังเพิ่มของเข้าไปได้อย่างปลอดภัย ──
+//
+// เดิมระบบถามผู้ใช้ว่า "จะเพิ่มเข้าใบเดิม หรือเปิดใบใหม่?" ซึ่งเป็นคำถามที่
+// ตอบยังไงปลายทางก็เหมือนกัน (หน้าแรกกับหน้าช่างจัดกลุ่มตามลูกค้าอยู่แล้ว)
+// แต่ไปขวางคนกรอกกลางคัน → ตัดคำถามทิ้ง ให้ระบบตัดสินเองตามกฎข้างล่าง
+//
+// เพิ่มเข้าใบเดิมได้ ก็ต่อเมื่อใบนั้น "ยังแตะได้" ครบทุกข้อ:
+//   1. วันเดียวกับวันที่กรอกในฟอร์ม (ไม่ใช่ "วันนี้" — เผื่อกรอกย้อนหลัง)
+//   2. ยังส่งไม่ครบ — ถ้าส่งไปแล้วการไปเพิ่มของทำให้ยอดที่ปิดไปแล้วเพี้ยน
+//   3. ยังไม่ออกบิลสักชิ้น — บิลที่ออกไปแล้วจะไม่ตรงกับใบ
+//   4. ไม่ใช่ใบที่ช่างเพิ่งรับและยังแก้ได้อยู่ — ถ้าช่างกดแก้ทีหลัง
+//      มันเขียนทับรายการทั้งชุด ของที่เราเพิ่งเพิ่มเข้าไปจะหาย
+// ไม่เข้าข้อไหนสักข้อ = เปิดใบใหม่ (ปลอดภัยเสมอ)
+async function findMergeableOrder(custId, atTs) {
+  try {
+    if (!custId) return null;
+    const d = new Date(atTs || Date.now()); d.setHours(0,0,0,0);
+    const from = d.getTime(), to = from + 86400000;
+    const now = Date.now();
+    const list = (await DB.getOrders()).filter(o =>
+      String(o.customerId) === String(custId) &&
+      o.createdAt >= from && o.createdAt < to &&
+      !isOrderFullyDelivered(o) &&
+      !Object.keys(o.billedStatus || {}).length &&
+      !(o.createdByCraftsmanId && (now - (o.takenAt || o.createdAt || 0)) < EDIT_WINDOW_MS)
+    );
+    return list.sort((a,b) => b.createdAt - a.createdAt)[0] || null;
+  } catch(e) { console.warn('findMergeableOrder:', e); return null; }
+}
+
+// ── บอกให้รู้เฉย ๆ ว่าของจะไปรวมกับใบเดิม ไม่ใช่คำถาม ไม่ต้องตอบ ──
+// ขึ้นตอนเลือกลูกค้าเสร็จ แล้วหายไปเอง คนกรอกไม่ต้องตัดสินใจอะไร
 async function checkExistingOrderToday() {
   try {
     const custId = window._orderCustId;
     if (!custId) return;
     if (document.getElementById('of_editId')?.value) return;      // กำลังแก้ใบเดิม
     if ((window._ordCart || []).length) return;                   // ใส่ของไปแล้ว
-    const today = new Date(); today.setHours(0,0,0,0);
-    const mine = (await DB.getOrders())
-      .filter(o => String(o.customerId) === String(custId) && o.createdAt >= today.getTime())
-      .sort((a,b) => b.createdAt - a.createdAt);
-    if (!mine.length) return;
-
-    const o = mine[0];
-    const items = (o.items||[]).length;
-    const name  = o.customerName || 'ลูกค้ารายนี้';
-    U_confirm(
-      `<b>${U.esc(name)}</b> มีออเดอร์ของวันนี้อยู่แล้ว<br>
-       <span style="color:#6b7280;font-size:13.5px;">${U.esc(o.orderNo||'')} · ${items} รายการ</span><br><br>
-       จะเพิ่มสินค้าเข้าใบเดิม หรือเปิดใบใหม่?`,
-      () => { closeModal('orderModal'); showAddItemsModal(o.id); },
-      { title:'ลูกค้ารายนี้มีออเดอร์วันนี้แล้ว', icon:'fa-circle-question', iconColor:'#2563eb',
-        yesLabel:'เพิ่มเข้าใบเดิม', yesCls:'btn-primary' }
-    );
-    // ปุ่ม "ยกเลิก" ของกล่องนี้ = เปิดใบใหม่ต่อตามปกติ จึงไม่ต้องผูกอะไรเพิ่ม
-    setTimeout(() => {
-      const c = document.querySelector('#confirmDialog .btn-secondary');
-      if (c) c.innerHTML = '<i class="fa-solid fa-file-circle-plus me-1"></i>เปิดใบใหม่';
-    }, 60);
+    const dateStr = document.getElementById('of_date')?.value;
+    const atTs = dateStr ? new Date(dateStr + 'T12:00:00+07:00').getTime() : Date.now();
+    const o = await findMergeableOrder(custId, atTs);
+    if (!o) return;
+    U.toast(`${o.customerName||'ลูกค้ารายนี้'} มีใบวันนี้อยู่แล้ว — ของที่เพิ่มจะรวมเข้าใบ ${o.orderNo||''}`);
   } catch(e) { console.warn('checkExistingOrderToday:', e); }
 }
 
@@ -3600,6 +3634,7 @@ async function doSaveOrder() {
       createdAt,
     };
     let savedOrderNo = '';
+    let mergedInto = '';          // มีค่าเมื่อของถูกรวมเข้าใบเดิมของวันเดียวกัน
     if (editId) {
       const old=await DB.getOrder(editId);
       savedOrderNo = old?.orderNo || '';
@@ -3644,32 +3679,80 @@ async function doSaveOrder() {
         });
       }
     } else {
-      data.orderNo=await DB.nextOrderNo();
-      // ออเดอร์ใหม่ต้องมีธงนี้ติดมาเสมอ (ไม่ใช่ปล่อยว่าง) เพื่อให้ขั้นต่อไป
-      // ดึงเฉพาะออเดอร์ที่ยังส่งไม่ครบจากเซิร์ฟเวอร์ได้ — ถ้าไม่มีช่องนี้
-      // เอกสารจะไม่เข้าเงื่อนไข where และออเดอร์จะหายจากหน้าจอโดยไม่มี error
-      // ค่า false มีความหมายเท่ากับ "ไม่มีช่องนี้" ทุกประการ จึงไม่กระทบของเดิม
-      data.isDelivered = false;
-      savedOrderNo = data.orderNo;
-      const newOrderId = await DB.addOrder(data);
-      U.toast('บันทึกออเดอร์แล้ว ✓');
-      // แจ้งเตือน LINE กลุ่ม — ออเดอร์ใหม่ (fire-and-forget)
-      const lineItems = data.items.map(it=>({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'' }));
-      const todayNew = await getTodayOrdersSummary({ currentOrderId: newOrderId, actionType: 'new' });
-      sendLineNotify({
-        type: 'new',
-        orderNo: data.orderNo,
-        customerName: data.customerName,
-        items: lineItems,
-        createdAt: data.createdAt,
-        todayOrders: todayNew
-      });
+      // ── ลูกค้ารายนี้มีใบของวันเดียวกันที่ยังแตะได้ไหม ──
+      // มี → รวมเข้าใบเดิมเงียบ ๆ / ไม่มี → เปิดใบใหม่ ทั้งคู่ไม่ต้องถามผู้ใช้
+      // ต้องเช็คก่อนเรียก nextOrderNo() ไม่งั้นจะเผาเลขออเดอร์ทิ้งฟรี ๆ
+      const mergeTarget = await findMergeableOrder(custId, data.createdAt);
+
+      if (mergeTarget) {
+        const origItems = (mergeTarget.items || []).map(i => ({...i}));
+        // ของที่เหมือนกันเป๊ะ (สินค้า+สี+เส้น+ขนาด) ให้บวกจำนวนเข้าบรรทัดเดิม
+        // ไม่ใช่ต่อท้ายเป็นบรรทัดใหม่ — ใบจะได้ไม่ยาวรุงรัง และตรงกับพฤติกรรม
+        // ของปุ่ม "เพิ่มรายการเข้าออเดอร์" ที่มีอยู่เดิม
+        const combined = origItems.map(i => ({...i}));
+        items.forEach(n => {
+          const j = combined.findIndex(x =>
+            String(x.productId) === String(n.productId) &&
+            (x.color||'')     === (n.color||'') &&
+            (x.trimColor||'') === (n.trimColor||'') &&
+            (x.extra||'')     === (n.extra||''));
+          if (j >= 0) {
+            combined[j].qty = (Number(combined[j].qty)||0) + (Number(n.qty)||0);
+            if (n.specialNote) combined[j].specialNote =
+              (combined[j].specialNote ? combined[j].specialNote + ' | ' : '') + n.specialNote;
+          } else combined.push({...n});
+        });
+        const merged = { ...mergeTarget, items: combined };
+        // ส่วนลดของสองใบบวกกัน — ยอดรวมที่ลูกค้าต้องจ่ายจึงยังถูกต้อง
+        merged.discount = (Number(mergeTarget.discount) || 0) + (Number(data.discount) || 0);
+        if (data.notes) merged.notes = (merged.notes ? merged.notes + ' | ' : '') + data.notes;
+        // ใบที่ยังส่งไม่ครบ freeze จะคืนค่าเดิมทันที แต่เรียกไว้กันเหนียว
+        // เผื่อวันหลังกฎการรวมเปลี่ยนไปรับใบที่ส่งครบแล้วด้วย
+        await DB.putOrder(freezeDeliveryBeforeEdit(merged, origItems));
+        savedOrderNo = mergeTarget.orderNo || '';
+        mergedInto = savedOrderNo;
+        // แจ้ง LINE แบบเดียวกับตอนกด "เพิ่มรายการเข้าออเดอร์" — รูปแบบเดิมที่กลุ่มคุ้นอยู่แล้ว
+        const addKeys = items.map(it => `${it.productName}|${it.color||''}|${it.trimColor||''}`);
+        const todayAdd = await getTodayOrdersSummary({ currentOrderId: mergeTarget.id, actionType: 'edit', actionItemKeys: addKeys });
+        sendLineNotify({
+          type: 'edit',
+          orderNo: mergeTarget.orderNo,
+          customerName: data.customerName,
+          items: items.map(it => ({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType: 'added' })),
+          createdAt: mergeTarget.createdAt,
+          todayOrders: todayAdd
+        });
+      } else {
+        data.orderNo=await DB.nextOrderNo();
+        // ออเดอร์ใหม่ต้องมีธงนี้ติดมาเสมอ (ไม่ใช่ปล่อยว่าง) เพื่อให้ขั้นต่อไป
+        // ดึงเฉพาะออเดอร์ที่ยังส่งไม่ครบจากเซิร์ฟเวอร์ได้ — ถ้าไม่มีช่องนี้
+        // เอกสารจะไม่เข้าเงื่อนไข where และออเดอร์จะหายจากหน้าจอโดยไม่มี error
+        // ค่า false มีความหมายเท่ากับ "ไม่มีช่องนี้" ทุกประการ จึงไม่กระทบของเดิม
+        data.isDelivered = false;
+        savedOrderNo = data.orderNo;
+        const newOrderId = await DB.addOrder(data);
+        // แจ้งเตือน LINE กลุ่ม — ออเดอร์ใหม่ (fire-and-forget)
+        const lineItems = data.items.map(it=>({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'' }));
+        const todayNew = await getTodayOrdersSummary({ currentOrderId: newOrderId, actionType: 'new' });
+        sendLineNotify({
+          type: 'new',
+          orderNo: data.orderNo,
+          customerName: data.customerName,
+          items: lineItems,
+          createdAt: data.createdAt,
+          todayOrders: todayNew
+        });
+      }
     }
     closeModal('orderModal');
     navigate(editId ? 'orders' : 'dashboard');
     // ตรวจสอบไปแล้วก่อนบันทึก → แจ้งสั้นๆ พอ ไม่ต้องเด้งสรุปซ้ำ
     if (savedOrderNo) {
-      setTimeout(() => U.toast(`${editId?'แก้ไข':'บันทึก'}ออเดอร์ ${savedOrderNo} แล้ว ✓`), 400);
+      // รวมเข้าใบเดิม → ต้องบอกให้ชัดว่าไปอยู่ใบไหน ไม่งั้นคนจะหาใบใหม่ไม่เจอ
+      const msg = mergedInto
+        ? `เพิ่มเข้าใบ ${mergedInto} ของวันนี้แล้ว ✓`
+        : `${editId?'แก้ไข':'บันทึก'}ออเดอร์ ${savedOrderNo} แล้ว ✓`;
+      setTimeout(() => U.toast(msg), 400);
     }
   } catch(e) {
     U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
