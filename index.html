@@ -259,6 +259,51 @@ body { background: #f0f2f5; margin: 0; }
 .bnav-item span { font-family: 'Sarabun', sans-serif; }
 .bnav-item.active { color: #60a5fa; }
 .bnav-item:hover { color: #fff; }
+/* ── ปุ่มรับออเดอร์กลางแถบล่าง ──
+   งานที่ทำบ่อยที่สุดของร้าน ควรกดได้จากทุกหน้าโดยไม่ต้องกลับหน้าแรกก่อน
+   ลอยขึ้นเหนือแถบ + ขอบสีเดียวกับแถบ ทำให้ดูเหมือนเจาะทะลุออกมา หาง่ายด้วยหางตา */
+.bnav-fab {
+  flex: 0 0 auto; align-self: stretch; width: 88px;
+  background: none; border: none; padding: 8px 4px 0; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px;
+}
+/* วงกลมลอยขึ้นเหนือแถบ ขอบสีเดียวกับพื้นแถบจึงดูเหมือนเจาะทะลุออกมา */
+.bnav-fab .fc {
+  width: 54px; height: 54px; border-radius: 50%; margin-top: -26px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  border: 4px solid #1a2332;
+  box-shadow: 0 5px 14px rgba(37,99,235,.5);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  transition: transform .05s ease;
+}
+.bnav-fab .fc i { font-size: 22px; }
+/* ป้ายอยู่ "นอก" วงกลม — ถ้ายัดไว้ในวงคำว่า รับออเดอร์ จะล้นออกมาเป็นแถบดำ */
+.bnav-fab .fl {
+  font-size: 12px; font-weight: 700; color: #60a5fa;
+  font-family: 'Sarabun', sans-serif; white-space: nowrap;
+}
+.bnav-fab:active .fc { transform: scale(.93); }
+
+/* ── สวิตช์เปิด-ปิด (หน้าตั้งค่า) ──
+   ปุ่มสูง 44px เต็มตามเกณฑ์นิ้วโป้ง ส่วนรางเล็กกว่าเพื่อความสวย */
+.kl-switch {
+  border: none; background: none; padding: 6px 0; cursor: pointer;
+  flex: 0 0 auto; min-height: 44px; display: flex; align-items: center;
+}
+.kl-switch .tr {
+  width: 56px; height: 32px; border-radius: 999px; background: #cbd5e1;
+  position: relative; display: block; transition: background .18s;
+}
+.kl-switch .kn {
+  position: absolute; top: 3px; left: 3px; width: 26px; height: 26px;
+  border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.28);
+  transition: left .18s;
+}
+.kl-switch.on .tr { background: #16a34a; }
+.kl-switch.on .kn { left: 27px; }
+@media (prefers-reduced-motion: reduce) {
+  .bnav-fab .fc, .kl-switch .tr, .kl-switch .kn { transition: none; }
+}
 /* ── Bottom nav "เพิ่มเติม" overlay ── */
 #bnav-more-overlay {
   display: none; position: fixed; inset: 0; z-index: 199;
@@ -289,7 +334,8 @@ body { background: #f0f2f5; margin: 0; }
   #main { margin-left: 0; max-width: 100vw; }
   #topbar { padding: 12px 14px; }
   #topbar h1 { font-size: 16px; }
-  #page-content { padding: 10px 10px 80px; }
+  /* เผื่อความสูงแถบล่าง + ปุ่มรับออเดอร์ที่ลอยขึ้นมา 22px จะได้ไม่บังบรรทัดสุดท้าย */
+  #page-content { padding: 10px 10px 104px; }
   .card-box { padding: 14px 12px; }
   .card-head { flex-wrap: wrap; gap: 8px; }
   .card-head h2 { font-size: 14px; }
@@ -721,6 +767,7 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 <!-- Bottom nav more-menu overlay -->
 <div id="bnav-more-overlay" onclick="closeBnavMore()"></div>
 <div id="bnav-more-menu">
+  <button class="bm-item" data-page="customers" onclick="closeBnavMore();navigate('customers')"><i class="fa-solid fa-users"></i>ลูกค้า</button>
   <button class="bm-item" data-page="products" onclick="closeBnavMore();navigate('products')"><i class="fa-solid fa-box"></i>สินค้า</button>
   <button class="bm-item" data-page="craftsmen" onclick="closeBnavMore();navigate('craftsmen')"><i class="fa-solid fa-hammer"></i>ช่างแต่ง</button>
   <button class="bm-item" data-page="reports" onclick="closeBnavMore();navigate('reports')"><i class="fa-solid fa-chart-bar"></i>รายงาน</button>
@@ -735,11 +782,11 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
   <button class="bnav-item" data-page="orders" onclick="navigate('orders')">
     <i class="fa-solid fa-clock-rotate-left"></i><span>ออเดอร์</span>
   </button>
+  <button class="bnav-fab" onclick="fabNewOrder()" aria-label="รับออเดอร์ใหม่">
+    <span class="fc"><i class="fa-solid fa-plus"></i></span><span class="fl">รับออเดอร์</span>
+  </button>
   <button class="bnav-item" data-page="invoices" onclick="navigate('invoices')">
     <i class="fa-solid fa-file-invoice"></i><span>ใบเสร็จ</span>
-  </button>
-  <button class="bnav-item" data-page="customers" onclick="navigate('customers')">
-    <i class="fa-solid fa-users"></i><span>ลูกค้า</span>
   </button>
   <button class="bnav-item" id="bnavMoreBtn" onclick="toggleBnavMore()">
     <i class="fa-solid fa-ellipsis"></i><span>เพิ่มเติม</span>
@@ -1453,13 +1500,22 @@ function closeBnavMore() {
   document.getElementById('bnav-more-overlay')?.classList.remove('open');
 }
 
+// ── ปุ่มรับออเดอร์กลางแถบล่าง — กดได้จากทุกหน้า ──
+// ฟอร์มสร้าง element ของตัวเองทุกครั้ง (showModal) จึงไม่ต้องอยู่หน้าแรกก่อน
+// ปิดเมนู "เพิ่มเติม" ให้ด้วย เผื่อค้างเปิดอยู่แล้วบังฟอร์ม
+function fabNewOrder() {
+  closeBnavMore();
+  try { showCreateOrderModal(); }
+  catch(e) { U.toast('เปิดฟอร์มไม่สำเร็จ: ' + e.message, 'error'); }
+}
+
 // ═══════════════════════════════════════
 //  NAVIGATION
 // ═══════════════════════════════════════
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v68';
+const APP_VERSION = 'v69';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -1498,7 +1554,7 @@ function navigate(page, opt) {
   document.querySelectorAll('#sidebar .nav-link').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   document.querySelectorAll('#bottom-nav .bnav-item').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   // ถ้าหน้าอยู่ใน more-menu ให้ไฮไลท์ปุ่ม "เพิ่มเติม" แทน
-  const morePages=['products','craftsmen','reports','expenses','settings','trash'];
+  const morePages=['customers','products','craftsmen','reports','expenses','settings','trash'];
   document.getElementById('bnavMoreBtn')?.classList.toggle('active', morePages.includes(page));
   document.querySelectorAll('#bnav-more-menu .bm-item').forEach(l=>l.classList.toggle('active',l.dataset.page===page));
   document.getElementById('pageTitle').textContent=PAGE_TITLES[page]||page;
@@ -1606,8 +1662,9 @@ async function backupWarningHtml() {
   </div>`;
 }
 
-// แถบบอกว่าแจ้งเตือน LINE ปิดอยู่ — กันลืมว่าปิดค้างไว้
-// (ถึงจะเปิดเองอัตโนมัติ แต่ระหว่างที่ปิดต้องเห็นชัดว่ากลุ่มไม่ได้รับข้อความ)
+// แถบบอกว่าแจ้งเตือน LINE ปิดอยู่
+// ⚠️ ไม่ได้ใช้ที่หน้าแรกแล้ว — ย้ายไปดูสถานะที่หน้าตั้งค่าแทน (สวิตช์ LINE)
+//    เก็บฟังก์ชันไว้เผื่ออยากเอากลับมาใช้ ไม่ได้ลบทิ้งเพราะโค้ดเสียเปล่าไม่มีโทษ
 async function muteWarningHtml() {
   const until = await getMuteUntil();
   const label = muteLabel(until);
@@ -1668,7 +1725,6 @@ async function renderDashboard(el) {
   const initDashCust = buildDashCustContent(pendingOrders);
 
   el.innerHTML=`
-  ${await muteWarningHtml()}
   ${await backupWarningHtml()}
   <div class="row g-3 mb-3">
     <!-- ออเดอร์ค้างส่ง + customer filter -->
@@ -5512,6 +5568,7 @@ async function renderSettings(el) {
   ]);
   const lastBackup = await DB.getSetting('lastBackup');
   const muteUntil  = await getMuteUntil();
+  const isMuted    = !!muteLabel(muteUntil);   // ปิดอยู่จริงไหม (เลยเวลาแล้ว = ไม่ปิด)
   const craftOn    = await getCraftOrderEnabled();
   window._settingsCraftsmen = craftsmen;
 
@@ -5608,23 +5665,34 @@ async function renderSettings(el) {
 
           <hr style="margin:18px 0 14px;">
           <div>
-            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">🔔 แจ้งเตือน LINE</div>
-            <div id="muteStatus" style="font-size:13px;margin-bottom:10px;">${
-              muteLabel(muteUntil)
-                ? `<span style="color:#b45309;font-weight:700;"><i class="fa-solid fa-bell-slash me-1"></i>${muteLabel(muteUntil)}</span>`
-                : `<span style="color:#16a34a;font-weight:700;"><i class="fa-solid fa-bell me-1"></i>เปิดอยู่ — แจ้งกลุ่มทุกครั้งที่รับ/แก้/ลบออเดอร์</span>`
-            }</div>
-            <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px;">
-              ปิดไว้ตอนทดสอบระบบ จะได้ไม่กวนกลุ่ม — มีผลทั้งหน้านี้และหน้าช่างแต่ง
-            </p>
-            <div class="d-flex gap-2 flex-wrap">
-              ${muteLabel(muteUntil)
-                ? `<button class="btn btn-success" style="font-weight:700;" onclick="setMute(0)">
-                     <i class="fa-solid fa-bell me-1"></i>เปิดแจ้งเตือนเลย</button>`
-                : `<button class="btn btn-outline-warning" onclick="setMute(1)">ปิด 1 ชั่วโมง</button>
-                   <button class="btn btn-outline-warning" onclick="setMute(3)">ปิด 3 ชั่วโมง</button>
-                   <button class="btn btn-outline-danger" onclick="setMute('forever')">ปิดจนกว่าจะเปิดเอง</button>`}
+            <div style="display:flex;align-items:center;gap:12px;">
+              <div style="width:40px;height:40px;border-radius:11px;flex:0 0 auto;display:flex;
+                align-items:center;justify-content:center;color:#fff;background:${isMuted?'#b45309':'#22c55e'};">
+                <i class="fa-solid fa-bell${isMuted?'-slash':''}" style="font-size:17px;"></i>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:14.5px;font-weight:700;color:#1a2332;">แจ้งเตือนเข้ากลุ่ม LINE</div>
+                <div style="font-size:12px;color:#6b7280;margin-top:1px;">ส่งข้อความเมื่อ รับ/แก้/ลบ ออเดอร์</div>
+              </div>
+              <button class="kl-switch${isMuted?'':' on'}" onclick="setMute(${isMuted?0:1})"
+                role="switch" aria-checked="${isMuted?'false':'true'}" aria-label="แจ้งเตือนเข้ากลุ่ม LINE">
+                <span class="tr"><span class="kn"></span></span>
+              </button>
             </div>
+            <div id="muteStatus" style="font-size:12.5px;margin-top:11px;">${
+              isMuted
+                ? `<span style="color:#b45309;font-weight:700;"><i class="fa-solid fa-bell-slash me-1"></i>${U.esc(muteLabel(muteUntil))}</span>`
+                : `<span style="color:#16a34a;font-weight:700;"><i class="fa-solid fa-check me-1"></i>เปิดอยู่ — กลุ่มได้รับข้อความทุกครั้ง</span>`
+            }</div>
+            <div style="font-size:12px;color:#94a3b8;margin-top:5px;line-height:1.5;">${
+              isMuted
+                ? 'กดสวิตช์เพื่อเปิดแจ้งเตือนกลับทันที'
+                : 'ปิดสวิตช์ = เงียบ 1 ชั่วโมงแล้วเปิดเองอัตโนมัติ — มีผลทั้งหน้านี้และหน้าช่างแต่ง'
+            }</div>
+            ${isMuted && muteUntil < MUTE_FOREVER
+              ? `<button class="btn btn-link p-0" style="font-size:12.5px;color:#b45309;font-weight:600;margin-top:9px;"
+                   onclick="setMute('forever')">ปิดยาวจนกว่าจะกดเปิดเอง →</button>`
+              : ''}
           </div>
 
           <hr style="margin:18px 0 14px;">
