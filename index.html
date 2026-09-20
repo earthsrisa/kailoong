@@ -473,6 +473,35 @@ body.modal-open #bottom-nav {
 .ivcard .aa.print { flex:1; color:#1d4ed8; background:#f5f8ff; border-color:#dbe6ff; }
 .ivcard .aa.print.solo { flex:1.3; }
 .ivcard .aa.more { width:50px; flex:0 0 auto; color:#64748b; }
+/* ══ หน้าสินค้า — การ์ดแทนตาราง ══ */
+.pcard { background:#fff; border-radius:18px; padding:15px; margin-bottom:13px;
+  box-shadow:0 2px 10px rgba(15,23,42,.06); }
+.pcard .top { display:flex; align-items:center; gap:12px; }
+.pcard .pic { width:46px; height:46px; border-radius:13px; flex:0 0 auto; color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:20px; }
+.pcard .who { flex:1; min-width:0; }
+.pcard .nm { font-weight:800; font-size:16.5px; line-height:1.2; }
+.pcard .meta { font-size:11.5px; color:#64748b; margin-top:4px; }
+.pcard .prices { margin-top:12px; border-top:1px dashed #e9eef4; padding-top:11px; }
+.pcard .plbl { font-size:11px; color:#64748b; font-weight:700; margin-bottom:8px; }
+.pgrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.pgrid.one { grid-template-columns:1fr; }
+.pcell { display:flex; align-items:center; gap:8px; background:#fafbfc;
+  border:1px solid #eef2f6; border-radius:10px; padding:8px 10px; }
+.pcell .dot { width:14px; height:14px; border-radius:50%; flex:0 0 auto;
+  border:2px solid #fff; box-shadow:0 0 0 1px #e2e8f0; }
+.pcell .ln { font-size:12.5px; color:#475569; font-weight:600;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pcell .pc { margin-left:auto; font-weight:800; font-size:13.5px; white-space:nowrap; }
+.pcell .pc small { font-size:10px; color:#64748b; font-weight:600; }
+.pcard .acts { display:flex; gap:9px; margin-top:13px; }
+.pcard .aa { flex:1; min-height:44px; border-radius:12px; border:1px solid #e6ebf1; background:#fff;
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  font-weight:700; font-size:13.5px; font-family:inherit; cursor:pointer; }
+.pcard .aa.edit { color:#1d4ed8; background:#f5f8ff; border-color:#dbe6ff; }
+.pcard .aa.del  { color:#b91c1c; background:#fef2f2; border-color:#fcd6d6; }
+@media (min-width: 900px) { #prodList { display:grid; grid-template-columns:1fr 1fr; gap:0 13px; } }
+
 /* เมนูเล็กใต้ปุ่มจุดสามจุด */
 .ivmenu { display:none; gap:9px; margin-top:9px; }
 .ivmenu.open { display:flex; }
@@ -1746,7 +1775,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v77';
+const APP_VERSION = 'v78';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -4557,24 +4586,109 @@ async function saveCustomerPrices(custId) {
 async function renderProducts(el) {
   document.getElementById('topbarActions').innerHTML=
     `<button class="btn btn-primary" onclick="showProductModal()"><i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้า</button>`;
-  const products=(await DB.getProducts()).sort((a,b)=>(a.code||'').localeCompare(b.code||''));
+  // เรียงตามชื่อ — รหัสสินค้าว่างทั้งหมด เรียงตามรหัสจึงได้ลำดับมั่ว
+  const products=(await DB.getProducts()).sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
+  window._prodData = products;
+  window._prodUnit = '';
+
   el.innerHTML=`
-  <div class="card-box">
-    <div class="card-head">
-      <h2><i class="fa-solid fa-box me-2 text-primary"></i>รายการสินค้า (${products.length} รายการ)</h2>
-      <div class="search-box"><i class="fa-solid fa-search"></i>
-        <input type="text" class="form-control form-control-sm" placeholder="ค้นหารหัส / ชื่อ..." style="min-width:200px;"
-          oninput="filterProdTable(this.value)">
+  <div class="oh">
+    <div><h2>สินค้า</h2><div class="cnt" id="prodCount"></div></div>
+    <button class="btn btn-primary" onclick="showProductModal()" style="white-space:nowrap;">
+      <i class="fa-solid fa-plus me-1"></i>เพิ่ม</button>
+  </div>
+  <div class="osearch">
+    <i class="fa-solid fa-search"></i>
+    <input type="text" id="prodSearch" placeholder="ค้นหาชื่อสินค้า" oninput="filterProdTable()">
+  </div>
+  <div class="ochips" id="prodChips"></div>
+  <div id="prodList"></div>`;
+
+  paintProdChips();
+  filterProdTable();
+}
+
+// ── ชิปกรองตามหน่วย ──
+// ใช้หน่วยแทนประเภท เพราะช่อง category ว่างทั้ง 21 รายการ ส่วนหน่วยมีข้อมูลจริงครบ
+function paintProdChips() {
+  const box = document.getElementById('prodChips'); if (!box) return;
+  const all = window._prodData || [];
+  const units = [...new Set(all.map(p => (p.unit||'').trim()).filter(Boolean))]
+    .sort((a,b) => all.filter(p=>p.unit===b).length - all.filter(p=>p.unit===a).length);
+  const chip = (k, label, n) =>
+    `<button type="button" class="ochip${window._prodUnit===k?' on':''}" onclick="setProdUnit('${U.esc(k)}')">
+      ${U.esc(label)}<span class="b">${n}</span></button>`;
+  box.innerHTML = chip('', 'ทั้งหมด', all.length)
+    + units.map(u => chip(u, u, all.filter(p=>p.unit===u).length)).join('');
+}
+function setProdUnit(u) { window._prodUnit = u; paintProdChips(); filterProdTable(); }
+
+// ── สีไอคอนตามหน่วย ── โลง=ส้ม ที่เหลือแยกสีกันไว้ กวาดตาแล้วรู้ว่าอันไหนโลงอันไหนของประกอบ
+const PROD_UNIT_STYLE = {
+  'โลง':  { bg:'linear-gradient(135deg,#fbbf24,#b45309)', icon:'fa-box' },
+  'ชุด':  { bg:'linear-gradient(135deg,#c084fc,#7c3aed)', icon:'fa-layer-group' },
+  'ม้วน': { bg:'linear-gradient(135deg,#67e8f9,#0891b2)', icon:'fa-scroll' },
+  'มัด':  { bg:'linear-gradient(135deg,#86efac,#15803d)', icon:'fa-boxes-stacked' },
+  'ดอก':  { bg:'linear-gradient(135deg,#f9a8d4,#be185d)', icon:'fa-fan' },
+  'ชิ้น': { bg:'linear-gradient(135deg,#a5b4fc,#4338ca)', icon:'fa-cube' },
+};
+// สีจุดหน้าชื่อสีเส้น
+const TRIM_DOT = {
+  'ทอง':'#c8961e', 'เงิน':'#94a3b8', 'ขาว':'#cbd5e1', 'ซีด':'#a9743f',
+  'คริสต์':'#3b82f6', 'ผ้าจีบ':'#a78bfa', 'ผ้าจีบทอง':'#d6a83a', 'ผ้าดอก':'#f472b6',
+};
+
+// ── การ์ดสินค้า 1 รายการ ──
+function prodCardHtml(p) {
+  const st = PROD_UNIT_STYLE[p.unit] || { bg:'linear-gradient(135deg,#cbd5e1,#64748b)', icon:'fa-box' };
+  const pm = p.priceMap || {};
+  // เอาเฉพาะสีเส้นที่มีราคาจริง
+  const keys = Object.keys(pm).filter(k => k !== '__default' && Number(pm[k]) > 0);
+  const vals = keys.map(k => Number(pm[k]));
+  const allSame = vals.length > 1 && new Set(vals).size === 1;
+  // '-' หรือ '(ไม่แต่ง)' = สินค้าที่ไม่มีสีเส้น ไม่ต้องโชว์จุดสีกับชื่อสีที่อ่านไม่รู้เรื่อง
+  const noTrim = keys.length === 1 && ['-','(ไม่แต่ง)',''].includes(keys[0]);
+
+  let body, label;
+  if (!keys.length) {
+    label = 'ราคา';
+    body = `<div class="pgrid one"><div class="pcell">
+      <span class="dot" style="background:#e2e8f0;"></span><span class="ln">ราคาปกติ</span>
+      <span class="pc">${U.baht(p.price||0)}<small> ฿</small></span></div></div>`;
+  } else if (noTrim) {
+    label = 'ราคา';
+    body = `<div class="pgrid one"><div class="pcell">
+      <span class="dot" style="background:#e2e8f0;"></span><span class="ln">ราคาปกติ</span>
+      <span class="pc">${U.baht(pm[keys[0]])}<small> ฿</small></span></div></div>`;
+  } else if (allSame) {
+    // ทุกสีเส้นราคาเท่ากัน — ยุบเหลือบรรทัดเดียว ไม่ต้องโชว์เลขซ้ำหลายช่อง
+    label = 'ราคาตามสีเส้น';
+    body = `<div class="pgrid one"><div class="pcell">
+      <span class="dot" style="background:linear-gradient(135deg,#c8961e,#94a3b8);"></span>
+      <span class="ln">ทุกสีเส้น (${keys.length} แบบ)</span>
+      <span class="pc">${U.baht(vals[0])}<small> ฿</small></span></div></div>`;
+  } else {
+    label = 'ราคาตามสีเส้น';
+    body = `<div class="pgrid">${keys.map(k => `<div class="pcell">
+      <span class="dot" style="background:${TRIM_DOT[k]||'#e2e8f0'};"></span>
+      <span class="ln">${U.esc(k)}</span>
+      <span class="pc">${U.baht(pm[k])}<small> ฿</small></span></div>`).join('')}</div>`;
+  }
+
+  return `<div class="pcard">
+    <div class="top">
+      <div class="pic" style="background:${st.bg};"><i class="fa-solid ${st.icon}"></i></div>
+      <div class="who">
+        <div class="nm">${U.esc(p.name)}</div>
+        <div class="meta">หน่วย: ${U.esc(p.unit||'-')}${p.code?' · '+U.esc(p.code):''}${p.category?' · '+U.esc(p.category):''}</div>
       </div>
     </div>
-    <div class="table-scroll">
-      <table class="table-clean gen-card-tbl">
-        <thead><tr><th>รหัส</th><th>ชื่อสินค้า</th><th>ประเภท</th><th>หน่วย</th><th>ราคาตามสีเส้น</th><th></th></tr></thead>
-        <tbody id="prodTbody">${products.map((p,i)=>prodRow(p,i)).join('')||emptyRow(6,'ยังไม่มีสินค้า','fa-box-open')}</tbody>
-      </table>
+    <div class="prices"><div class="plbl">${label}</div>${body}</div>
+    <div class="acts">
+      <button type="button" class="aa edit" onclick="showProductModal('${p.id}')"><i class="fa-solid fa-pen"></i>แก้ไข</button>
+      <button type="button" class="aa del" onclick="deleteProduct('${p.id}')"><i class="fa-solid fa-trash"></i>ลบ</button>
     </div>
   </div>`;
-  window._prodData=products;
 }
 
 function prodRow(p,i) {
@@ -4607,10 +4721,23 @@ function prodRow(p,i) {
   </tr>`;
 }
 
-function filterProdTable(val) {
-  const q=val.toLowerCase();
-  const data=(window._prodData||[]).filter(p=>!q||p.name.toLowerCase().includes(q)||(p.code||'').toLowerCase().includes(q));
-  document.getElementById('prodTbody').innerHTML=data.map((p,i)=>prodRow(p,i)).join('')||emptyRow(6,'ไม่พบสินค้า');
+function filterProdTable() {
+  const q = (document.getElementById('prodSearch')?.value || '').toLowerCase().trim();
+  const unit = window._prodUnit || '';
+  let data = window._prodData || [];
+  if (unit) data = data.filter(p => (p.unit||'') === unit);
+  if (q)    data = data.filter(p => (p.name||'').toLowerCase().includes(q)
+                                 || (p.code||'').toLowerCase().includes(q));
+  const box = document.getElementById('prodList');
+  if (box) box.innerHTML = data.length
+    ? data.map(prodCardHtml).join('')
+    : `<div class="empty-state" style="padding:36px"><i class="fa-solid fa-box-open"></i><p>ไม่พบสินค้า</p></div>`;
+  const cnt = document.getElementById('prodCount');
+  if (cnt) {
+    const all = window._prodData || [];
+    cnt.innerHTML = `ทั้งหมด <b>${all.length}</b> รายการ`
+      + (data.length !== all.length ? ` · ตรงกับที่กรอง <b>${data.length}</b>` : '');
+  }
 }
 
 function buildPriceFields(prodName, existingPm, savedLines, savedColors) {
