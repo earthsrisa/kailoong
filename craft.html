@@ -2269,10 +2269,43 @@ function stepItem(encodedCust, encodedKey, delta) {
       doStep(it, 1);
     }
   } else {
-    // delta === -1: undo, no confirm needed
+    // ── delta === -1: ยกเลิก 1 ใบ ──
     if (it.craftedQty <= 0) return;
+    // ใบที่กำลังจะโดนยกเลิกเป็นของช่างคนอื่นไหม — ถ้าใช่ต้องถามก่อน
+    // เดิมกดแล้วลบได้เลย ช่างคนหนึ่งจึงลบงานที่อีกคนเพิ่งแต่งเสร็จได้โดยไม่รู้ตัว
+    const owner = undoTargetCrafter(it);
+    if (owner && owner.id && owner.id !== _craftsman.id) {
+      showConfirm({
+        icon: '⚠️',
+        title: 'ใบนี้ช่างคนอื่นเป็นคนแต่ง',
+        desc: `"${owner.name || 'ช่างอีกคน'}" เป็นคนแต่งใบล่าสุดของรายการนี้ ยืนยันจะยกเลิกให้ไหม?`,
+        itemLabel: `${it.label} · แต่งแล้ว ${it.craftedQty}/${it.totalQty} ใบ`,
+        yesLabel: 'ยืนยัน ยกเลิก 1 ใบ',
+        yesColor: '#dc2626',
+        onYes: () => doStep(it, -1)
+      });
+      return;
+    }
     doStep(it, -1);
   }
+}
+
+// ── ใบที่จะโดนยกเลิกถ้ากด − เป็นของใคร ──
+// การยกเลิกจะไล่จาก source ท้ายสุดที่ยังมีจำนวนอยู่ (เอาใบที่ทำล่าสุดออกก่อน)
+// จึงดูจาก log บรรทัดบวกล่าสุดของ source นั้น ว่าใครเป็นคนกด
+// ออเดอร์เก่าที่ยังไม่มี log ใช้ช่อง craftedBy เดิมแทน
+function undoTargetCrafter(it) {
+  const src = [...(it.sources || [])].reverse().find(s => s.craftedQty > 0);
+  if (!src) return null;
+  const o = (_orders || []).find(x => x.id === src.orderId);
+  const entry = o ? readCraftEntry(o.craftStatus || {}, src.item) : null;
+  if (!entry) return null;
+  const logs = Array.isArray(entry.log) ? entry.log.filter(L => (Number(L.qty) || 0) > 0) : [];
+  if (logs.length) {
+    const last = logs[logs.length - 1];
+    return { id: last.by || entry.craftedBy || '', name: last.byName || entry.craftedByName || '' };
+  }
+  return { id: entry.craftedBy || '', name: entry.craftedByName || '' };
 }
 
 // ปุ่มทุกตัวที่ต้องล็อกระหว่างบันทึก — รวมไว้ที่เดียว
@@ -2333,11 +2366,17 @@ async function saveSourceCraftedQty(src, newCraftedQty, delta) {
   const patch = {
     [`craftStatus.${k}.craftedQty`]:    qty,
     [`craftStatus.${k}.isCrafted`]:     qty >= src.orderQty,
-    [`craftStatus.${k}.craftedBy`]:     _craftsman.id,
-    [`craftStatus.${k}.craftedByName`]: _craftsman.name,
     [`craftStatus.${k}.craftedAt`]:     now,
     [`craftStatus.${k}.log`]:           firebase.firestore.FieldValue.arrayUnion(logEntry)
   };
+  // ── ชื่อ "คนแต่ง" เขียนทับเฉพาะตอนแต่งเพิ่ม ไม่ใช่ตอนยกเลิก ──
+  // เดิมเขียนทับทุกครั้ง ทำให้พอ ข ไปกดยกเลิกงานของ ก
+  // ประวัติกลายเป็นว่า ข เป็นคนแต่ง ทั้งที่ไม่ได้ทำ
+  // (ส่วน log ยังบันทึกไว้ครบทุกการกด รวมถึงการยกเลิก จึงตรวจย้อนหลังได้)
+  if (delta > 0) {
+    patch[`craftStatus.${k}.craftedBy`]     = _craftsman.id;
+    patch[`craftStatus.${k}.craftedByName`] = _craftsman.name;
+  }
   // ลบคีย์เก่าทิ้ง (migrate ทีละรายการตอนใช้งานจริง) — ไม่ลบคีย์ใหม่แม้จำนวนเป็น 0 เพื่อรักษา log
   if (kOld !== k) patch[`craftStatus.${kOld}`] = DEL;
   await ref.update(patch);
@@ -2468,7 +2507,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v75</span>
+      <span style="opacity:.6;margin-left:6px;">· v76</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">
