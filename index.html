@@ -288,8 +288,108 @@ body { background: #f0f2f5; margin: 0; }
    → แถบยังถูกวาดอยู่ใต้ฉากมืด กลายเป็นแถบจาง ๆ โผล่ใต้ฟอร์ม
    และปุ่มกลมที่ลอยขึ้น 26px ก็ไปโผล่ในช่องว่างระหว่างขอบฟอร์มกับแถบพอดี
    (วัดจริงบนจอ 375x812: ฟอร์มจบที่ 728 ปุ่มกลมอยู่ 736 แถบเริ่ม 753)
-   ตอนเปิดฟอร์มไม่ได้ใช้แถบล่างอยู่แล้ว ซ่อนไปเลยจบ */
-body.modal-open #bottom-nav { display: none; }
+
+   ใช้เลื่อนลง+จางหาย ไม่ใช่ display:none เพราะ display กระพริบหายทันที
+   ระยะ 130% เผื่อปุ่มกลมที่ยื่นพ้นขอบบนของแถบขึ้นมา 26px ให้ลงไปพ้นจอด้วย
+   จังหวะ .24s ใกล้เคียงกับที่ฟอร์มของ Bootstrap เลื่อนขึ้นมา จะได้ไปด้วยกัน */
+#bottom-nav { transition: transform .24s ease, opacity .2s ease; }
+body.modal-open #bottom-nav {
+  transform: translateY(130%);
+  opacity: 0;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  #bottom-nav { transition: none; }
+}
+
+/* ══ ฟอร์มรับออเดอร์ — ขั้นที่เสร็จแล้ว / ขั้นที่ทำอยู่ ══ */
+/* ขั้นที่เลือกเสร็จ: แถบเขียวเต็มใบ เห็นปราดเดียวว่าข้อไหนทำแล้ว
+   พื้นเขียวอ่อน + ขอบเขียว + แถบเขียวเข้มด้านซ้าย — ย้ำ 3 ชั้นให้คนแก่ไม่พลาด */
+.ocd { display:flex; align-items:center; gap:11px; background:#f0fdf4;
+  border:1.5px solid #86efac; border-left:5px solid #16a34a;
+  border-radius:14px; padding:9px 11px; margin-bottom:8px; }
+.ocd .ck { width:29px; height:29px; border-radius:9px; background:#16a34a; color:#fff; font-size:13px;
+  display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  box-shadow:0 2px 5px rgba(22,163,74,.3); }
+.ocd .tx { flex:1; min-width:0; }
+.ocd .lb { font-size:11.5px; color:#15803d; font-weight:700; line-height:1.2; }
+.ocd .vl { font-weight:800; font-size:15.5px; color:#0f172a; margin-top:1px;
+  display:flex; align-items:center; gap:7px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ocd .change { font-size:13px; font-weight:700; color:#15803d; flex:0 0 auto;
+  background:#fff; border:1.5px solid #bbf7d0; border-radius:9px;
+  padding:9px 11px; min-height:44px; font-family:inherit; cursor:pointer; }
+/* ขั้นที่ยังไม่บังคับและยังไม่ได้เลือก (เช่น ขนาด) — เทา ไม่ใช่เขียว จะได้ไม่สับสนว่าทำแล้ว */
+.ocd.skip { background:#fff; border:1.5px solid #e9eef5; border-left:5px solid #cbd5e1; }
+.ocd.skip .lb { color:#64748b; }   /* #94a3b8 บนขาว = 2.56 ตกเกณฑ์ ต้องเข้มกว่านี้ */
+
+/* ขั้นที่กำลังทำ: การ์ดขอบน้ำเงิน เด่นกว่าทุกอย่างบนจอ */
+.oca { background:#fff; border:2px solid #2563eb; border-radius:18px; padding:15px;
+  margin-bottom:12px; box-shadow:0 6px 18px rgba(37,99,235,.12); }
+.oca .ah { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+.oca .num { width:30px; height:30px; border-radius:9px; background:#2563eb; color:#fff;
+  font-weight:800; font-size:14px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+.oca .at { font-weight:800; font-size:16px; }
+.oca .fl { font-size:12.5px; color:#64748b; font-weight:600; margin-bottom:7px; }
+
+/* จำนวน — ปุ่มใหญ่ 58px คนแก่กดไม่พลาด */
+.ocq { display:flex; align-items:stretch; gap:9px; height:58px; margin-bottom:13px; }
+.ocq button { width:56px; flex:0 0 auto; border:2px solid #e2e8f0; background:#fff; border-radius:14px;
+  font-size:27px; font-weight:800; color:#334155; font-family:inherit; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; }
+.ocq button.plus { background:linear-gradient(135deg,#2563eb,#1d4ed8); color:#fff; border:none; }
+.ocq button.bulk { width:50px; font-size:15px; }
+.ocq .n { flex:1; border:1px solid #eef2f6; border-radius:14px; background:#f8fafc;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.ocq .n b { font-size:26px; font-weight:800; line-height:1; }
+.ocq .n em { font-size:10.5px; color:#64748b; font-style:normal; margin-top:2px; }
+
+/* ราคา — ตัวใหญ่ ชิดขวา มี ฿ นำ และ บาท ปิดท้าย */
+.ocp { position:relative; margin-bottom:12px; }
+.ocp input { width:100%; height:54px; border:1.5px solid #e2e8f0; border-radius:14px; background:#fff;
+  font-family:inherit; font-size:21px; font-weight:800; text-align:right; padding:0 54px 0 34px; color:#0f172a; }
+.ocp .cap { position:absolute; left:15px; top:50%; transform:translateY(-50%);
+  font-size:16px; color:#64748b; font-weight:800; pointer-events:none; }
+.ocp .cur { position:absolute; right:15px; top:50%; transform:translateY(-50%);
+  font-size:14px; color:#64748b; font-weight:800; pointer-events:none; }
+
+/* บรรทัดสรุปก่อนกดเพิ่ม — เห็นผลคูณก่อน จะได้ไม่กดผิดแล้วมารู้ทีหลัง */
+.ocline { display:flex; align-items:center; justify-content:space-between; background:#f0fdf4;
+  border:1px solid #bbf7d0; border-radius:12px; padding:10px 13px; margin-bottom:13px;
+  font-size:13px; color:#15803d; font-weight:600; }
+.ocline b { font-size:17px; font-weight:800; }
+
+.ocadd { width:100%; height:54px; border:none; border-radius:14px; cursor:pointer;
+  background:linear-gradient(135deg,#16a34a,#15803d); color:#fff; font-family:inherit;
+  font-weight:800; font-size:16px; box-shadow:0 4px 12px rgba(22,163,74,.3); }
+.ocadd:active { transform:scale(.985); }
+
+/* ป้ายบอกขั้นบนหัวฟอร์ม */
+.oc-prog { font-size:11.5px; font-weight:700; color:#2563eb; background:#eef4ff;
+  border-radius:999px; padding:4px 11px; margin-left:10px; white-space:nowrap; }
+
+/* ยุบ วันที่ + หมายเหตุ ไว้ใต้หัวข้อเดียว */
+.ocmore-h { display:flex; align-items:center; gap:8px; width:100%; background:#fff;
+  border:1px solid #e9eef5; border-radius:12px; padding:12px 13px; margin-top:12px;
+  font-family:inherit; font-size:13.5px; font-weight:700; color:#475569; cursor:pointer; min-height:46px; }
+.ocmore-h .cv { margin-left:auto; font-size:12px; color:#64748b; font-weight:600; }
+.ocmore-b { background:#fff; border:1px solid #e9eef5; border-top:none;
+  border-radius:0 0 12px 12px; padding:12px 13px; margin-top:-6px; }
+
+/* แถบยอดรวมติดขอบล่าง (อยู่ใน modal-footer ซึ่ง Bootstrap ตรึงให้อยู่แล้ว) */
+.ocfoot { width:100%; }
+.ocfoot .r { display:flex; align-items:center; justify-content:space-between;
+  font-size:13px; color:#64748b; margin-bottom:5px; }
+.ocfoot .g { display:flex; align-items:center; justify-content:space-between; margin:7px 0 11px; }
+.ocfoot .g span { font-size:14.5px; font-weight:700; }
+.ocfoot .g b { font-size:24px; font-weight:800; color:#15803d; }
+.ocfoot .save { width:100%; height:54px; border:none; border-radius:14px; cursor:pointer;
+  background:linear-gradient(135deg,#16a34a,#15803d); color:#fff; font-family:inherit;
+  font-weight:800; font-size:17px; box-shadow:0 5px 14px rgba(22,163,74,.3); }
+.ocfoot .save:disabled { background:#cbd5e1; box-shadow:none; color:#f8fafc; }
+.ocfoot .cancel { width:100%; height:40px; border:none; background:none; margin-top:7px;
+  font-family:inherit; font-size:13.5px; font-weight:600; color:#64748b; cursor:pointer; }
+/* modal-footer ปกติจัดปุ่มชิดขวาเรียงแถว — ฟอร์มนี้ต้องเต็มความกว้าง */
+#orderModal .modal-footer { display:block; padding:12px 14px 14px; }
 
 /* ── สวิตช์เปิด-ปิด (หน้าตั้งค่า) ──
    ปุ่มสูง 44px เต็มตามเกณฑ์นิ้วโป้ง ส่วนรางเล็กกว่าเพื่อความสวย */
@@ -1522,7 +1622,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v70';
+const APP_VERSION = 'v71';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2217,28 +2317,20 @@ async function showCreateOrderModal(editId) {
         <div class="oc-sep"></div>
         <div class="oc-hdr" id="ocHdr">รายการในออเดอร์นี้</div>
         <div id="ocCart"></div>
-        <div class="oc-tot">
-          <div class="oc-tot-row"><span>ยอดก่อนส่วนลด</span><b id="os_sub">0.00</b></div>
-          <div class="oc-tot-row" style="margin-bottom:8px;">
-            <span>ส่วนลด (บาท)</span>
-            <input type="number" class="form-control form-control-sm" id="of_discount" min="0"
-              value="${edit?.discount||0}" oninput="calcOrderTotal()"
-              style="width:110px;text-align:right;font-weight:700;">
-          </div>
-          <div class="oc-grand"><span>รวมทั้งสิ้น</span><b id="os_total">0.00</b></div>
-        </div>
 
-        <div class="oc-misc">
-          <div>
-            <label class="oc-lbl">วันที่รับออเดอร์</label>
-            <input type="date" class="form-control form-control-sm" id="of_date"
-              value="${edit?U.dateInput(edit.createdAt):todayLocal()}">
-          </div>
-          <div style="margin-top:9px;">
-            <label class="oc-lbl">หมายเหตุออเดอร์ (เช่น ชื่อช่าง)</label>
-            <input type="text" class="form-control form-control-sm" id="of_notes"
-              placeholder="หมายเหตุ..." value="${U.esc(edit?.notes||'')}">
-          </div>
+        <!-- วันที่ + หมายเหตุ ยุบไว้ใต้หัวข้อเดียว ปกติไม่ได้แก้ -->
+        <button type="button" class="ocmore-h" id="ocMoreH" onclick="ocToggleMore()">
+          <i class="fa-solid fa-chevron-right" id="ocMoreCh" style="width:13px;transition:transform .18s;"></i>
+          วันที่ · หมายเหตุ
+          <span class="cv" id="ocMoreCv"></span>
+        </button>
+        <div class="ocmore-b d-none" id="ocMoreB">
+          <label class="oc-lbl">วันที่รับออเดอร์</label>
+          <input type="date" class="form-control form-control-sm" id="of_date"
+            value="${edit?U.dateInput(edit.createdAt):todayLocal()}" onchange="ocPaintMoreCv()">
+          <label class="oc-lbl" style="margin-top:10px;">หมายเหตุออเดอร์ (เช่น ชื่อช่าง)</label>
+          <input type="text" class="form-control form-control-sm" id="of_notes"
+            placeholder="หมายเหตุ..." value="${U.esc(edit?.notes||'')}" oninput="ocPaintMoreCv()">
         </div>
       </div>
     </div>
@@ -2248,14 +2340,47 @@ async function showCreateOrderModal(editId) {
     </select>
   </form>`;
 
-  showModal('orderModal', edit?`แก้ไขออเดอร์ ${U.esc(edit.orderNo)}`:'รับออเดอร์ใหม่', body,
-    `<button class="btn btn-success" id="ocSaveBtn" style="font-weight:800;font-size:16px;padding:12px 20px;"
-       onclick="saveOrder()"><i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์</button>
-     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,
-    'modal-lg');
+  // แถบยอดรวม + ปุ่มบันทึก อยู่ใน modal-footer ซึ่ง Bootstrap ตรึงไว้ติดขอบล่างอยู่แล้ว
+  // (modal-dialog-scrollable ทำให้เลื่อนเฉพาะเนื้อใน หัวกับท้ายอยู่กับที่)
+  const foot = `<div class="ocfoot">
+      <div class="r"><span>ยอดก่อนส่วนลด</span><b id="os_sub" style="color:#0f172a;">0.00</b></div>
+      <div class="r"><span>ส่วนลด (บาท)</span>
+        <input type="number" class="form-control form-control-sm" id="of_discount" min="0"
+          value="${edit?.discount||0}" oninput="calcOrderTotal()"
+          style="width:104px;text-align:right;font-weight:700;">
+      </div>
+      <div class="g"><span>รวมทั้งสิ้น</span><b id="os_total">0.00</b></div>
+      <button type="button" class="save" id="ocSaveBtn" onclick="saveOrder()">
+        <i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์</button>
+      <button type="button" class="cancel" data-bs-dismiss="modal">ยกเลิก</button>
+    </div>`;
+
+  showModal('orderModal',
+    `${edit?`แก้ไขออเดอร์ ${U.esc(edit.orderNo)}`:'รับออเดอร์ใหม่'}<span class="oc-prog" id="ocProg"></span>`,
+    body, foot, 'modal-lg');
 
   renderOrdCart();
   paintOcSteps({noScroll:true});   // เพิ่งเปิดฟอร์ม อย่าเพิ่งเลื่อนจอ
+  ocPaintMoreCv();
+}
+
+// ── ยุบ/กาง กล่อง วันที่ · หมายเหตุ ──
+function ocToggleMore() {
+  const b = document.getElementById('ocMoreB');
+  const ch = document.getElementById('ocMoreCh');
+  if (!b) return;
+  const open = b.classList.toggle('d-none') === false;
+  if (ch) ch.style.transform = open ? 'rotate(90deg)' : 'none';
+}
+// สรุปค่าที่กรอกไว้ให้เห็นทั้งที่ยังยุบอยู่ จะได้ไม่ต้องกางมาดูว่าใส่อะไรไว้
+function ocPaintMoreCv() {
+  const cv = document.getElementById('ocMoreCv');
+  if (!cv) return;
+  const d = document.getElementById('of_date')?.value || '';
+  const n = (document.getElementById('of_notes')?.value || '').trim();
+  // วันนี้ = ไม่ต้องบอกวันที่ให้รก บอกเฉพาะตอนกรอกย้อนหลัง/ล่วงหน้า
+  const dTxt = (!d || d === todayLocal()) ? '' : U.date(new Date(d + 'T12:00:00+07:00').getTime());
+  cv.textContent = [dTxt, n].filter(Boolean).join(' · ') || 'วันนี้ · ไม่มีหมายเหตุ';
 }
 
 async function showEditOrderModal(id) { await showCreateOrderModal(id); }
@@ -2409,13 +2534,22 @@ const TRIM_ICON = {
   'คริสต์':'✝️', 'ผ้าจีบ':'🪷', 'ผ้าดอก':'🌸',
 };
 
-function ocStep(n, label, required, inner, done) {
-  return `<div class="oc-step${done?' done':''}">
-    <div class="oc-step-hd">
-      <span class="oc-step-no${done?' ok':''}">${done?'<i class="fa-solid fa-check"></i>':n}</span>
-      <span class="oc-step-lb">${label}${required?' <span class="oc-req">*</span>':''}</span>
-    </div>
-    <div class="oc-step-bd">${inner}</div>
+// ── ขั้นที่เลือกเสร็จแล้ว: แถวเขียวติ๊กถูก บรรทัดเดียว + ปุ่มเปลี่ยน ──
+// label = ชื่อขั้น (ลูกค้า/สินค้า/สีโลง/สีเส้น) · valueHtml = สิ่งที่เลือกไว้
+// onChange = โค้ดที่จะรันเมื่อกด "เปลี่ยน" (ล้างค่าขั้นนั้นแล้ววาดใหม่)
+function ocDone(label, valueHtml, onChange) {
+  return `<div class="ocd">
+    <span class="ck"><i class="fa-solid fa-check"></i></span>
+    <span class="tx"><span class="lb">${label}</span><span class="vl">${valueHtml}</span></span>
+    ${onChange ? `<button type="button" class="change" onclick="${onChange}">เปลี่ยน</button>` : ''}
+  </div>`;
+}
+// ── ขั้นที่กำลังทำ: การ์ดขอบน้ำเงิน มีเลขขั้นกำกับ ──
+function ocStep(n, label, required, inner) {
+  return `<div class="oca">
+    <div class="ah"><span class="num">${n}</span>
+      <span class="at">${label}${required?' <span class="oc-req">*</span>':''}</span></div>
+    ${inner}
   </div>`;
 }
 
@@ -2428,27 +2562,28 @@ function renderOcSteps() {
 
   // ── ขั้น 1 ลูกค้า ── (ช่องเลือกอยู่ในขั้นนี้เลย เหมือนหน้าช่างแต่ง)
   const custName = document.getElementById('of_cust')?.selectedOptions?.[0]?.text || '';
-  html += ocStep(n++, 'เลือกลูกค้า', true,
-    hasCust
-      ? `<div class="oc-picked"><span><i class="fa-solid fa-user me-1"></i>${U.esc(custName)}</span>
-           <span class="oc-change" onclick="ocPickCust('')">เปลี่ยน</span></div>`
-      : `<select class="oc-sel" onchange="ocPickCust(this.value)">
-           <option value="">— เลือกลูกค้า —</option>
-           ${(window._orderCusts||[]).map(c =>
-             `<option value="${U.esc(String(c.id))}">${U.esc(c.name)}</option>`).join('')}
-         </select>`,
-    hasCust);
-  if (!hasCust) return html;
+  if (hasCust) {
+    html += ocDone('ลูกค้า', U.esc(custName), "ocPickCust('')");
+  } else {
+    return html + ocStep(n, 'เลือกลูกค้า', true,
+      `<select class="oc-sel" onchange="ocPickCust(this.value)">
+         <option value="">— เลือกลูกค้า —</option>
+         ${(window._orderCusts||[]).map(c =>
+           `<option value="${U.esc(String(c.id))}">${U.esc(c.name)}</option>`).join('')}
+       </select>`);
+  }
+  n++;
 
   // ── ขั้น 2 สินค้า ──
-  html += ocStep(n++, 'เลือกสินค้า', true,
-    prod
-      ? `<div class="oc-picked"><span><i class="fa-solid fa-box me-1"></i>${U.esc(prod.name)}</span>
-           <span class="oc-change" onclick="ocProdChange('')">เปลี่ยน</span></div>`
-      : `<select class="oc-sel" id="oc_prod" onchange="ocProdChange(this.value)">
-           <option value="">— เลือกสินค้า —</option>${ocProdOptions(prods, cur.productId)}
-         </select>`, !!prod);
-  if (!prod) return html;
+  if (prod) {
+    html += ocDone('สินค้า', U.esc(prod.name), "ocProdChange('')");
+  } else {
+    return html + ocStep(n, 'เลือกสินค้า', true,
+      `<select class="oc-sel" id="oc_prod" onchange="ocProdChange(this.value)">
+         <option value="">— เลือกสินค้า —</option>${ocProdOptions(prods, cur.productId)}
+       </select>`);
+  }
+  n++;
 
   const isAcc  = isAccessory(prod.name);
   const spec   = COFFIN_SPEC[prod.name] || {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']};
@@ -2460,76 +2595,102 @@ function renderOcSteps() {
   let colorDone = true;
   if (colors.length) {
     colorDone = !!cur.color;
-    html += ocStep(n++, 'เลือกสีโลง', true,
-      colorDone
-        ? `<div class="oc-picked"><span>
-             <span class="oc-sw-sm" style="${COLOR_SWATCH[cur.color]||'background:#e5e7eb;'}"></span>
-             สีโลง: ${U.esc(cur.color)}</span>
-             <span class="oc-change" onclick="ocColor('')">เปลี่ยน</span></div>`
-        : `<div class="oc-colors">${colors.map(c =>
-            `<button type="button" class="oc-color" onclick="ocColor('${U.esc(c)}')">
-               <span class="sw" style="${COLOR_SWATCH[c]||'background:#e5e7eb;'}"></span>
-               <span class="nm">${U.esc(c)}</span>
-             </button>`
-          ).join('')}</div>`, colorDone);
-    if (!colorDone) return html;
+    if (!colorDone) {
+      return html + ocStep(n, 'เลือกสีโลง', true,
+        `<div class="oc-colors">${colors.map(c =>
+          `<button type="button" class="oc-color" onclick="ocColor('${U.esc(c)}')">
+             <span class="sw" style="${COLOR_SWATCH[c]||'background:#e5e7eb;'}"></span>
+             <span class="nm">${U.esc(c)}</span>
+           </button>`).join('')}</div>`);
+    }
+    html += ocDone('สีโลง',
+      `<span class="oc-sw-sm" style="${COLOR_SWATCH[cur.color]||'background:#e5e7eb;'}"></span>${U.esc(cur.color)}`,
+      "ocColor('')");
+    n++;
   }
 
   // ── ขั้น 4 สีเส้น (มีสัญลักษณ์ท้ายชื่อ) ──
   let trimDone = true;
   if (lines.length) {
     trimDone = !!cur.trimColor;
-    html += ocStep(n++, 'เลือกสีเส้น', true,
-      trimDone
-        ? `<div class="oc-picked"><span>เส้น${U.esc(cur.trimColor)}
-             <span class="oc-trim-tag" style="font-size:17px;">${TRIM_ICON[cur.trimColor]||'▫'}</span></span>
-             <span class="oc-change" onclick="ocTrim('')">เปลี่ยน</span></div>`
-        : `<select class="oc-sel" onchange="ocTrim(this.value)">
-             <option value="">— เลือกสีเส้น —</option>
-             ${lines.map(l => `<option value="${U.esc(l)}">${U.esc(l)} ${TRIM_ICON[l]||'▫'}</option>`).join('')}
-           </select>`,
-      trimDone);
-    if (!trimDone) return html;
+    if (!trimDone) {
+      return html + ocStep(n, 'เลือกสีเส้น', true,
+        `<select class="oc-sel" onchange="ocTrim(this.value)">
+           <option value="">— เลือกสีเส้น —</option>
+           ${lines.map(l => `<option value="${U.esc(l)}">${U.esc(l)} ${TRIM_ICON[l]||'▫'}</option>`).join('')}
+         </select>`);
+    }
+    html += ocDone('สีเส้น',
+      `<span style="font-size:17px;">${TRIM_ICON[cur.trimColor]||'▫'}</span>${U.esc(cur.trimColor)}`,
+      "ocTrim('')");
+    n++;
   }
 
-  // ── ขั้น 5 ขนาด (เฉพาะสินค้าที่มี ไม่บังคับ) ──
+  // ── ขั้นขนาด (เฉพาะสินค้าที่มี ไม่บังคับ จึงไม่กั้นทางไปขั้นถัดไป) ──
+  // เลือกแล้วยุบเป็นแถวเขียว ยังไม่เลือกก็ยังเดินต่อได้ เพราะไม่บังคับ
   if (!isAcc && spec.extra?.length) {
-    html += ocStep(n++, 'เลือกขนาด', false,
-      `<select class="form-select form-select-sm" onchange="window._ordCur.extra=this.value">
-         <option value="">-- ไม่ระบุ --</option>
-         ${spec.extra.map(e => `<option value="${U.esc(e)}" ${cur.extra===e?'selected':''}>${U.esc(e)}</option>`).join('')}
-       </select>`, !!cur.extra);
+    if (cur.extra) {
+      html += ocDone('ขนาด', U.esc(cur.extra), "ocExtra('')");
+    } else {
+      html += `<div class="ocd skip">
+        <span class="ck" style="background:#cbd5e1;box-shadow:none;"><i class="fa-solid fa-ruler"></i></span>
+        <span class="tx"><span class="lb">ขนาด (ไม่บังคับ)</span>
+          <select class="oc-sel" style="margin-top:3px;" onchange="ocExtra(this.value)">
+            <option value="">— ไม่ระบุ —</option>
+            ${spec.extra.map(e => `<option value="${U.esc(e)}">${U.esc(e)}</option>`).join('')}
+          </select></span></div>`;
+    }
+    n++;
   }
 
   // ── ขั้นสุดท้าย จำนวน + ราคา + ปุ่มเพิ่ม ──
   // อุปกรณ์เสริมมักสั่งทีละร้อย → เพิ่มปุ่ม ±10 ให้กดเร็ว
-  const bulk = isAcc
-    ? `<button type="button" class="oc-stp bulk" onclick="ocQty(-10)">−10</button>`
-    : '';
-  const bulkPlus = isAcc
-    ? `<button type="button" class="oc-stp bulk plus" onclick="ocQty(10)">+10</button>`
-    : '';
-  html += ocStep(n, 'จำนวนและราคา', false, `
-    <div style="margin-bottom:10px;">
-      <div class="oc-lbl">จำนวน${isAcc?` <span style="color:#0891b2;font-weight:600;">(${U.esc(prod.unit||'ชิ้น')})</span>`:''}</div>
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        ${bulk}
-        <button type="button" class="oc-stp" onclick="ocQty(-1)">−</button>
-        <span class="oc-qn" id="oc_qty">${cur.qty || 1}</span>
-        <button type="button" class="oc-stp plus" onclick="ocQty(1)">+</button>
-        ${bulkPlus}
-      </div>
+  const unit = isAcc ? (prod.unit || 'ชิ้น') : 'ใบ';
+  const q = Number(cur.qty) || 1, p = Number(cur.price) || 0;
+  html += ocStep(n, 'จำนวน & ราคา', false, `
+    <div class="fl">จำนวน (${U.esc(unit)})</div>
+    <div class="ocq">
+      ${isAcc?`<button type="button" class="bulk" onclick="ocQty(-10)">−10</button>`:''}
+      <button type="button" onclick="ocQty(-1)">−</button>
+      <div class="n"><b id="oc_qty">${q}</b><em>${U.esc(unit)}</em></div>
+      <button type="button" class="plus" onclick="ocQty(1)">+</button>
+      ${isAcc?`<button type="button" class="bulk plus" onclick="ocQty(10)">+10</button>`:''}
     </div>
-    <div style="margin-bottom:10px;">
-      <div class="oc-lbl">ราคา/ชิ้น</div>
-      <input type="number" class="form-control form-control-sm" id="oc_price" min="0" value="${cur.price || 0}"
-        style="text-align:right;font-weight:700;font-size:15px;">
+
+    <div class="fl">ราคาต่อ${U.esc(unit)}</div>
+    <div class="ocp">
+      <span class="cap">฿</span>
+      <input type="number" id="oc_price" min="0" value="${p}" inputmode="decimal" oninput="ocPaintLine()">
+      <span class="cur">บาท</span>
     </div>
-    <button type="button" class="btn btn-primary w-100" onclick="ocAdd()" style="font-weight:800;padding:10px;">
-      <i class="fa-solid fa-cart-plus me-1"></i>เพิ่มเข้ารายการ
-    </button>`, false);
+
+    <div class="ocline" id="ocLine">
+      <span>${q} ${U.esc(unit)} × ${U.money(p)} ฿</span><b>= ${U.money(q*p)} ฿</b>
+    </div>
+
+    <button type="button" class="ocadd" onclick="ocAdd()">
+      <i class="fa-solid fa-plus me-1"></i>เพิ่มเข้ารายการ
+    </button>`);
 
   return html;
+}
+
+// ── อัปเดตบรรทัดสรุป "N ใบ × ราคา = รวม" แบบสด ──
+// เรียกตอนกด ± และตอนพิมพ์ราคา จะได้เห็นผลคูณก่อนกดเพิ่ม
+function ocPaintLine() {
+  const box = document.getElementById('ocLine');
+  if (!box) return;
+  const prod = (window._orderProds||[]).find(p => p.id === (window._ordCur||{}).productId);
+  const unit = prod && isAccessory(prod.name) ? (prod.unit || 'ชิ้น') : 'ใบ';
+  const q = Number(document.getElementById('oc_qty')?.textContent) || 0;
+  const p = Number(document.getElementById('oc_price')?.value) || 0;
+  box.innerHTML = `<span>${q} ${U.esc(unit)} × ${U.money(p)} ฿</span><b>= ${U.money(q*p)} ฿</b>`;
+}
+// เลือก/ล้างขนาด แล้ววาดขั้นตอนใหม่
+function ocExtra(v) {
+  window._ordCur = window._ordCur || {};
+  window._ordCur.extra = v || '';
+  paintOcSteps();
 }
 
 function paintOcSteps(opt) {
@@ -2555,11 +2716,36 @@ function paintOcSteps(opt) {
 
   el.innerHTML = renderOcSteps();
   paintCustBar();
-  // ขั้นแรกที่ยังไม่เสร็จ = ขั้นที่กำลังทำ ทำให้เด่นแล้วเลื่อนไปหา
-  const active = el.querySelector('.oc-step:not(.done)');
-  if (!active) return;
-  active.classList.add('active');
-  if (!opt?.noScroll) ocScrollTo(active);
+  ocPaintProg();
+  // ขั้นที่กำลังทำคือการ์ดขอบน้ำเงิน (.oca) — เด่นด้วย CSS อยู่แล้ว แค่เลื่อนไปหา
+  const active = el.querySelector('.oca');
+  if (active && !opt?.noScroll) ocScrollTo(active);
+}
+
+// ── ป้าย "ขั้น N / M" บนหัวฟอร์ม ──
+// ขั้นที่ผ่านแล้วนับจากแถวเขียวที่วาดจริง ส่วนยอดรวมต้องคิดจากตัวสินค้า
+// เพราะแต่ละตัวมีขั้นไม่เท่ากัน (อุปกรณ์เสริมไม่มีสี/เส้น บางตัวไม่มีขนาด)
+function ocPaintProg() {
+  const pill = document.getElementById('ocProg');
+  const el = document.getElementById('oc_steps');
+  if (!pill || !el) return;
+  if (!el.querySelector('.oca')) { pill.textContent = ''; return; }  // จังหวะ "เพิ่มอีกไหม"
+
+  const done  = el.querySelectorAll('.ocd').length;
+  const cur   = window._ordCur || {};
+  const prods = window._orderProds || [];
+  const prod  = prods.find(p => p.id === cur.productId);
+
+  // ยังไม่เลือกสินค้า = ยังไม่รู้ว่าทั้งหมดกี่ขั้น บอกแค่ขั้นที่อยู่
+  if (!prod) { pill.textContent = `ขั้น ${done + 1}`; return; }
+
+  const isAcc = isAccessory(prod.name);
+  const spec  = COFFIN_SPEC[prod.name] || {};
+  let total = 3;                                                   // ลูกค้า + สินค้า + จำนวน/ราคา
+  if (!isAcc && getProductColorsFor(prod.name, prods).length) total++;
+  if (!isAcc && getProductLines(prod.name, prods).length)     total++;
+  if (!isAcc && spec.extra?.length)                           total++;
+  pill.textContent = `ขั้น ${Math.min(done + 1, total)} / ${total}`;
 }
 
 // เลื่อนไปหาขั้นถัดไป — แต่เฉพาะตอนที่มันอยู่นอกจอจริง ๆ
@@ -2656,6 +2842,7 @@ function ocQty(d) {
   cur.qty = v;
   const el = document.getElementById('oc_qty'); if (el) el.textContent = v;
   const pr = document.getElementById('oc_price'); if (pr) cur.price = parseFloat(pr.value)||0;
+  ocPaintLine();   // บรรทัดสรุป "N ใบ × ราคา = รวม" ต้องขยับตามทันที
 }
 // เติมราคาให้อัตโนมัติจากราคาลูกค้า/ราคาตามสีเส้น (แก้ทับได้)
 async function ocRefreshPrice() {
