@@ -80,6 +80,71 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .order-card-head .cust-count { font-size: 12px; color: #6b7280; }
 .order-card-body { padding: 6px 16px; }
 
+/* ══ หัวข้อดำด้านบน — เห็นปราดเดียวว่าเหลือกี่ใบ ══ */
+.chero { background:linear-gradient(135deg,#0f172a,#1e293b); color:#fff;
+  border-radius:18px; padding:16px; margin-bottom:13px; }
+.chero .r1 { display:flex; align-items:center; gap:11px; }
+.chero .av { width:40px; height:40px; border-radius:12px; flex:0 0 auto;
+  background:linear-gradient(135deg,#f59e0b,#b45309);
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:17px; }
+.chero .lbl { font-size:10.5px; color:#cbd5e1; display:flex; align-items:center; gap:5px; }
+.chero .lbl .d { width:6px; height:6px; border-radius:50%; background:#34d399;
+  box-shadow:0 0 0 3px rgba(52,211,153,.25); }
+.chero .nm { font-size:17px; font-weight:800; }
+.chero .hero { margin-top:16px; display:flex; align-items:flex-end; gap:10px; }
+.chero .big { font-size:42px; font-weight:800; line-height:.9; }
+.chero .unit { font-size:15px; font-weight:700; color:#cbd5e1; padding-bottom:4px; }
+.chero .rt { margin-left:auto; text-align:right; padding-bottom:3px; }
+.chero .rt .n { font-size:18px; font-weight:800; color:#6ee7b7; }
+.chero .rt .l { font-size:10.5px; color:#cbd5e1; }
+.chero .bar { margin-top:11px; height:8px; border-radius:999px;
+  background:rgba(255,255,255,.18); overflow:hidden; }
+.chero .bar > i { display:block; height:100%; border-radius:999px;
+  background:linear-gradient(90deg,#34d399,#22c55e); }
+
+/* ══ การ์ดงานแต่ง ══ */
+.wcard { background:#fff; border-radius:18px; padding:15px; margin-bottom:13px;
+  box-shadow:0 2px 10px rgba(15,23,42,.07); }
+.wcard .top { display:flex; align-items:center; gap:12px; }
+.wcard .sym { width:46px; height:46px; border-radius:13px; background:#f6f8fb;
+  border:1px solid #eef2f6; display:flex; align-items:center; justify-content:center;
+  font-size:26px; line-height:1; flex:0 0 auto; }
+.wcard .tx { flex:1; min-width:0; }
+.wcard .nm { font-weight:800; font-size:16px; line-height:1.2; }
+.wcard .cnt { font-size:13px; color:#64748b; margin-top:3px; }
+.wcard .cnt b { color:#0f172a; font-size:15px; }
+/* ช่องนับทีละใบ — 1 ช่อง = 1 ใบ นับด้วยตาได้เหมือนนับของจริง */
+.wcells { display:flex; gap:7px; margin:13px 0 14px; flex-wrap:wrap; }
+.wcell { width:38px; height:38px; border-radius:10px; border:2px solid #e2e8f0; background:#fff;
+  display:flex; align-items:center; justify-content:center; color:#94a3b8;
+  font-weight:800; font-size:14px; }
+.wcell.done { background:#16a34a; border-color:#16a34a; color:#fff; }
+.wcell.next { border-color:#ea580c; border-style:dashed; color:#c2410c; }
+.wcell.next.last { border-color:#2563eb; color:#1d4ed8; }
+/* เกิน 10 ใบ ช่องจะล้นจอ เปลี่ยนเป็นแถบแทน */
+.wbar { margin:13px 0 14px; }
+.wbar .l { display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-bottom:6px; }
+.wbar .t { height:10px; border-radius:999px; background:#eef2f6; overflow:hidden; }
+.wbar .t > i { display:block; height:100%; border-radius:999px; background:#16a34a; }
+.wact { display:flex; gap:10px; }
+.wundo { width:56px; height:56px; border-radius:14px; border:2px solid #e2e8f0; background:#fff;
+  color:#64748b; font-size:24px; font-weight:800; font-family:inherit; flex:0 0 auto;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.wgo { flex:1; height:56px; border:none; border-radius:14px; cursor:pointer;
+  background:linear-gradient(135deg,#16a34a,#15803d); color:#fff; font-family:inherit;
+  font-weight:800; font-size:17px; display:flex; align-items:center; justify-content:center; gap:9px;
+  box-shadow:0 4px 12px rgba(22,163,74,.3); }
+.wgo.last { background:linear-gradient(135deg,#2563eb,#1d4ed8); box-shadow:0 4px 12px rgba(37,99,235,.3); }
+.wgo:active, .wundo:active { transform:scale(.97); }
+/* การ์ดที่แต่งครบแล้ว */
+.wcard.done { background:#f0fdf4; border:1.5px solid #bbf7d0; box-shadow:none; }
+.wcard.done .nm { color:#15803d; }
+.wflag { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:12px;
+  background:#16a34a; color:#fff; border-radius:12px; padding:11px; font-weight:800; font-size:15px; }
+.wundo-sm { width:100%; min-height:44px; margin-top:9px; border-radius:11px;
+  border:1px solid #d9f0e2; background:#fff; color:#15803d;
+  font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; }
+
 /* ── Item row ── */
 .craft-item-row {
   display: flex; align-items: center; justify-content: space-between;
@@ -1888,6 +1953,7 @@ function buildGroupedData() {
 
       if (!custMap[cust].items[k]) {
         custMap[cust].items[k] = { key: k, label: buildLabel(item), productName: item.productName,
+                                   trimColor: item.trimColor || '',   // ใช้เลือกสัญลักษณ์สีหน้าการ์ด
                                    totalQty: 0, craftedQty: 0, by: [], sources: [] };
       }
       custMap[cust].items[k].totalQty   += remainQty;
@@ -1934,7 +2000,7 @@ function renderCraftOrders() {
            <div class="s">เจ้าของร้านปิดไว้ — งานแต่งหีบยังกดได้ตามปกติ</div>
          </div>
        </div>`) + renderMyRecentOrders();
-  const summaryHtml = newOrderBtn + renderSummaryCard();
+  const summaryHtml = craftHeroHtml() + newOrderBtn + renderSummaryCard();
 
   if (!shown.length) {
     el.innerHTML = summaryHtml + (_typeFilter.size
@@ -2050,46 +2116,105 @@ function crafterBadges(by) {
   }).join('') + `</div>`;
 }
 
-function renderItemActive(custName, it) {
-  const ec = encC(custName), ek = encC(it.key);
+// ── นับใบที่ช่างคนนี้แต่งเสร็จ "วันนี้" จาก log ──
+// ⚠️ นับจากออเดอร์ที่ยังอยู่ในหน้าจอ (ที่ยังส่งไม่ครบ) ถ้าออเดอร์ถูกส่งออกไปแล้ว
+//    ในวันเดียวกัน ตัวเลขนี้จะไม่นับให้ — ยอมรับได้เพราะใช้เป็นกำลังใจ ไม่ใช่ตัวเลขบัญชี
+function craftDoneToday() {
+  if (!_craftsman) return 0;
+  const today = new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Bangkok'});
+  const sameDay = ts => new Date(ts || 0).toLocaleDateString('sv-SE', {timeZone:'Asia/Bangkok'}) === today;
+  let n = 0;
+  for (const o of (_orders || [])) {
+    for (const entry of Object.values(o.craftStatus || {})) {
+      if (!entry) continue;
+      const logs = Array.isArray(entry.log) ? entry.log : null;
+      if (logs) {
+        for (const L of logs) {
+          if ((L.by || entry.craftedBy) !== _craftsman.id) continue;
+          if (sameDay(L.at)) n += Number(L.qty) || 0;
+        }
+      } else if (entry.craftedBy === _craftsman.id && sameDay(entry.craftedAt)) {
+        n += Number(entry.craftedQty) || 0;
+      }
+    }
+  }
+  return n;
+}
 
-  // Not started (craftedQty === 0)
-  if (it.craftedQty === 0) {
-    const isSingle = it.totalQty === 1;
-    return `<div class="craft-item-row">
-      <div class="craft-item-info">
-        <div class="craft-item-name">${esc(it.label)}</div>
-        <div class="craft-item-qty">จำนวน ${it.totalQty} ใบ</div>
+// ── หัวข้อดำด้านบน — นับเฉพาะงานของช่างคนที่เลือกอยู่ ──
+function craftHeroHtml() {
+  if (!_craftsman) return '';
+  let left = 0;
+  for (const g of (_groups || [])) {
+    for (const it of g.items) left += Math.max(0, it.totalQty - it.craftedQty);
+  }
+  const today = craftDoneToday();
+  const pct = (today + left) ? Math.round(today / (today + left) * 100) : 100;
+  const initial = (_craftsman.name || '?').trim().charAt(0);
+  return `<div class="chero">
+    <div class="r1">
+      <div class="av">${esc(initial)}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="lbl"><span class="d"></span>อัปเดตสด</div>
+        <div class="nm">${esc(_craftsman.name || '')}</div>
       </div>
-      <div class="craft-item-status">
-        <button class="btn-craft-done" onclick="stepItem('${ec}','${ek}',1)">
-          <i class="fa-solid fa-check"></i>${isSingle ? 'เสร็จแล้ว' : '+1 เสร็จ'}
-        </button>
-      </div>
+    </div>
+    <div class="hero">
+      <div class="big">${left}</div><div class="unit">ใบ เหลือแต่ง</div>
+      <div class="rt"><div class="n">${today} ใบ</div><div class="l">เสร็จวันนี้</div></div>
+    </div>
+    <div class="bar"><i style="width:${pct}%"></i></div>
+  </div>`;
+}
+
+// เกินจำนวนนี้ช่องนับจะล้นจอ เปลี่ยนไปใช้แถบ % แทน
+// (ข้อมูลจริง 99% ของรายการไม่เกิน 8 ใบ มีแค่ 2 รายการที่ 20 ใบ)
+const WCELL_MAX = 10;
+
+// สัญลักษณ์สีเส้น — ตัวเดียวกับที่ช่างคุ้นอยู่แล้ว
+function wSym(it) {
+  return (typeof TRIM_ICON !== 'undefined' && TRIM_ICON[it.trimColor]) || '⚱️';
+}
+
+// ช่องนับทีละใบ / แถบ % แล้วแต่จำนวน
+function wProgressHtml(done, total) {
+  if (total > WCELL_MAX) {
+    const pct = total ? Math.round(done / total * 100) : 0;
+    return `<div class="wbar">
+      <div class="l"><span>แต่งแล้ว ${done} / ${total} ใบ</span><span>${pct}%</span></div>
+      <div class="t"><i style="width:${pct}%"></i></div>
     </div>`;
   }
+  let cells = '';
+  for (let i = 1; i <= total; i++) {
+    if (i <= done)       cells += `<div class="wcell done"><i class="fa-solid fa-check"></i></div>`;
+    else if (i === done + 1) cells += `<div class="wcell next${i === total ? ' last' : ''}">${i}</div>`;
+    else                 cells += `<div class="wcell">${i}</div>`;
+  }
+  return `<div class="wcells">${cells}</div>`;
+}
 
-  // In progress (0 < craftedQty < totalQty)
-  const pct        = Math.round((it.craftedQty / it.totalQty) * 100);
-  const isNextLast = (it.craftedQty + 1) >= it.totalQty;
-  return `<div class="craft-item-row">
-    <div class="craft-item-info">
-      <div class="craft-item-name">${esc(it.label)}</div>
-      <div class="craft-progress">
-        <div class="craft-progress-bar" style="width:${pct}%"></div>
+function renderItemActive(custName, it) {
+  const ec = encC(custName), ek = encC(it.key);
+  const done = it.craftedQty, total = it.totalQty;
+  const isLast = (done + 1) >= total;
+  const started = done > 0;
+
+  return `<div class="wcard">
+    <div class="top">
+      <div class="sym">${wSym(it)}</div>
+      <div class="tx">
+        <div class="nm">${esc(it.label)}</div>
+        <div class="cnt">แต่งแล้ว <b>${done}</b> / ${total} ใบ${isLast && total > 1 ? ' · เหลือใบสุดท้าย' : ''}</div>
       </div>
-      ${crafterBadges(it.by)}
     </div>
-    <div class="craft-item-status">
-      <div class="stepper">
-        <button class="btn-step btn-step-minus"
-          onclick="stepItem('${ec}','${ek}',-1)" title="ยกเลิก 1 ใบ">−</button>
-        <span class="step-count">${it.craftedQty}/${it.totalQty} ใบ</span>
-        <button class="btn-step btn-step-plus ${isNextLast ? 'last-unit' : ''}"
-          onclick="stepItem('${ec}','${ek}',1)">
-          ${isNextLast ? '✅ ครบ!' : '+1 เสร็จ'}
-        </button>
-      </div>
+    ${wProgressHtml(done, total)}
+    ${crafterBadges(it.by)}
+    <div class="wact">
+      ${started ? `<button type="button" class="wundo" onclick="stepItem('${ec}','${ek}',-1)" title="ยกเลิก 1 ใบ">−</button>` : ''}
+      <button type="button" class="wgo${isLast ? ' last' : ''}" onclick="stepItem('${ec}','${ek}',1)">
+        <i class="fa-solid fa-check"></i>${total === 1 ? 'แต่งเสร็จแล้ว' : isLast ? 'แต่งเสร็จใบสุดท้าย!' : 'แต่งเสร็จ 1 ใบ'}
+      </button>
     </div>
   </div>`;
 }
@@ -2097,17 +2222,18 @@ function renderItemActive(custName, it) {
 // ── Done item row (craftedQty >= totalQty) ──
 function renderItemDone(custName, it) {
   const ec = encC(custName), ek = encC(it.key);
-  return `<div class="craft-item-row craft-item-done">
-    <div class="craft-item-info">
-      <div class="craft-item-name">${esc(it.label)}</div>
-      <div class="badge-crafted"><i class="fa-solid fa-circle-check"></i>ครบ ${it.totalQty} ใบ</div>
-      ${crafterBadges(it.by)}
+  return `<div class="wcard done">
+    <div class="top">
+      <div class="sym" style="background:#dcfce7;border-color:#bbf7d0;">${wSym(it)}</div>
+      <div class="tx">
+        <div class="nm">${esc(it.label)}</div>
+        <div class="cnt" style="color:#15803d;font-weight:600;">แต่งครบทุกใบแล้ว</div>
+      </div>
     </div>
-    <div class="craft-item-status">
-      <button class="btn-craft-undo" onclick="stepItem('${ec}','${ek}',-1)">
-        <i class="fa-solid fa-rotate-left"></i>ยกเลิก 1
-      </button>
-    </div>
+    <div class="wflag"><i class="fa-solid fa-check"></i>เสร็จครบ ${it.totalQty} / ${it.totalQty} ใบ</div>
+    ${crafterBadges(it.by)}
+    <button type="button" class="wundo-sm" onclick="stepItem('${ec}','${ek}',-1)">
+      <i class="fa-solid fa-rotate-left me-1"></i>กดผิด? ยกเลิก 1 ใบ</button>
   </div>`;
 }
 
@@ -2149,11 +2275,17 @@ function stepItem(encodedCust, encodedKey, delta) {
   }
 }
 
+// ปุ่มทุกตัวที่ต้องล็อกระหว่างบันทึก — รวมไว้ที่เดียว
+// เพิ่มปุ่มแบบไหนใหม่ ให้มาเติมที่นี่ที่เดียว จะได้ไม่มีปุ่มหลุดการล็อก
+const STEP_BTNS = '.btn-craft-done,.btn-step,.btn-craft-undo,.wgo,.wundo,.wundo-sm';
+
 async function doStep(groupItem, delta) {
   if (_stepping) return;
   _stepping = true;
   // Disable all step buttons while saving
-  document.querySelectorAll('.btn-craft-done,.btn-step,.btn-craft-undo').forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
+  // ⚠️ ต้องมีคลาสของการ์ดแบบใหม่ (.wgo .wundo .wundo-sm) ด้วย
+  //    ไม่งั้นช่างกดรัวระหว่างบันทึกแล้วจำนวนเกินจริงได้
+  document.querySelectorAll(STEP_BTNS).forEach(b => { b.disabled = true; b.style.opacity = '0.5'; });
   try {
     let src;
     if (delta === 1) {
@@ -2173,7 +2305,7 @@ async function doStep(groupItem, delta) {
     console.error('doStep error:', e);
     toast('⚠️ บันทึกไม่สำเร็จ: ' + e.message);
     // Re-enable buttons on error (onSnapshot won't fire to re-render)
-    document.querySelectorAll('.btn-craft-done,.btn-step,.btn-craft-undo').forEach(b => { b.disabled = false; b.style.opacity = ''; });
+    document.querySelectorAll(STEP_BTNS).forEach(b => { b.disabled = false; b.style.opacity = ''; });
   } finally {
     _stepping = false;
   }
@@ -2336,7 +2468,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v74</span>
+      <span style="opacity:.6;margin-left:6px;">· v75</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">
