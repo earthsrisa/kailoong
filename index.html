@@ -365,6 +365,74 @@ body.modal-open #bottom-nav {
 .occancel { width:100%; height:44px; margin-top:8px; border:none; background:none; cursor:pointer;
   font-family:inherit; font-size:13.5px; font-weight:700; color:#64748b; }
 
+/* ══ หน้าออเดอร์ — การ์ดแทนตาราง ══ */
+.oh { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
+.oh h2 { font-size:22px; font-weight:800; margin:0; letter-spacing:-.3px; }
+.oh .cnt { font-size:12.5px; color:#64748b; margin-top:2px; }
+.oh .cnt b { color:#2563eb; }
+.osearch { display:flex; align-items:center; gap:9px; background:#fff; border:1px solid #e6ebf1;
+  border-radius:13px; padding:0 14px; margin-bottom:10px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.osearch i { color:#94a3b8; font-size:14px; }
+.osearch input { flex:1; border:none; outline:none; background:none; font-family:inherit;
+  font-size:14px; padding:12px 0; min-height:44px; }
+/* ชิปกรอง — เลื่อนซ้ายขวาได้ ไม่ตัดบรรทัด */
+.ochips { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 10px; scrollbar-width:none; }
+.ochips::-webkit-scrollbar { display:none; }
+.ochip { flex:0 0 auto; font-size:13px; font-weight:600; padding:0 15px; min-height:44px;
+  border-radius:999px; background:#fff; border:1px solid #e6ebf1; color:#475569;
+  display:flex; align-items:center; gap:6px; font-family:inherit; cursor:pointer; }
+.ochip .b { background:#eef2f6; border-radius:999px; padding:0 7px; font-size:11.5px; font-weight:700; color:#64748b; }
+.ochip.on { background:#0f172a; border-color:#0f172a; color:#fff; }
+.ochip.on .b { background:rgba(255,255,255,.22); color:#fff; }
+
+.ocard { position:relative; background:#fff; border-radius:18px; padding:15px 15px 13px 18px;
+  margin-bottom:13px; box-shadow:0 2px 10px rgba(15,23,42,.06); overflow:hidden; }
+.ocard::before { content:""; position:absolute; left:0; top:0; bottom:0; width:5px; background:#cbd5e1; }
+.ocard.s-craft::before { background:#ea580c; }
+.ocard.s-ready::before { background:#16a34a; }
+.ocard.s-sent::before  { background:#94a3b8; }
+.ocard .top { display:flex; align-items:flex-start; gap:11px; }
+.ocard .ava { width:42px; height:42px; border-radius:12px; display:flex; align-items:center;
+  justify-content:center; color:#fff; font-weight:800; font-size:17px; flex:0 0 auto; }
+.ocard .who { flex:1; min-width:0; }
+.ocard .nm { font-weight:800; font-size:16px; line-height:1.15; }
+.ocard .no { display:flex; align-items:center; gap:5px; flex-wrap:wrap; font-size:11.5px; color:#64748b; margin-top:3px; }
+.ocard .no .code { background:#f1f5f9; border-radius:5px; padding:1px 7px; font-weight:600; }
+.ocard .amt { text-align:right; flex:0 0 auto; }
+.ocard .amt .n { font-weight:800; font-size:17px; line-height:1; }
+.ocard .amt .u { font-size:11px; color:#64748b; font-weight:600; }
+.ocard .its { margin-top:12px; border-top:1px dashed #e9eef4; padding-top:10px;
+  display:flex; flex-direction:column; gap:7px; }
+.ocard .it { display:flex; align-items:center; gap:8px; font-size:13px; color:#334155; }
+.ocard .it .dot { width:11px; height:11px; border-radius:50%; flex:0 0 auto;
+  border:2px solid #fff; box-shadow:0 0 0 1px #e2e8f0; }
+.ocard .it .nm2 { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ocard .it .q { font-weight:700; color:#0f172a; }
+.ocard .it .ck { width:19px; height:19px; border-radius:50%; font-size:10px; flex:0 0 auto;
+  display:flex; align-items:center; justify-content:center; background:#dcfce7; color:#15803d; }
+.ocard .it .ck.wait { background:#fef3c7; color:#a16207; }
+.ocard .stat { display:flex; align-items:center; gap:8px; margin-top:12px; flex-wrap:wrap; }
+.otag { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700;
+  padding:5px 10px; border-radius:8px; }
+.otag.craft { background:#fff7ed; color:#9a3412; }
+.otag.ready { background:#ecfdf5; color:#047857; }
+.otag.sent  { background:#f1f5f9; color:#475569; }
+.ocard .prog { margin-top:11px; }
+.ocard .prog .lbl { display:flex; justify-content:space-between; font-size:11.5px; color:#64748b; margin-bottom:5px; }
+.ocard .bar { height:7px; border-radius:999px; background:#eef2f6; overflow:hidden; }
+.ocard .bar > i { display:block; height:100%; border-radius:999px; }
+.ocard .acts { display:flex; gap:9px; margin-top:14px; }
+.ocard .aa { flex:1; min-height:44px; border-radius:12px; border:1px solid #e6ebf1; background:#fff;
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  font-weight:700; font-size:13.5px; font-family:inherit; cursor:pointer; }
+.ocard .aa.edit { color:#1d4ed8; background:#f5f8ff; border-color:#dbe6ff; }
+.ocard .aa.add  { color:#047857; background:#f0fdf4; border-color:#bbf7d0; }
+.ocard .aa.del  { color:#b91c1c; background:#fef2f2; border-color:#fcd6d6; }
+.omore { width:100%; min-height:48px; border-radius:13px; border:1px dashed #cbd5e1; background:#fff;
+  font-family:inherit; font-size:13.5px; font-weight:700; color:#475569; cursor:pointer; margin-bottom:10px; }
+/* จอกว้างวางสองคอลัมน์ ไม่ให้การ์ดยืดจนอ่านยาก */
+@media (min-width: 900px) { #ordersList { display:grid; grid-template-columns:1fr 1fr; gap:0 13px; } }
+
 /* ป้ายบอกขั้นบนหัวฟอร์ม */
 .oc-prog { font-size:11.5px; font-weight:700; color:#2563eb; background:#eef4ff;
   border-radius:999px; padding:4px 11px; margin-left:10px; white-space:nowrap; }
@@ -1631,7 +1699,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v72';
+const APP_VERSION = 'v73';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -1971,32 +2039,34 @@ async function renderOrders(el) {
   // phone map สำหรับค้นหาออเดอร์ด้วยเบอร์ลูกค้า
   window._custPhoneMap = Object.fromEntries(customers.map(c=>[String(c.id), c.phone||'']));
 
-  el.innerHTML=`
-  <div class="card-box">
-    <div class="card-head">
-      <h2><i class="fa-solid fa-clock-rotate-left me-2 text-primary"></i>ประวัติออเดอร์ทั้งหมด</h2>
-      <div class="d-flex gap-2 flex-wrap">
-        <select class="form-select form-select-sm" id="filterCust" style="width:auto;min-width:160px;" onchange="applyOrderFilter()">
-          <option value="">ลูกค้าทุกราย</option>${custOpts}
-        </select>
-        <input type="date" class="form-control form-control-sm" id="filterDate" onchange="applyOrderFilter()" style="width:auto;">
-        <div class="search-box"><i class="fa-solid fa-search"></i>
-          <input type="text" class="form-control form-control-sm" id="filterSearch" placeholder="ค้นหาชื่อ / เบอร์ / สินค้า..." style="min-width:180px;" oninput="applyOrderFilter()">
-        </div>
-      </div>
-    </div>
-    <div class="table-scroll">
-      <table class="table-clean orders-history-table ord-card-tbl">
-        <colgroup><col style="width:72px"><col><col style="width:80px"><col><col style="width:90px"><col><col></colgroup>
-        <thead><tr>
-          <th>${sortTh('วันที่','ordersTbody','createdAt','_allOrders')}</th><th>เลขออเดอร์</th><th>${sortTh('ลูกค้า','ordersTbody','customerName','_allOrders')}</th>
-          <th>รายการสินค้า</th><th>${sortTh('ยอดรวม','ordersTbody','_total','_allOrders')}</th><th>หมายเหตุ</th><th></th>
-        </tr></thead>
-        <tbody id="ordersTbody">${renderOrderRows(sorted)}</tbody>
-      </table>
-    </div>
-  </div>`;
   window._allOrders = sorted;
+  window._ordChip   = 'all';
+  window._ordShown  = ORD_PAGE;
+
+  el.innerHTML=`
+  <div class="oh">
+    <div>
+      <h2>ออเดอร์</h2>
+      <div class="cnt" id="ordCount"></div>
+    </div>
+    <select class="form-select form-select-sm" id="filterCust" style="width:auto;max-width:160px;" onchange="applyOrderFilter()">
+      <option value="">ลูกค้าทุกราย</option>${custOpts}
+    </select>
+  </div>
+
+  <div class="osearch">
+    <i class="fa-solid fa-search"></i>
+    <input type="text" id="filterSearch" placeholder="ค้นหาชื่อ / เบอร์ / เลขออเดอร์ / สินค้า" oninput="applyOrderFilter()">
+    <input type="date" class="form-control form-control-sm" id="filterDate" onchange="applyOrderFilter()"
+      style="width:auto;border:none;background:none;color:#64748b;">
+  </div>
+
+  <div class="ochips" id="ordChips"></div>
+  <div id="ordersList"></div>
+  <div id="ordMoreWrap"></div>`;
+
+  paintOrderChips();
+  applyOrderFilter();
 
   // ── Real-time listener: auto-update order table when any order changes ──
   if (window._ordersUnsub) { window._ordersUnsub(); window._ordersUnsub = null; }
@@ -2007,8 +2077,93 @@ async function renderOrders(el) {
     }
     const freshSorted = [...fresh].sort((a,b)=>b.createdAt-a.createdAt).map(o=>({...o,_total:U.orderTotal(o)}));
     window._allOrders = freshSorted;
-    applyOrderFilter(); // re-render with current filters intact
+    paintOrderChips();          // เลขบนชิปต้องขยับตามด้วย ไม่งั้นค้างเลขเก่า
+    applyOrderFilter(true);     // true = อย่ารีเซ็ตว่ากดแสดงเพิ่มไปถึงไหนแล้ว
   });
+}
+
+// ── สถานะรวมของออเดอร์ใบหนึ่ง ──
+// คิดจาก 2 อย่างที่ระบบมีข้อมูลจริง: แต่งไปแล้วกี่ใบ กับ ส่งครบหรือยัง
+// (ไม่มีวันกำหนดส่ง และผูกออเดอร์กับใบเสร็จไม่ได้ จึงไม่มีสถานะ "เกินกำหนด" / "ค้างชำระ")
+//
+// อุปกรณ์เสริมไม่ต้องแต่ง จึงไม่นับเข้าความคืบหน้า ไม่งั้นใบที่มีแต่อุปกรณ์เสริม
+// จะค้างที่ 0% ตลอดกาลทั้งที่ไม่มีอะไรต้องทำ
+function orderCraftInfo(o) {
+  const cs = o.craftStatus || {};
+  const items = (o.items || []).filter(i => !isAccessory(i.productName));
+  let need = 0, done = 0;
+  items.forEach(i => {
+    const q = Number(i.qty) || 0;
+    need += q;
+    done += Math.min(getCraftedFor(cs, i) || 0, q);
+  });
+  const sent = isOrderFullyDelivered(o);
+  const pct  = need ? Math.round(done / need * 100) : 100;
+  // ส่งแล้วสำคัญกว่าทุกอย่าง — ออเดอร์เก่าส่วนใหญ่อยู่สถานะนี้
+  const state = sent ? 'sent' : (need && done >= need) ? 'ready' : 'craft';
+  return { need, done, pct, sent, state, hasCraft: need > 0 };
+}
+
+// สีอวตารลูกค้า — สุ่มจากชื่อแบบคงที่ ลูกค้าคนเดิมได้สีเดิมทุกครั้ง
+// ช่วยให้กวาดตาหาลูกค้าที่คุ้นเคยได้เร็วโดยไม่ต้องอ่านชื่อ
+const OC_AVA = ['#2563eb','#16a34a','#d97706','#7c3aed','#db2777','#0891b2','#dc2626','#4f46e5'];
+function ocAvaColor(name) {
+  let h = 0;
+  for (let i = 0; i < (name||'').length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return OC_AVA[h % OC_AVA.length];
+}
+
+// ── การ์ดออเดอร์ 1 ใบ ──
+function orderCardHtml(o) {
+  const ci = orderCraftInfo(o);
+  const name = o.customerName || '-';
+  const barColor = ci.state === 'ready' ? '#16a34a' : ci.state === 'sent' ? '#94a3b8' : '#ea580c';
+  const tag = ci.state === 'sent'
+    ? `<span class="otag sent"><i class="fa-solid fa-truck"></i>ส่งแล้ว${o.deliveredAt?' · '+U.date(o.deliveredAt):''}</span>`
+    : ci.state === 'ready'
+      ? `<span class="otag ready"><i class="fa-solid fa-check"></i>แต่งครบ พร้อมส่ง</span>`
+      : `<span class="otag craft"><i class="fa-solid fa-hammer"></i>กำลังแต่ง ${ci.done}/${ci.need}</span>`;
+
+  const its = (o.items || []).map(i => {
+    const sw = COLOR_SWATCH[i.color] || 'background:#e2e8f0;';
+    const acc = isAccessory(i.productName);
+    const cDone = acc ? i.qty : getCraftedFor(o.craftStatus || {}, i);
+    const ok = cDone >= (Number(i.qty) || 0);
+    const bits = [i.productName,
+      (i.color && i.color !== '-') ? i.color : '',
+      (i.trimColor && i.trimColor !== '-') ? 'เส้น'+i.trimColor : '',
+      i.extra || ''].filter(Boolean).join(' ');
+    return `<div class="it">
+      <span class="dot" style="${sw}"></span>
+      <span class="nm2">${U.esc(bits)}</span>
+      <span class="q">×${i.qty}</span>
+      <span class="ck${ok?'':' wait'}">${ok?'<i class="fa-solid fa-check"></i>':'<i class="fa-solid fa-ellipsis"></i>'}</span>
+    </div>`;
+  }).join('') || '<div class="it" style="color:#94a3b8;">ไม่มีรายการ</div>';
+
+  return `<div class="ocard s-${ci.state}">
+    <div class="top">
+      <div class="ava" style="background:${ocAvaColor(name)}">${U.esc(U.initial(name))}</div>
+      <div class="who">
+        <div class="nm">${U.esc(name)}${(Date.now()-o.createdAt)<7200000?' <span style="background:#ef4444;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 7px;vertical-align:middle;">ใหม่</span>':''}</div>
+        <div class="no"><span class="code">${U.esc(o.orderNo||'-')}</span>${U.date(o.createdAt)}${craftTakenBadge(o)}</div>
+      </div>
+      <div class="amt"><div class="n">${U.baht(U.orderTotal(o))}</div><div class="u">บาท</div></div>
+    </div>
+    <div class="its">${its}</div>
+    <div class="stat">${tag}</div>
+    ${ci.hasCraft ? `<div class="prog">
+      <div class="lbl"><span>แต่งแล้ว ${ci.done} / ${ci.need} ใบ</span><span>${ci.pct}%</span></div>
+      <div class="bar"><i style="width:${ci.pct}%;background:${barColor};"></i></div>
+    </div>` : ''}
+    ${o.notes ? `<div style="margin-top:10px;font-size:12.5px;color:#92400e;background:#fffbeb;
+      border-radius:9px;padding:7px 10px;"><i class="fa-solid fa-note-sticky me-1"></i>${U.esc(o.notes)}</div>` : ''}
+    <div class="acts">
+      <button type="button" class="aa edit" onclick="showEditOrderModal('${o.id}')"><i class="fa-solid fa-pen"></i>แก้ไข</button>
+      <button type="button" class="aa add" onclick="showAddItemsModal('${o.id}')"><i class="fa-solid fa-plus"></i>เพิ่มของ</button>
+      <button type="button" class="aa del" onclick="deleteOrder('${o.id}')"><i class="fa-solid fa-trash"></i>ลบ</button>
+    </div>
+  </div>`;
 }
 
 function renderOrderRows(list) {
@@ -2042,18 +2197,75 @@ function renderOrderRows(list) {
   </tr>`).join('');
 }
 
-function applyOrderFilter() {
+// เรนเดอร์ทีละ 40 ใบ — ร้านมี 300+ ใบ ถ้าวาดรวดเดียวมือถือจะหน่วงตอนเปิดหน้า
+const ORD_PAGE = 40;
+
+// เงื่อนไขของแต่ละชิป รวมไว้ที่เดียว ใช้ทั้งตอนนับเลขบนชิปและตอนกรองจริง
+// จะได้ไม่มีทางที่เลขบนชิปกับจำนวนการ์ดที่ขึ้นจริงไม่ตรงกัน
+const ORD_CHIPS = {
+  all:   { label:'ทั้งหมด',  test: () => true },
+  today: { label:'วันนี้',   test: o => new Date(o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}) === todayLocal() },
+  craft: { label:'รอแต่ง',   test: o => orderCraftInfo(o).state === 'craft' },
+  ready: { label:'รอส่ง',    test: o => orderCraftInfo(o).state === 'ready' },
+  sent:  { label:'ส่งแล้ว',  test: o => orderCraftInfo(o).state === 'sent' },
+};
+
+function paintOrderChips() {
+  const box = document.getElementById('ordChips'); if (!box) return;
+  const all = window._allOrders || [];
+  box.innerHTML = Object.entries(ORD_CHIPS).map(([k, c]) => {
+    const n = k === 'all' ? all.length : all.filter(c.test).length;
+    return `<button type="button" class="ochip${window._ordChip===k?' on':''}" onclick="setOrdChip('${k}')">
+      ${c.label}<span class="b">${n}</span></button>`;
+  }).join('');
+}
+function setOrdChip(k) {
+  window._ordChip = k;
+  window._ordShown = ORD_PAGE;     // เปลี่ยนชิปแล้วเริ่มนับหน้าใหม่
+  paintOrderChips();
+  applyOrderFilter();
+}
+function ordShowMore() {
+  window._ordShown = (window._ordShown || ORD_PAGE) + ORD_PAGE;
+  applyOrderFilter();
+}
+
+// กรองตาม ชิป + ลูกค้า + วันที่ + คำค้น แล้ววาดการ์ด
+function applyOrderFilter(keepPage) {
   const custId  = document.getElementById('filterCust')?.value||'';
   const date    = document.getElementById('filterDate')?.value||'';
-  const search  = (document.getElementById('filterSearch')?.value||'').toLowerCase();
+  const search  = (document.getElementById('filterSearch')?.value||'').toLowerCase().trim();
+  if (!keepPage && window._ordShown == null) window._ordShown = ORD_PAGE;
+
   let list = window._allOrders||[];
+  const chip = ORD_CHIPS[window._ordChip || 'all'];
+  if (chip) list = list.filter(chip.test);
   if (custId)  list = list.filter(o=>String(o.customerId)===custId);
   if (date)    list = list.filter(o=>new Date(o.createdAt).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'})===date);
   if (search)  list = list.filter(o=>{
     const phone=(window._custPhoneMap||{})[String(o.customerId)]||'';
     return o.orderNo?.toLowerCase().includes(search)||o.customerName?.toLowerCase().includes(search)||(o.items||[]).some(i=>i.productName?.toLowerCase().includes(search))||phone.includes(search);
   });
-  document.getElementById('ordersTbody').innerHTML = renderOrderRows(list);
+
+  const box = document.getElementById('ordersList');
+  if (!box) return;
+  const shown = Math.min(list.length, window._ordShown || ORD_PAGE);
+  box.innerHTML = list.length
+    ? list.slice(0, shown).map(orderCardHtml).join('')
+    : `<div class="empty-state" style="padding:36px"><i class="fa-solid fa-inbox"></i><p>ไม่มีออเดอร์ที่ตรงกับที่ค้นหา</p></div>`;
+
+  const more = document.getElementById('ordMoreWrap');
+  if (more) more.innerHTML = list.length > shown
+    ? `<button type="button" class="omore" onclick="ordShowMore()">
+         แสดงเพิ่ม (เหลืออีก ${list.length - shown} ใบ)</button>` : '';
+
+  const cnt = document.getElementById('ordCount');
+  if (cnt) {
+    const all = window._allOrders || [];
+    const waiting = all.filter(o => !orderCraftInfo(o).sent).length;
+    cnt.innerHTML = `ทั้งหมด <b>${all.length}</b> · ยังไม่ได้ส่ง <b>${waiting}</b>`
+      + (list.length !== all.length ? ` · ตรงกับที่กรอง <b>${list.length}</b>` : '');
+  }
 }
 
 function exportOrdersCSV() {
