@@ -362,6 +362,8 @@ body.modal-open #bottom-nav {
   background:linear-gradient(135deg,#16a34a,#15803d); color:#fff; font-family:inherit;
   font-weight:800; font-size:16px; box-shadow:0 4px 12px rgba(22,163,74,.3); }
 .ocadd:active { transform:scale(.985); }
+.occancel { width:100%; height:44px; margin-top:8px; border:none; background:none; cursor:pointer;
+  font-family:inherit; font-size:13.5px; font-weight:700; color:#64748b; }
 
 /* ป้ายบอกขั้นบนหัวฟอร์ม */
 .oc-prog { font-size:11.5px; font-weight:700; color:#2563eb; background:#eef4ff;
@@ -1508,6 +1510,13 @@ const DB = {
 // ═══════════════════════════════════════
 const U = {
   money(n)  { return Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); },
+  // ── เงินแบบอ่านง่าย: ไม่โชว์ .00 ถ้าเป็นจำนวนเต็ม ──
+  // ราคาโลงเป็นเลขกลม ๆ แทบทั้งหมด การโชว์ .00 ทุกที่ทำให้ตาลาย
+  // ถ้ามีเศษสตางค์จริง (1,500.50) ยังโชว์ให้ครบเหมือนเดิม
+  // ⚠️ ห้ามเอาไปแทน money() ในใบเสร็จ/รายงาน ที่นั่นต้องมี .00 ตามแบบเอกสาร
+  baht(n)   { const v = Number(n||0);
+              return v.toLocaleString('th-TH', Number.isInteger(v)
+                ? {maximumFractionDigits:0} : {minimumFractionDigits:2,maximumFractionDigits:2}); },
   date(ts)  { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric'}); },
   datetime(ts) { if(!ts)return'-'; return new Date(ts).toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); },
   dateInput(ts) { if(!ts)return''; return new Date(ts).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}); },
@@ -1622,7 +1631,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v71';
+const APP_VERSION = 'v72';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2343,13 +2352,13 @@ async function showCreateOrderModal(editId) {
   // แถบยอดรวม + ปุ่มบันทึก อยู่ใน modal-footer ซึ่ง Bootstrap ตรึงไว้ติดขอบล่างอยู่แล้ว
   // (modal-dialog-scrollable ทำให้เลื่อนเฉพาะเนื้อใน หัวกับท้ายอยู่กับที่)
   const foot = `<div class="ocfoot">
-      <div class="r"><span>ยอดก่อนส่วนลด</span><b id="os_sub" style="color:#0f172a;">0.00</b></div>
+      <div class="r"><span>ยอดก่อนส่วนลด</span><b id="os_sub" style="color:#0f172a;">0 บาท</b></div>
       <div class="r"><span>ส่วนลด (บาท)</span>
         <input type="number" class="form-control form-control-sm" id="of_discount" min="0"
           value="${edit?.discount||0}" oninput="calcOrderTotal()"
           style="width:104px;text-align:right;font-weight:700;">
       </div>
-      <div class="g"><span>รวมทั้งสิ้น</span><b id="os_total">0.00</b></div>
+      <div class="g"><span>รวมทั้งสิ้น</span><b id="os_total">0 บาท</b></div>
       <button type="button" class="save" id="ocSaveBtn" onclick="saveOrder()">
         <i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์</button>
       <button type="button" class="cancel" data-bs-dismiss="modal">ยกเลิก</button>
@@ -2647,7 +2656,7 @@ function renderOcSteps() {
   // อุปกรณ์เสริมมักสั่งทีละร้อย → เพิ่มปุ่ม ±10 ให้กดเร็ว
   const unit = isAcc ? (prod.unit || 'ชิ้น') : 'ใบ';
   const q = Number(cur.qty) || 1, p = Number(cur.price) || 0;
-  html += ocStep(n, 'จำนวน & ราคา', false, `
+  html += ocStep(n, window._ordEditIdx >= 0 ? 'แก้ไขรายการนี้' : 'จำนวน & ราคา', false, `
     <div class="fl">จำนวน (${U.esc(unit)})</div>
     <div class="ocq">
       ${isAcc?`<button type="button" class="bulk" onclick="ocQty(-10)">−10</button>`:''}
@@ -2665,12 +2674,15 @@ function renderOcSteps() {
     </div>
 
     <div class="ocline" id="ocLine">
-      <span>${q} ${U.esc(unit)} × ${U.money(p)} ฿</span><b>= ${U.money(q*p)} ฿</b>
+      <span>${q} ${U.esc(unit)} × ${U.baht(p)}</span><b>= ${U.baht(q*p)} บาท</b>
     </div>
 
-    <button type="button" class="ocadd" onclick="ocAdd()">
-      <i class="fa-solid fa-plus me-1"></i>เพิ่มเข้ารายการ
-    </button>`);
+    ${window._ordEditIdx >= 0
+      ? `<button type="button" class="ocadd" onclick="ocAdd()">
+           <i class="fa-solid fa-check me-1"></i>บันทึกการแก้ไข</button>
+         <button type="button" class="occancel" onclick="ocEditCancel()">ยกเลิกการแก้ไข</button>`
+      : `<button type="button" class="ocadd" onclick="ocAdd()">
+           <i class="fa-solid fa-plus me-1"></i>เพิ่มเข้ารายการ</button>`}`);
 
   return html;
 }
@@ -2684,7 +2696,7 @@ function ocPaintLine() {
   const unit = prod && isAccessory(prod.name) ? (prod.unit || 'ชิ้น') : 'ใบ';
   const q = Number(document.getElementById('oc_qty')?.textContent) || 0;
   const p = Number(document.getElementById('oc_price')?.value) || 0;
-  box.innerHTML = `<span>${q} ${U.esc(unit)} × ${U.money(p)} ฿</span><b>= ${U.money(q*p)} ฿</b>`;
+  box.innerHTML = `<span>${q} ${U.esc(unit)} × ${U.baht(p)}</span><b>= ${U.baht(q*p)} บาท</b>`;
 }
 // เลือก/ล้างขนาด แล้ววาดขั้นตอนใหม่
 function ocExtra(v) {
@@ -2873,6 +2885,21 @@ function ocAdd() {
   const nw = {productId:prod.id, productName:prod.name, color:cur.color||'', trimColor:cur.trimColor||'',
               extra:cur.extra||'', qty:cur.qty, price, specialNote:''};
   const cart = window._ordCart;
+  const editIdx = window._ordEditIdx;
+
+  // ── โหมดแก้ไข: ทับของเดิมชิ้นนั้น ไม่ใช่เพิ่มชิ้นใหม่ ──
+  // หมายเหตุพิเศษของเดิมต้องไม่หาย เพราะฟอร์มขั้นตอนไม่มีช่องนั้น
+  if (editIdx >= 0 && cart[editIdx]) {
+    cart[editIdx] = { ...nw, specialNote: cart[editIdx].specialNote || '' };
+    window._ordEditIdx = -1;
+    window._ordCur = {productId:'', color:'', trimColor:'', extra:'', qty:1, price:0};
+    window._ordJustAdded = null;        // แก้ไขเสร็จ ไม่ต้องถามว่าจะเพิ่มอีกไหม
+    U.toast('แก้ไขรายการแล้ว ✓');
+    renderOrdCart(editIdx);
+    paintOcSteps();
+    return;
+  }
+
   const ex = cart.findIndex(x => key(x) === key(nw));
   let hl;
   if (ex >= 0) { cart[ex].qty += nw.qty; hl = ex; }
@@ -2888,11 +2915,32 @@ function ocAdd() {
 
 function ocDel(i) {
   window._ordCart.splice(i, 1);
-  if (window._ordEditIdx === i) window._ordEditIdx = -1;
+  // กำลังแก้ชิ้นนี้อยู่แล้วโดนลบ → ต้องล้างโหมดแก้ไขด้วย
+  // ถ้าลบชิ้นที่อยู่ก่อนหน้า index ที่แก้อยู่ ต้องเลื่อน index ตาม ไม่งั้นไปทับผิดชิ้น
+  if (window._ordEditIdx === i) ocEditCancel();
+  else if (window._ordEditIdx > i) window._ordEditIdx--;
   renderOrdCart();
 }
+
+// ── กดแก้ไขรายการในตะกร้า ──
+// เดิมแก้ได้แค่จำนวนกับราคาในแถวเล็ก ๆ ตอนนี้ยกทั้งชิ้นกลับขึ้นไปบนฟอร์มขั้นตอน
+// → แก้ได้ทุกอย่าง สินค้า สีโลง สีเส้น ขนาด จำนวน ราคา ด้วยหน้าตาเดียวกับตอนเพิ่ม
+// ไม่ต้องเรียนรู้ UI ใหม่ และไม่ต้องลบแล้วเพิ่มใหม่เอง
 function ocEdit(i) {
-  window._ordEditIdx = (window._ordEditIdx === i) ? -1 : i;
+  const x = (window._ordCart || [])[i];
+  if (!x) return;
+  window._ordEditIdx  = i;
+  window._ordJustAdded = null;
+  window._ordCur = { productId:x.productId, color:x.color||'', trimColor:x.trimColor||'',
+                     extra:x.extra||'', qty:x.qty||1, price:x.price||0 };
+  paintOcSteps();
+  renderOrdCart();
+}
+// ออกจากโหมดแก้ไขโดยไม่เปลี่ยนอะไร — ของเดิมยังอยู่ในตะกร้าครบ
+function ocEditCancel() {
+  window._ordEditIdx = -1;
+  window._ordCur = {productId:'', color:'', trimColor:'', extra:'', qty:1, price:0};
+  paintOcSteps();
   renderOrdCart();
 }
 function ocBump(i, d) {
@@ -2930,21 +2978,20 @@ function renderOrdCart(hl) {
     const note = `<input type="text" class="oc-note" placeholder="📝 หมายเหตุพิเศษ..."
         value="${U.esc(x.specialNote||'')}" oninput="ocSetNote(${i},this.value)">`;
     if (editing) {
+      // ตัวจริงถูกยกขึ้นไปแก้บนฟอร์มขั้นตอนแล้ว แถวนี้เหลือไว้เป็นที่หมาย
+      // ให้รู้ว่ากำลังแก้ชิ้นไหนอยู่ + ช่องหมายเหตุพิเศษ (อันเดียวที่ไม่มีในฟอร์มขั้นตอน)
       return `<div class="oc-row editing">
         <div class="oc-top">
           <div class="oc-name">${ocRowLabel(x)}</div>
           <span class="oc-ico del" onclick="ocDel(${i})"><i class="fa-solid fa-trash"></i></span>
         </div>
-        <div class="oc-editrow">
-          <button type="button" class="oc-stp" onclick="ocBump(${i},-1)">−</button>
-          <span class="oc-qn">${x.qty}</span>
-          <button type="button" class="oc-stp plus" onclick="ocBump(${i},1)">+</button>
-          <span style="font-size:12.5px;color:#92400e;font-weight:700;">ราคา</span>
-          <input type="number" class="oc-pr" value="${x.price}" onchange="ocSetPrice(${i},this.value)">
+        <div style="font-size:12.5px;color:#92400e;font-weight:700;margin:4px 0 7px;">
+          <i class="fa-solid fa-arrow-up me-1"></i>กำลังแก้ไขอยู่ด้านบน — แก้ได้ทั้งสินค้า สี เส้น ขนาด จำนวน ราคา
         </div>
         ${note}
         <div style="text-align:right;margin-top:7px;">
-          <button type="button" class="btn btn-sm btn-warning" style="font-weight:700;" onclick="ocEdit(${i})">เสร็จ</button>
+          <button type="button" class="btn btn-sm btn-secondary" style="font-weight:700;"
+            onclick="ocEditCancel()">ยกเลิกการแก้ไข</button>
         </div>
       </div>`;
     }
@@ -3801,7 +3848,8 @@ function calcOrderTotal() {
   const cart = window._ordCart || [];
   const sub = cart.reduce((a,x) => a + (x.qty||0) * (x.price||0), 0);
   const disc = parseFloat(document.getElementById('of_discount')?.value||0) || 0;
-  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=U.money(v);};
+  // แถบยอดในฟอร์มรับออเดอร์ใช้แบบไม่มี .00 (ใบเสร็จ/รายงานยังใช้ money() เหมือนเดิม)
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=U.baht(v)+' บาท';};
   s('os_sub',sub); s('os_disc',disc); s('os_total',Math.max(0, sub-disc));
 }
 
