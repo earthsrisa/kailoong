@@ -473,6 +473,43 @@ body.modal-open #bottom-nav {
 .ivcard .aa.print { flex:1; color:#1d4ed8; background:#f5f8ff; border-color:#dbe6ff; }
 .ivcard .aa.print.solo { flex:1.3; }
 .ivcard .aa.more { width:50px; flex:0 0 auto; color:#64748b; }
+/* ══ หน้าลูกค้า — การ์ดแทนตาราง ══ */
+.ccard { background:#fff; border-radius:18px; padding:15px; margin-bottom:13px;
+  box-shadow:0 2px 10px rgba(15,23,42,.06); }
+.ccard .top { display:flex; align-items:center; gap:12px; }
+.ccard .ava { width:46px; height:46px; border-radius:14px; flex:0 0 auto; color:#fff;
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:19px; }
+.ccard .who { flex:1; min-width:0; }
+.ccard .nm { font-weight:800; font-size:16.5px; line-height:1.15;
+  display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+.ctag { font-size:10.5px; font-weight:700; color:#b45309; background:#fef3c7;
+  border-radius:6px; padding:2px 7px; display:inline-flex; align-items:center; gap:4px; }
+.ccard .ph { font-size:12.5px; color:#64748b; margin-top:4px; }
+.ccard .callbtn { width:44px; height:44px; border-radius:12px; flex:0 0 auto;
+  background:#ecfdf5; color:#047857; border:1px solid #bbf7d0;
+  display:flex; align-items:center; justify-content:center; font-size:17px; text-decoration:none; }
+.ccard .addr { font-size:12px; color:#64748b; margin-top:9px; line-height:1.4; }
+.cstats { display:flex; margin-top:12px; border:1px solid #eef2f6; border-radius:12px;
+  overflow:hidden; background:#fafbfc; }
+.cstats .st { flex:1; padding:9px 6px; text-align:center; border-right:1px solid #eef2f6; min-width:0; }
+.cstats .st:last-child { border-right:none; }
+.cstats .st .n { font-weight:800; font-size:15px; line-height:1.15;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cstats .st .l { font-size:10.5px; color:#64748b; margin-top:3px; }
+.ccard .acts { display:flex; gap:9px; margin-top:13px; }
+.ccard .aa { min-height:44px; border-radius:12px; border:1px solid #e6ebf1; background:#fff;
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  font-weight:700; font-size:13.5px; font-family:inherit; color:#475569; cursor:pointer; }
+.ccard .aa.hist  { flex:1.3; color:#1d4ed8; background:#f5f8ff; border-color:#dbe6ff; }
+.ccard .aa.price { flex:1;   color:#b45309; background:#fffbeb; border-color:#fde68a; }
+.ccard .aa.more  { width:50px; flex:0 0 auto; color:#64748b; }
+.cmenu { display:none; gap:9px; margin-top:9px; }
+.cmenu.open { display:flex; }
+.cmenu .aa { flex:1; }
+.cmenu .aa.edit { color:#1d4ed8; background:#f5f8ff; border-color:#dbe6ff; }
+.cmenu .aa.del  { color:#b91c1c; background:#fef2f2; border-color:#fcd6d6; }
+@media (min-width: 900px) { #custList { display:grid; grid-template-columns:1fr 1fr; gap:0 13px; } }
+
 /* ══ หน้าสินค้า — การ์ดแทนตาราง ══ */
 .pcard { background:#fff; border-radius:18px; padding:15px; margin-bottom:13px;
   box-shadow:0 2px 10px rgba(15,23,42,.06); }
@@ -1787,7 +1824,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v78';
+const APP_VERSION = 'v79';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -4388,26 +4425,96 @@ function deleteOrder(id) {
 async function renderCustomers(el) {
   document.getElementById('topbarActions').innerHTML=
     `<button class="btn btn-primary" onclick="showCustomerModal()"><i class="fa-solid fa-plus me-1"></i>เพิ่มลูกค้า</button>`;
-  const [customers,invoices]=await Promise.all([DB.getCustomers(),DB.getInvoices()]);
+  const [customers,invoices,orders]=await Promise.all([DB.getCustomers(),DB.getInvoices(),DB.getOrders()]);
   customers.sort((a,b)=>a.name.localeCompare(b.name,'th'));
 
+  // ── สรุปยอดของแต่ละราย คำนวณรอบเดียวตอนเปิดหน้า ──
+  // ไม่คำนวณซ้ำทุกครั้งที่พิมพ์ค้นหา เพราะต้องวนใบเสร็จ 182 + ออเดอร์ 329 ทุกที
+  const sumBy = {};
+  customers.forEach(c => { sumBy[String(c.id)] = { spent:0, orders:0, last:0 }; });
+  invoices.forEach(i => { const s = sumBy[String(i.customerId)];
+    if (s) s.spent += U.invTotal(i).total; });
+  orders.forEach(o => { const s = sumBy[String(o.customerId)];
+    if (s) { s.orders++; if ((o.createdAt||0) > s.last) s.last = o.createdAt||0; } });
+  window._custStats = sumBy;
+  window._custData  = customers;
+  window._custChip  = '';
+
   el.innerHTML=`
-  <div class="card-box">
-    <div class="card-head">
-      <h2><i class="fa-solid fa-users me-2 text-primary"></i>รายชื่อลูกค้า (${customers.length} ราย)</h2>
-      <div class="search-box"><i class="fa-solid fa-search"></i>
-        <input type="text" class="form-control form-control-sm" placeholder="ค้นหาชื่อ / เบอร์..." style="min-width:200px;"
-          oninput="filterCustTable(this.value)">
+  <div class="oh">
+    <div><h2>ลูกค้า</h2><div class="cnt" id="custCount"></div></div>
+    <button class="btn btn-primary" onclick="showCustomerModal()" style="white-space:nowrap;">
+      <i class="fa-solid fa-plus me-1"></i>เพิ่ม</button>
+  </div>
+  <div class="osearch">
+    <i class="fa-solid fa-search"></i>
+    <input type="text" id="custSearch" placeholder="ค้นหาชื่อ / เบอร์โทร" oninput="filterCustTable()">
+  </div>
+  <div class="ochips" id="custChips"></div>
+  <div id="custList"></div>`;
+
+  paintCustChips();
+  filterCustTable();
+}
+
+// ลูกค้าที่สั่งบ่อย — 10 ออเดอร์ขึ้นไป (ของจริงแบ่งได้ชัด: 99/90/68/67 กับ 3/2/1/1)
+const CUST_FREQ_MIN = 10;
+function custStat(c) { return (window._custStats||{})[String(c.id)] || {spent:0,orders:0,last:0}; }
+function custHasPrice(c) { return Object.keys(c.customPrices||{}).length > 0; }
+
+function paintCustChips() {
+  const box = document.getElementById('custChips'); if (!box) return;
+  const all = window._custData || [];
+  const chip = (k,label,n) =>
+    `<button type="button" class="ochip${window._custChip===k?' on':''}" onclick="setCustChip('${k}')">
+      ${label}<span class="b">${n}</span></button>`;
+  box.innerHTML = chip('', 'ทั้งหมด', all.length)
+    + chip('freq',  '🔁 ซื้อบ่อย',     all.filter(c => custStat(c).orders >= CUST_FREQ_MIN).length)
+    + chip('price', '🏷️ มีราคาพิเศษ', all.filter(custHasPrice).length);
+}
+function setCustChip(k) { window._custChip = k; paintCustChips(); filterCustTable(); }
+
+// ── การ์ดลูกค้า 1 ราย ──
+function custCardHtml(c) {
+  const s = custStat(c);
+  const phone = (c.phone||'').trim();
+  const addr  = (c.address||'').trim();
+  const nPrice = Object.keys(c.customPrices||{}).length;
+  // ซื้อล่าสุดแทนช่อง "ค้างชำระ" — ร้านเก็บเงินสด ยอดค้างเป็น 0 ทุกรายอยู่แล้ว
+  const lastTxt = s.last ? U.date(s.last) : '—';
+  const lastDays = s.last ? Math.floor((Date.now() - s.last) / 86400000) : null;
+
+  return `<div class="ccard">
+    <div class="top">
+      <div class="ava" style="background:${ocAvaColor(c.name||'')}">${U.esc(U.initial(c.name||'?'))}</div>
+      <div class="who">
+        <div class="nm">${U.esc(c.name||'-')}${nPrice
+          ? `<span class="ctag"><i class="fa-solid fa-tag"></i>ราคาพิเศษ ${nPrice}</span>` : ''}</div>
+        ${phone ? `<div class="ph"><i class="fa-solid fa-phone me-1" style="opacity:.6;"></i>${U.esc(phone)}</div>` : ''}
       </div>
+      ${phone ? `<a class="callbtn" href="tel:${U.esc(phone.replace(/[^0-9+]/g,''))}" title="โทรหา ${U.esc(c.name||'')}">
+        <i class="fa-solid fa-phone"></i></a>` : ''}
     </div>
-    <div class="table-scroll">
-      <table class="table-clean gen-card-tbl">
-        <thead><tr><th>#</th><th>${sortTh('ชื่อลูกค้า','custTbody','name','_custData')}</th><th>เบอร์โทร</th><th>ที่อยู่</th><th>ราคาพิเศษ</th><th></th></tr></thead>
-        <tbody id="custTbody">${customers.map((c,i)=>custRow(c,i)).join('')||emptyRow(7,'ยังไม่มีลูกค้า','fa-users-slash')}</tbody>
-      </table>
+    ${addr ? `<div class="addr"><i class="fa-solid fa-location-dot me-1" style="opacity:.6;"></i>${U.esc(addr)}</div>` : ''}
+    <div class="cstats">
+      <div class="st"><div class="n">${U.baht(s.spent)}</div><div class="l">ยอดซื้อรวม (บาท)</div></div>
+      <div class="st"><div class="n">${s.orders}</div><div class="l">ออเดอร์</div></div>
+      <div class="st"><div class="n" style="font-size:13.5px;">${lastTxt}</div>
+        <div class="l">${lastDays === null ? 'ยังไม่เคยซื้อ' : lastDays === 0 ? 'ซื้อวันนี้' : `ซื้อล่าสุด · ${lastDays} วันก่อน`}</div></div>
+    </div>
+    <div class="acts">
+      <button type="button" class="aa hist" onclick="showCustomerHistory('${c.id}')">
+        <i class="fa-solid fa-clock-rotate-left"></i>ประวัติการซื้อ</button>
+      <button type="button" class="aa price" onclick="showCustomerPriceModal('${c.id}')">
+        <i class="fa-solid fa-tag"></i>ราคา</button>
+      <button type="button" class="aa more" onclick="this.closest('.ccard').querySelector('.cmenu').classList.toggle('open')">
+        <i class="fa-solid fa-ellipsis-vertical"></i></button>
+    </div>
+    <div class="cmenu">
+      <button type="button" class="aa edit" onclick="showCustomerModal('${c.id}')"><i class="fa-solid fa-pen"></i>แก้ไข</button>
+      <button type="button" class="aa del" onclick="deleteCustomer('${c.id}')"><i class="fa-solid fa-trash"></i>ลบ</button>
     </div>
   </div>`;
-  window._custData=customers;
 }
 
 function custRow(c,i) {
@@ -4431,10 +4538,26 @@ function custRow(c,i) {
 function renderCustRows(list) {
   return list.map((c,i)=>custRow(c,i)).join('')||emptyRow(7,'ไม่พบลูกค้า');
 }
-function filterCustTable(val) {
-  const q=val.toLowerCase();
-  const data=(window._custData||[]).filter(c=>!q||c.name.toLowerCase().includes(q)||(c.phone||'').includes(q));
-  document.getElementById('custTbody').innerHTML=renderCustRows(data);
+function filterCustTable() {
+  const q = (document.getElementById('custSearch')?.value || '').toLowerCase().trim();
+  const chip = window._custChip || '';
+  let data = window._custData || [];
+  if (chip === 'freq')  data = data.filter(c => custStat(c).orders >= CUST_FREQ_MIN);
+  if (chip === 'price') data = data.filter(custHasPrice);
+  if (q) data = data.filter(c => (c.name||'').toLowerCase().includes(q) || (c.phone||'').includes(q));
+
+  const box = document.getElementById('custList');
+  if (box) box.innerHTML = data.length
+    ? data.map(custCardHtml).join('')
+    : `<div class="empty-state" style="padding:36px"><i class="fa-solid fa-users-slash"></i><p>ไม่พบลูกค้า</p></div>`;
+
+  const cnt = document.getElementById('custCount');
+  if (cnt) {
+    const all = window._custData || [];
+    const freq = all.filter(c => custStat(c).orders >= CUST_FREQ_MIN).length;
+    cnt.innerHTML = `ทั้งหมด <b>${all.length}</b> ราย · ซื้อบ่อย <b>${freq}</b>`
+      + (data.length !== all.length ? ` · ตรงกับที่กรอง <b>${data.length}</b>` : '');
+  }
 }
 
 async function showCustomerHistory(custId) {
