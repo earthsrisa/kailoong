@@ -473,6 +473,49 @@ body.modal-open #bottom-nav {
 .ivcard .aa.print { flex:1; color:#1d4ed8; background:#f5f8ff; border-color:#dbe6ff; }
 .ivcard .aa.print.solo { flex:1.3; }
 .ivcard .aa.more { width:50px; flex:0 0 auto; color:#64748b; }
+/* ══ หน้าช่างแต่ง (ฝั่งแอดมิน) ══ */
+.cmban { border-radius:14px; padding:13px 15px; margin-bottom:12px; color:#fff;
+  background:linear-gradient(135deg,#0f172a,#1e293b);
+  display:flex; align-items:center; gap:12px; text-decoration:none; }
+.cmban .ic { width:38px; height:38px; border-radius:11px; flex:0 0 auto; color:#fbbf24;
+  background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; font-size:17px; }
+.cmban .t { font-weight:700; font-size:13.5px; color:#fff; }
+.cmban .s { font-size:11px; opacity:.75; }
+.cmban .go { margin-left:auto; background:#fbbf24; color:#0f172a; font-weight:700; font-size:12.5px;
+  border-radius:9px; padding:9px 13px; white-space:nowrap; }
+.cmstats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px; margin-bottom:14px; }
+.cmstats .t { background:#fff; border:1px solid #eef2f6; border-radius:14px; padding:12px 10px;
+  text-align:center; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.cmstats .t .n { font-size:20px; font-weight:800; line-height:1; }
+.cmstats .t .l { font-size:10.5px; color:#64748b; margin-top:4px; }
+.cmcard { background:#fff; border-radius:18px; padding:15px; margin-bottom:12px;
+  box-shadow:0 2px 10px rgba(15,23,42,.06); }
+.cmcard .top { display:flex; align-items:center; gap:12px; }
+.cmcard .ava { width:46px; height:46px; border-radius:14px; flex:0 0 auto; color:#fff;
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:19px; }
+.cmcard .who { flex:1; min-width:0; }
+.cmcard .nm { font-weight:800; font-size:16.5px; line-height:1.15; }
+.cmtypes { display:flex; gap:5px; margin-top:6px; flex-wrap:wrap; }
+.cmtp { font-size:10.5px; font-weight:600; color:#475569; background:#f1f5f9;
+  border-radius:6px; padding:2px 8px; }
+.cmtp.all { background:#eff6ff; color:#1d4ed8; }
+.cmtp.more { background:#f8fafc; color:#64748b; }
+.cmpend { text-align:right; flex:0 0 auto; }
+.cmpend .n { font-size:22px; font-weight:800; line-height:1; color:#dc2626; }
+.cmpend .n.zero { color:#16a34a; }
+.cmpend .l { font-size:10.5px; color:#64748b; margin-top:2px; }
+.cmcard .acts { display:flex; gap:9px; margin-top:14px; }
+.cmcard .aa { min-height:44px; border-radius:12px; border:1px solid #e6ebf1; background:#fff;
+  display:flex; align-items:center; justify-content:center; gap:7px; text-decoration:none;
+  font-weight:700; font-size:13.5px; font-family:inherit; color:#475569; cursor:pointer; }
+.cmcard .aa.view { flex:1.3; color:#b45309; background:#fffbeb; border-color:#fde68a; }
+.cmcard .aa.edit { flex:1; color:#1d4ed8; background:#f5f8ff; border-color:#dbe6ff; }
+.cmcard .aa.more { width:50px; flex:0 0 auto; color:#64748b; }
+.cmmenu { display:none; gap:9px; margin-top:9px; }
+.cmmenu.open { display:flex; }
+.cmmenu .aa { flex:1; color:#b91c1c; background:#fef2f2; border-color:#fcd6d6; }
+@media (min-width: 900px) { #cmList { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; } }
+
 /* ══ ตั้งราคาพิเศษรายลูกค้า ══ */
 .cpsearch { display:flex; align-items:center; gap:9px; background:#fff; border:1px solid #e6ebf1;
   border-radius:12px; padding:0 13px; margin-bottom:12px; }
@@ -1871,7 +1914,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v80';
+const APP_VERSION = 'v81';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -6424,9 +6467,8 @@ async function renderReports(el) {
 //  CRAFTSMEN PAGE
 // ═══════════════════════════════════════
 async function renderCraftsmen(el) {
-  document.getElementById('topbarActions').innerHTML =
-    `<a href="/craft.html" onclick="return goCraftPage()" class="btn btn-outline-secondary btn-sm"><i class="fa-solid fa-hammer me-1"></i>เปิดหน้าช่าง</a>
-     <button class="btn btn-primary btn-sm" onclick="showCraftsmanModal()"><i class="fa-solid fa-plus me-1"></i>เพิ่มช่าง</button>`;
+  // ปุ่มเปิดหน้าช่าง/เพิ่มช่าง ย้ายไปอยู่ในหน้าแล้ว (แถบดำด้านบน + ปุ่มมุมขวา)
+  document.getElementById('topbarActions').innerHTML = '';
 
   const [craftsmen, products] = await Promise.all([DB.getCraftsmen(), DB.getProducts()]);
   window._settingsCraftsmen = craftsmen;
@@ -6465,6 +6507,93 @@ async function renderCraftsmen(el) {
     return { ...c, pending, done };
   });
 
+  // เสร็จวันนี้ทั้งร้าน — นับจาก log การกดของช่างทุกคนในวันนี้ (รวมบรรทัดยกเลิกด้วย)
+  const todayKey = new Date().toLocaleDateString('sv-SE', {timeZone:'Asia/Bangkok'});
+  let doneToday = 0;
+  for (const o of orders) {
+    for (const e of Object.values(o.craftStatus || {})) {
+      if (!e || !Array.isArray(e.log)) continue;
+      for (const L of e.log) {
+        if (new Date(L.at||0).toLocaleDateString('sv-SE',{timeZone:'Asia/Bangkok'}) === todayKey)
+          doneToday += Number(L.qty) || 0;
+      }
+    }
+  }
+  const totalPending = craftsmanStats.reduce((a,c)=>a+Math.max(0,c.pending), 0);
+  const allTypeCount = [...new Set(products.map(p=>p.name))].length;
+
+  el.innerHTML = `
+  <div class="oh">
+    <div><h2>ช่างแต่ง</h2><div class="cnt">ทั้งหมด <b>${craftsmen.length}</b> คน</div></div>
+    <button class="btn btn-primary" onclick="showCraftsmanModal()" style="white-space:nowrap;">
+      <i class="fa-solid fa-plus me-1"></i>เพิ่มช่าง</button>
+  </div>
+
+  <a class="cmban" href="/craft.html" onclick="return goCraftPage()">
+    <span class="ic"><i class="fa-solid fa-hammer"></i></span>
+    <span><span class="t">เปิดหน้าช่าง</span><br><span class="s">หน้าที่ช่างใช้กดแต่งเสร็จในโรงงาน</span></span>
+    <span class="go">เปิด →</span>
+  </a>
+
+  <div class="cmstats">
+    <div class="t"><div class="n" style="color:#b45309;">${craftsmen.length}</div><div class="l">ช่างแต่ง (คน)</div></div>
+    <div class="t"><div class="n" style="color:${totalPending?'#dc2626':'#16a34a'};">${totalPending}</div><div class="l">ค้างแต่ง (ใบ)</div></div>
+    <div class="t"><div class="n" style="color:#16a34a;">${Math.max(0,doneToday)}</div><div class="l">เสร็จวันนี้ (ใบ)</div></div>
+  </div>
+
+  <div style="font-weight:800;font-size:14px;margin:4px 2px 10px;">ช่างและภาระงาน</div>
+  <div id="cmList">${craftsmen.length
+    ? craftsmanStats.map(c => craftsmanCardHtml(c, allTypeCount)).join('')
+    : `<div class="empty-state" style="padding:36px"><i class="fa-solid fa-hammer"></i><p>ยังไม่มีช่างแต่ง กด "เพิ่มช่าง" เพื่อเริ่มต้น</p></div>`}</div>
+
+  <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:14px 16px;margin-top:6px;">
+    <div style="font-size:13.5px;font-weight:700;color:#0369a1;margin-bottom:7px;">
+      <i class="fa-solid fa-circle-info me-1"></i>วิธีใช้งาน</div>
+    <ul style="margin:0;padding-left:18px;font-size:12.5px;color:#374151;line-height:1.9;">
+      <li>กด "ดูงานของช่าง" จะเปิดหน้าช่างพร้อมเลือกชื่อคนนั้นให้เลย</li>
+      <li>ถ้าไม่ระบุประเภทหีบ ช่างคนนั้นจะเห็นทุกรายการ</li>
+      <li>ช่างกดแต่งเสร็จแล้ว รายการรอส่งจะขึ้นสถานะให้อัตโนมัติ</li>
+    </ul>
+  </div>`;
+  return;
+}
+
+// ── การ์ดช่าง 1 คน ──
+// ประเภทที่รับผิดชอบบางคนตั้งไว้ถึง 20 อัน ถ้าโชว์หมดการ์ดจะยาวกว่าเนื้อหาอื่นรวมกัน
+// → ครบทุกประเภท = ชิปเดียว "ทุกประเภท" / ไม่ครบ = 3 อันแรก + "อีก N ประเภท"
+function craftsmanCardHtml(c, allTypeCount) {
+  const types = c.productTypes || [];
+  const isAll = !types.length || (allTypeCount && types.length >= allTypeCount);
+  let chips;
+  if (isAll) {
+    chips = `<span class="cmtp all">ทุกประเภท</span>`;
+  } else {
+    chips = types.slice(0,3).map(t => `<span class="cmtp">${U.esc(t)}</span>`).join('')
+          + (types.length > 3 ? `<span class="cmtp more">อีก ${types.length-3} ประเภท</span>` : '');
+  }
+  const pend = Math.max(0, c.pending || 0);
+  return `<div class="cmcard">
+    <div class="top">
+      <div class="ava" style="background:${ocAvaColor(c.name||'')}">${U.esc(U.initial(c.name||'?'))}</div>
+      <div class="who"><div class="nm">${U.esc(c.name||'-')}</div>
+        <div class="cmtypes">${chips}</div></div>
+      <div class="cmpend"><div class="n${pend?'':' zero'}">${pend}</div><div class="l">ค้างแต่ง (ใบ)</div></div>
+    </div>
+    <div class="acts">
+      <a class="aa view" href="/craft.html?cm=${encodeURIComponent(c.id)}" onclick="return goCraftPage()">
+        <i class="fa-solid fa-hammer"></i>ดูงานของช่าง</a>
+      <button type="button" class="aa edit" onclick="showCraftsmanModal('${c.id}')">
+        <i class="fa-solid fa-pen"></i>แก้ไข</button>
+      <button type="button" class="aa more" onclick="this.closest('.cmcard').querySelector('.cmmenu').classList.toggle('open')">
+        <i class="fa-solid fa-ellipsis-vertical"></i></button>
+    </div>
+    <div class="cmmenu">
+      <button type="button" class="aa" onclick="deleteCraftsman('${c.id}')"><i class="fa-solid fa-trash"></i>ลบช่างคนนี้</button>
+    </div>
+  </div>`;
+}
+
+function _renderCraftsmenOld(el, craftsmen, products, craftsmanStats, totalCount, craftedCount) {
   el.innerHTML = `
   <div class="row g-3">
 

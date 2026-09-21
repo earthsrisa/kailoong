@@ -1081,8 +1081,15 @@ async function init() {
       `<div class="empty-craft"><i class="fa-solid fa-users-slash"></i><p>ยังไม่มีช่างแต่ง</p><p style="font-size:13px;color:#6b7280;">ให้ผู้ดูแลเพิ่มข้อมูลช่างในระบบก่อน</p></div>`;
   }
 
+  // ── เลือกช่างจาก URL ── ?cm=<id>
+  // แอดมินกด "ดูงานของช่าง" จากหน้าช่างแต่งฝั่งแอดมิน จะได้ไม่ต้องมาเลือกชื่อซ้ำ
+  // ถ้า id ที่ส่งมาไม่มีอยู่จริง ให้ตกไปใช้ชื่อที่จำไว้ในเครื่องเหมือนเดิม
+  let fromUrl = '';
+  try { fromUrl = new URLSearchParams(location.search).get('cm') || ''; } catch(e) {}
+  if (fromUrl && !_craftsmen.find(c => c.id === fromUrl)) fromUrl = '';
+
   // Restore saved craftsman
-  const saved = localStorage.getItem('craft_craftsman_id');
+  const saved = fromUrl || localStorage.getItem('craft_craftsman_id');
   if (saved && _craftsmen.find(c => c.id === saved)) {
     sel.value = saved;
     onCraftsmanChange();
@@ -2552,7 +2559,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v80</span>
+      <span style="opacity:.6;margin-left:6px;">· v81</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">
