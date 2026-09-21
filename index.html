@@ -473,6 +473,53 @@ body.modal-open #bottom-nav {
 .ivcard .aa.print { flex:1; color:#1d4ed8; background:#f5f8ff; border-color:#dbe6ff; }
 .ivcard .aa.print.solo { flex:1.3; }
 .ivcard .aa.more { width:50px; flex:0 0 auto; color:#64748b; }
+/* ══ ตั้งราคาพิเศษรายลูกค้า ══ */
+.cpsearch { display:flex; align-items:center; gap:9px; background:#fff; border:1px solid #e6ebf1;
+  border-radius:12px; padding:0 13px; margin-bottom:12px; }
+.cpsearch i { color:#94a3b8; font-size:14px; }
+.cpsearch input { flex:1; border:none; outline:none; background:none; font-family:inherit;
+  font-size:14px; padding:11px 0; min-height:44px; }
+.cphint { font-size:12.5px; color:#475569; background:#f8fafc; border:1px solid #eef2f6;
+  border-radius:10px; padding:9px 12px; margin-bottom:12px; }
+.cpprod { background:#fff; border:1px solid #eef2f6; border-radius:16px; margin-bottom:13px;
+  overflow:hidden; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.cpprod .ph { display:flex; align-items:center; gap:9px; padding:12px 14px;
+  background:#f8fafc; border-bottom:1px solid #eef2f6; font-weight:800; font-size:14.5px; }
+.cpprod .ph .pi { width:26px; height:26px; border-radius:8px; flex:0 0 auto; color:#fff;
+  background:linear-gradient(135deg,#fbbf24,#b45309);
+  display:flex; align-items:center; justify-content:center; font-size:12px; }
+.cpprod .ph .set { margin-left:auto; font-size:10.5px; font-weight:700; color:#6d28d9;
+  background:#f5f0ff; border-radius:999px; padding:2px 9px; }
+.cprow { display:flex; align-items:center; gap:11px; padding:12px 14px; border-bottom:1px solid #f4f6f9; }
+.cprow:last-child { border-bottom:none; }
+.cprow .li { flex:1; min-width:0; }
+.cprow .ln { font-weight:700; font-size:14px; display:flex; align-items:center; gap:7px; }
+.cprow .ln .sym { font-size:16px; }
+.cprow .normal { font-size:11.5px; color:#64748b; margin-top:2px; }
+.cpin { position:relative; flex:0 0 auto; width:120px; }
+.cpin input { width:100%; height:46px; border:1.5px solid #e2e8f0; border-radius:11px; background:#fff;
+  font-family:inherit; font-size:15px; font-weight:800; text-align:right; padding:0 30px 0 10px; color:#0f172a; }
+.cpin input::placeholder { color:#94a3b8; font-weight:600; font-size:13px; }
+/* ใช้ "บ." ไม่ใช่ ฿ — สัญลักษณ์บาทตัวเล็ก ๆ อ่านเป็นตัว B */
+.cpin .b { position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  font-size:12px; color:#64748b; font-weight:700; pointer-events:none; }
+/* แถวที่ตั้งราคาพิเศษไว้แล้ว — เขียวทั้งแถบ เห็นปราดเดียวว่าตั้งอันไหนไว้ */
+.cprow.special { background:#f0fdf4; }
+.cprow.special .cpin input { border-color:#16a34a; color:#15803d; }
+.cprow.special .cpin .b { color:#16a34a; }
+.cpsaved { display:none; align-items:center; gap:4px; font-size:10.5px; font-weight:700;
+  color:#15803d; background:#dcfce7; border-radius:6px; padding:1px 7px; margin-top:4px; }
+.cprow.special .cpsaved { display:inline-flex; }
+.cpfoot { width:100%; }
+.cpfoot .note { font-size:12.5px; color:#64748b; text-align:center; margin-bottom:11px; }
+.cpfoot .note b { color:#6d28d9; font-weight:800; }
+.cpfoot .save { width:100%; height:52px; border:none; border-radius:14px; cursor:pointer;
+  background:linear-gradient(135deg,#2563eb,#1d4ed8); color:#fff; font-family:inherit;
+  font-weight:800; font-size:16px; box-shadow:0 5px 14px rgba(37,99,235,.3); }
+.cpfoot .cancel { width:100%; height:40px; border:none; background:none; margin-top:7px;
+  font-family:inherit; font-size:13.5px; font-weight:600; color:#64748b; cursor:pointer; }
+#custPriceModal .modal-footer { display:block; padding:12px 14px 14px; }
+
 /* ══ หน้าลูกค้า — การ์ดแทนตาราง ══ */
 .ccard { background:#fff; border-radius:18px; padding:15px; margin-bottom:13px;
   box-shadow:0 2px 10px rgba(15,23,42,.06); }
@@ -1824,7 +1871,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v79';
+const APP_VERSION = 'v80';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2878,6 +2925,8 @@ const COLOR_SWATCH = {
 const TRIM_ICON = {
   'ทอง':'🟡', 'เงิน':'⚪', 'ซีด':'🥉', 'ขาว':'⬜',
   'คริสต์':'✝️', 'ผ้าจีบ':'🪷', 'ผ้าดอก':'🌸',
+  // มีในข้อมูลจริงแต่เดิมไม่มีสัญลักษณ์ เลยขึ้นเป็นช่องว่าง
+  'ผ้าจีบทอง':'🏵️', '(ไม่แต่ง)':'◽',
 };
 
 // ── ขั้นที่เลือกเสร็จแล้ว: แถวเขียวติ๊กถูก บรรทัดเดียว + ปุ่มเปลี่ยน ──
@@ -4661,53 +4710,121 @@ async function deleteCustomer(id) {
 async function showCustomerPriceModal(custId) {
   const [cust, products] = await Promise.all([DB.getCustomer(custId), DB.getProducts()]);
   if (!cust||!products.length){U.toast('กรุณาเพิ่มสินค้าก่อน','error');return;}
-  const lineIcons={ทอง:'🟡',เงิน:'🔘',ซีด:'🥉',ขาว:'⬜',คริสต์:'✝',ผ้าจีบ:'🪷',ผ้าดอก:'🌸'};
-  const rows=products.map(p=>{
-    const spec=COFFIN_SPEC[p.name];
-    const lines=spec?.lines||Object.keys(p.priceMap||{});
-    const cpObj=cust.customPrices?.[p.id];
-    if(!lines.length){
-      const val=(typeof cpObj==='number')?cpObj:'';
-      return `<tr style="background:#f8fafc;"><td colspan="2"><strong>${U.esc(p.name)}</strong></td>
-        <td><input type="number" class="form-control form-control-sm" id="cp_${p.id}__" min="0" value="${val}" placeholder="ราคาปกติ ${U.money(p.price)}"></td></tr>`;
+  const cards = products.map(p => {
+    const cpObj = cust.customPrices?.[p.id];
+    const lines = cpLinesOf(p);
+    if (!lines.length) {
+      // สินค้าที่ไม่มีสีเส้น — ช่องเดียว
+      const val = (typeof cpObj === 'number') ? cpObj : '';
+      return `<div class="cpprod" data-name="${U.esc(p.name)}">
+        <div class="ph"><span class="pi"><i class="fa-solid fa-box"></i></span>${U.esc(p.name)}
+          <span class="set" style="display:none;">พิเศษ 1</span></div>
+        <div class="cprow${val!==''?' special':''}">
+          <div class="li"><div class="ln">ราคาเดียว</div>
+            <div class="normal">ราคาปกติ ${U.baht(p.price||0)} บาท</div>
+            <span class="cpsaved"><i class="fa-solid fa-check"></i>ราคาพิเศษ</span></div>
+          <div class="cpin"><input type="number" min="0" inputmode="decimal"
+            data-pid="${U.esc(String(p.id))}" data-line="" value="${val}"
+            placeholder="ปกติ" oninput="cpPaint()"><span class="b">บ.</span></div>
+        </div></div>`;
     }
-    const subRows=lines.map(l=>{
-      const defPrice=p.priceMap?.[l]??p.price;
-      const val=(typeof cpObj==='object'&&cpObj?.[l]!==undefined)?cpObj[l]:'';
-      return `<tr><td style="padding-left:24px;font-size:13px;">${lineIcons[l]||''} เส้น${l}</td>
-        <td style="text-align:center;font-size:13px;color:#6b7280;">${U.money(defPrice)}</td>
-        <td><input type="number" class="form-control form-control-sm" id="cp_${p.id}_${l}" min="0" value="${val}" placeholder="ราคาปกติ ${U.money(defPrice)}"></td></tr>`;
+    const rows = lines.map(l => {
+      const def = p.priceMap?.[l] ?? p.price;
+      const val = (typeof cpObj === 'object' && cpObj?.[l] !== undefined) ? cpObj[l] : '';
+      // สีเส้นแบบ '-' หรือ '(ไม่แต่ง)' ไม่ต้องเติมคำว่า "เส้น" ข้างหน้า จะอ่านไม่รู้เรื่อง
+      const plain = ['-','(ไม่แต่ง)',''].includes(l);
+      return `<div class="cprow${val!==''?' special':''}">
+        <div class="li">
+          <div class="ln"><span class="sym">${TRIM_ICON[l]||'▫'}</span>${plain?'ราคาปกติ':'เส้น'+U.esc(l)}</div>
+          <div class="normal">ราคาปกติ ${U.baht(def||0)} บาท</div>
+          <span class="cpsaved"><i class="fa-solid fa-check"></i>ราคาพิเศษ</span>
+        </div>
+        <div class="cpin"><input type="number" min="0" inputmode="decimal"
+          data-pid="${U.esc(String(p.id))}" data-line="${U.esc(l)}" value="${val}"
+          placeholder="ปกติ" oninput="cpPaint()"><span class="b">บ.</span></div>
+      </div>`;
     }).join('');
-    return `<tr style="background:#eff6ff;"><td colspan="3" style="padding:7px 12px;font-weight:700;color:#1e3a8a;font-size:14px;">📦 ${U.esc(p.name)}</td></tr>${subRows}`;
+    return `<div class="cpprod" data-name="${U.esc(p.name)}">
+      <div class="ph"><span class="pi"><i class="fa-solid fa-box"></i></span>${U.esc(p.name)}
+        <span class="set" style="display:none;"></span></div>${rows}</div>`;
   }).join('');
-  const body=`<p style="font-size:13px;color:#6b7280;margin-bottom:12px;">ตั้งราคาพิเศษสำหรับ <strong>${U.esc(cust.name)}</strong><br>ปล่อยว่างไว้ = ใช้ราคาปกติของสินค้า</p>
-    <table class="table-clean"><thead><tr><th>สีเส้น</th><th style="text-align:center;">ราคาปกติ</th><th>ราคาของร้านนี้</th></tr></thead>
-    <tbody>${rows}</tbody></table>`;
-  showModal('custPriceModal',`ราคาพิเศษ — ${U.esc(cust.name)}`,body,
-    `<button class="btn btn-primary" onclick="saveCustomerPrices('${custId}')"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึกราคา</button>
-     <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,'modal-lg');
-  window._custPriceProducts=products;
+
+  const body = `
+    <div class="cphint"><i class="fa-solid fa-circle-info me-1" style="color:#2563eb;"></i>
+      ช่องไหนไม่กรอก = ใช้ราคาปกติของสินค้า</div>
+    <div class="cpsearch"><i class="fa-solid fa-search"></i>
+      <input type="text" id="cpSearch" placeholder="ค้นหาชื่อสินค้า" oninput="cpFilter()"></div>
+    <div id="cpList">${cards}</div>`;
+
+  const foot = `<div class="cpfoot">
+    <div class="note" id="cpNote"></div>
+    <button type="button" class="save" onclick="saveCustomerPrices('${custId}')">
+      <i class="fa-solid fa-floppy-disk me-1"></i>บันทึกราคา</button>
+    <button type="button" class="cancel" data-bs-dismiss="modal">ยกเลิก</button>
+  </div>`;
+
+  showModal('custPriceModal',
+    `ราคาพิเศษ <span class="oc-prog" style="background:#f5f0ff;color:#6d28d9;">${U.esc(cust.name)}</span>`,
+    body, foot, 'modal-lg');
+  window._custPriceProducts = products;
+  cpPaint();
+}
+
+// ── สีเส้นของสินค้า ──
+// ⚠️ ต้องอ่านจาก priceMap ของสินค้าจริง ไม่ใช่ COFFIN_SPEC ที่เขียนตายไว้ในโค้ด
+// เดิมใช้ SPEC ก่อน ทำให้สีเส้นที่เพิ่มเข้ามาทีหลังตั้งราคาพิเศษไม่ได้เลย
+// (เช่น มุกใหญ่ "ผ้าจีบทอง" 4,200 และ ธรรมดา "คริสต์"/"(ไม่แต่ง)" — ช่องไม่ขึ้นให้กรอก)
+function cpLinesOf(p) {
+  const pm = p.priceMap || {};
+  const fromMap = Object.keys(pm).filter(k => k !== '__default' && Number(pm[k]) > 0);
+  if (fromMap.length) return fromMap;
+  const spec = (typeof COFFIN_SPEC !== 'undefined' && COFFIN_SPEC[p.name]) || null;
+  return (spec && spec.lines) || [];
+}
+
+// ทาสีแถวที่กรอกแล้ว + นับจำนวนที่ตั้งไว้ (ทั้งบนหัวการ์ดและแถบล่าง)
+function cpPaint() {
+  let total = 0;
+  document.querySelectorAll('#cpList .cpprod').forEach(card => {
+    let n = 0;
+    card.querySelectorAll('.cprow').forEach(row => {
+      const on = (row.querySelector('input')?.value || '').trim() !== '';
+      row.classList.toggle('special', on);
+      if (on) n++;
+    });
+    const tag = card.querySelector('.ph .set');
+    if (tag) { tag.textContent = n ? `พิเศษ ${n}` : ''; tag.style.display = n ? '' : 'none'; }
+    total += n;
+  });
+  const note = document.getElementById('cpNote');
+  if (note) note.innerHTML = total
+    ? `ตั้งราคาพิเศษไว้ <b>${total} รายการ</b> · ที่เหลือใช้ราคาปกติ`
+    : 'ยังไม่ได้ตั้งราคาพิเศษ — ใช้ราคาปกติทั้งหมด';
+}
+
+// ค้นหาสินค้า — 21 รายการคูณสีเส้นแล้วเกือบ 60 ช่อง เลื่อนหาเองไม่ไหว
+function cpFilter() {
+  const q = (document.getElementById('cpSearch')?.value || '').toLowerCase().trim();
+  document.querySelectorAll('#cpList .cpprod').forEach(card => {
+    const hit = !q || (card.dataset.name || '').toLowerCase().includes(q);
+    card.style.display = hit ? '' : 'none';
+  });
 }
 
 async function saveCustomerPrices(custId) {
-  const cust=await DB.getCustomer(custId);
-  const customPrices={};
-  (window._custPriceProducts||[]).forEach(p=>{
-    const spec=COFFIN_SPEC[p.name];
-    const lines=spec?.lines||Object.keys(p.priceMap||{});
-    if(!lines.length){
-      const el=document.getElementById(`cp_${p.id}__`);
-      const val=el?.value.trim();
-      if(val!=='') customPrices[p.id]=parseFloat(val);
-    } else {
-      const pricePerLine={};
-      lines.forEach(l=>{
-        const el=document.getElementById(`cp_${p.id}_${l}`);
-        const val=el?.value.trim();
-        if(val!=='') pricePerLine[l]=parseFloat(val);
-      });
-      if(Object.keys(pricePerLine).length) customPrices[p.id]=pricePerLine;
-    }
+  const cust = await DB.getCustomer(custId);
+  const customPrices = {};
+  // อ่านจากช่องที่วาดอยู่จริงบนหน้าจอ (data-pid / data-line)
+  // ดีกว่าไปไล่ชื่อ id เพราะชื่อสีเส้นมีวงเล็บและขีด เช่น "(ไม่แต่ง)" ซึ่งทำ selector พัง
+  document.querySelectorAll('#cpList input[data-pid]').forEach(el => {
+    const val = (el.value || '').trim();
+    if (val === '') return;
+    const num = parseFloat(val);
+    if (!isFinite(num) || num < 0) return;      // กันค่าติดลบ/ขยะ
+    const pid = el.dataset.pid, line = el.dataset.line || '';
+    if (!line) { customPrices[pid] = num; return; }        // สินค้าไม่มีสีเส้น = ราคาเดียว
+    if (typeof customPrices[pid] !== 'object' || customPrices[pid] === null) customPrices[pid] = {};
+    customPrices[pid][line] = num;
   });
   await DB.putCustomer({...cust,customPrices});
   U.toast('บันทึกราคาพิเศษแล้ว ✓');
