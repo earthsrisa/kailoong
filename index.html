@@ -516,6 +516,136 @@ body.modal-open #bottom-nav {
 .cmmenu .aa { flex:1; color:#b91c1c; background:#fef2f2; border-color:#fcd6d6; }
 @media (min-width: 900px) { #cmList { display:grid; grid-template-columns:1fr 1fr; gap:0 12px; } }
 
+/* ══ หน้ารายงาน ══ */
+.rkpi { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+.rk { border-radius:15px; padding:14px; background:#fff; border:1px solid #eef2f6;
+  box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.rk .lb { font-size:11.5px; color:#64748b; font-weight:600; display:flex; align-items:center; gap:6px; }
+.rk .lb .d { width:9px; height:9px; border-radius:3px; flex:0 0 auto; }
+.rk .n { font-size:21px; font-weight:800; margin-top:7px; line-height:1.15; }
+.rk .n small { font-size:12px; font-weight:700; color:#94a3b8; }
+.rk .s2 { font-size:10.5px; color:#94a3b8; margin-top:4px; }
+.rk.profit { background:linear-gradient(135deg,#1e3a8a,#2563eb); border:none; color:#fff; }
+.rk.profit.loss { background:linear-gradient(135deg,#9f1239,#e11d48); }
+.rk.profit .lb, .rk.profit .s2 { color:rgba(255,255,255,.85); }
+.rk.profit .n small { color:rgba(255,255,255,.72); }
+.rpanel { background:#fff; border:1px solid #eef2f6; border-radius:16px; padding:15px;
+  margin-bottom:14px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.rpanel .ph { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-bottom:14px; }
+.rpanel .ph .t { font-weight:800; font-size:14.5px; }
+.rpanel .ph .s { font-size:11px; color:#94a3b8; text-align:right; }
+.rchart { display:flex; align-items:flex-end; gap:8px; height:152px; padding-top:18px; }
+.rcol { flex:1; min-width:0; display:flex; flex-direction:column; align-items:center;
+  justify-content:flex-end; height:100%; gap:5px; }
+.rcol .v { font-size:10px; font-weight:700; color:#94a3b8; }
+.rcol .bar { width:66%; background:#bfdbfe; border-radius:5px 5px 0 0; min-height:4px; }
+.rcol.cur .bar { background:linear-gradient(180deg,#2563eb,#1d4ed8); }
+.rcol.cur .v { color:#1d4ed8; }
+.rcol .mo { font-size:10.5px; color:#64748b; font-weight:600; white-space:nowrap; }
+.rcol .oc { font-size:9.5px; color:#cbd5e1; font-weight:700; }
+.rcol.cur .oc { color:#93c5fd; }
+.raxis { border-top:1px solid #eef2f6; margin-top:6px; padding-top:7px;
+  font-size:10.5px; color:#94a3b8; text-align:center; }
+.todr { display:flex; align-items:baseline; gap:10px; padding:9px 0; border-bottom:1px solid #f4f6f9; }
+.todr .tn { font-weight:700; font-size:13.5px; flex:1; min-width:0; }
+.todr .tq { font-size:17px; font-weight:800; color:#2563eb; white-space:nowrap; }
+.todr .tq small { font-size:11px; font-weight:600; color:#94a3b8; }
+.todr .tv { font-size:12.5px; font-weight:700; color:#0f172a; width:76px; text-align:right; flex:0 0 auto; }
+.todc { font-size:11px; color:#94a3b8; margin:-3px 0 7px; line-height:1.5; }
+.todsum { display:flex; align-items:center; justify-content:space-between; gap:8px;
+  border-top:1px solid #eef2f6; margin-top:9px; padding-top:11px; font-size:12.5px; }
+.rrank { display:flex; flex-direction:column; gap:11px; }
+.rrow { display:flex; align-items:center; gap:10px; }
+.rrow .nm { font-size:12.5px; font-weight:600; color:#334155; width:82px; flex:0 0 auto;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rrow .track { flex:1; height:9px; border-radius:999px; background:#f1f5f9; overflow:hidden; }
+.rrow .track > i { display:block; height:100%; border-radius:999px;
+  background:linear-gradient(90deg,#60a5fa,#2563eb); }
+.rrow .q { font-size:12px; font-weight:800; color:#0f172a; width:52px; text-align:right; flex:0 0 auto; }
+.rcust { display:flex; flex-direction:column; gap:13px; }
+.rcrow { display:flex; align-items:center; gap:11px; }
+.rcrow .rnk { width:25px; height:25px; border-radius:8px; background:#f1f5f9; color:#64748b;
+  font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+.rcrow .rnk.g1 { background:#fef3c7; color:#b45309; }
+.rcrow .rnk.g2 { background:#e2e8f0; color:#475569; }
+.rcrow .rnk.g3 { background:#fde9d3; color:#c2410c; }
+.rcrow .info { flex:1; min-width:0; }
+.rcrow .cn { font-size:13px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.rcrow .co { font-size:10.5px; color:#94a3b8; }
+.rcrow .ct { font-weight:800; font-size:13px; color:#16a34a; white-space:nowrap; flex:0 0 auto; }
+
+/* ══ หน้ารายจ่ายโรงงาน ══ */
+.excat .l1 { display:flex; align-items:center; justify-content:space-between; gap:8px;
+  font-size:13px; margin-bottom:5px; }
+.excat .cat { font-weight:700; display:flex; align-items:center; gap:7px; min-width:0; }
+.excat .cat .d { width:11px; height:11px; border-radius:3px; flex:0 0 auto; }
+.excat .amt { font-weight:800; color:#0f172a; white-space:nowrap; }
+.excat .track { height:9px; border-radius:999px; background:#f1f5f9; overflow:hidden; }
+.excat .track > i { display:block; height:100%; border-radius:999px; }
+.excat .pct { font-size:10.5px; color:#94a3b8; text-align:right; margin-top:3px; }
+.exrow { display:flex; align-items:center; gap:12px; background:#fff; border:1px solid #eef2f6;
+  border-radius:14px; padding:13px; margin-bottom:10px; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.exrow .ci { width:40px; height:40px; border-radius:11px; flex:0 0 auto; color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:16px; }
+.exrow .tx { flex:1; min-width:0; }
+.exrow .nt { font-weight:700; font-size:14px; line-height:1.25;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.exrow .mt { font-size:11.5px; color:#64748b; margin-top:4px; overflow:hidden;
+  display:flex; align-items:center; gap:7px; white-space:nowrap; }
+.exrow .mt .exchip { flex:0 0 auto; }
+.exchip { font-size:10.5px; font-weight:700; padding:1px 8px; border-radius:6px; }
+.exrow .money { font-weight:800; font-size:15px; color:#dc2626; white-space:nowrap; flex:0 0 auto; }
+.exrow .mm { width:38px; height:38px; border-radius:10px; border:1px solid #eef2f6; background:#fff;
+  color:#94a3b8; display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  cursor:pointer; font-family:inherit; }
+.exmenu { display:none; gap:9px; margin:-5px 0 11px; }
+.exmenu.open { display:flex; }
+.exmenu button { flex:1; min-height:44px; border-radius:12px; border:1px solid #e6ebf1;
+  background:#fff; font-family:inherit; font-weight:700; font-size:13.5px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:7px; }
+.exmenu button.del { color:#b91c1c; background:#fef2f2; border-color:#fcd6d6; }
+.exmenu button.ed  { color:#1d4ed8; background:#f5f8ff; border-color:#dbe6ff; }
+
+/* ══ หน้าตั้งค่า ══ */
+.stshop { border-radius:16px; padding:14px 15px; margin-bottom:14px; color:#fff;
+  background:linear-gradient(135deg,#0f172a,#1e293b); display:flex; align-items:center; gap:12px; }
+.stshop .lg { width:44px; height:44px; border-radius:13px; flex:0 0 auto; color:#fbbf24;
+  background:rgba(255,255,255,.12); display:flex; align-items:center; justify-content:center; font-size:19px; }
+.stshop .who { flex:1; min-width:0; }
+.stshop .nm { font-weight:800; font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.stshop .meta { font-size:11.5px; opacity:.75; margin-top:2px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.stgrp { margin-bottom:16px; }
+.stgrp .gh { font-size:11.5px; font-weight:700; color:#94a3b8; margin:0 3px 8px; }
+.strows { background:#fff; border:1px solid #eef2f6; border-radius:16px; overflow:hidden;
+  box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.strow { display:flex; align-items:center; gap:12px; padding:13px 14px; width:100%;
+  background:none; border:0; border-bottom:1px solid #f4f6f9; font-family:inherit;
+  text-align:left; cursor:pointer; color:inherit; }
+.strows > *:last-child { border-bottom:none; }
+.strow .si { width:36px; height:36px; border-radius:10px; flex:0 0 auto; color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:15px; }
+/* .tx/.st/.ss เป็น <span> (เพราะอยู่ใน <button>) ต้องบังคับ block
+   ไม่งั้นหัวข้อกับคำอธิบายจะไหลมาต่อกันเป็นบรรทัดเดียว */
+.strow .tx { flex:1; min-width:0; display:block; }
+.strow .st { display:block; font-weight:700; font-size:14px; line-height:1.25; }
+.strow .ss { display:block; font-size:11.5px; color:#64748b; margin-top:3px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.strow .val { font-size:12.5px; color:#94a3b8; font-weight:600; flex:0 0 auto;
+  display:flex; align-items:center; gap:6px; }
+.stbtnrow { padding:13px 14px; border-bottom:1px solid #f4f6f9; }
+.stbk { min-height:46px; width:100%; border-radius:12px; border:1px solid transparent;
+  display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;
+  font-family:inherit; font-weight:700; font-size:13.5px; }
+.stbk.green { background:#ecfdf5; color:#047857; border-color:#a7f3d0; }
+.stbk.dgr   { background:#fff;    color:#b91c1c; border-color:#fcd6d6; }
+.st4 { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:9px; }
+.st4 .s4 { background:#fff; border:1px solid #eef2f6; border-radius:14px; padding:12px 5px;
+  text-align:center; box-shadow:0 1px 2px rgba(15,23,42,.04); }
+.st4 .s4 .n { font-size:18px; font-weight:800; line-height:1; }
+.st4 .s4 .l { font-size:10px; color:#64748b; margin-top:4px; }
+@media (min-width: 900px) { .rkpi { grid-template-columns:1fr 1fr 1fr 1fr; } }
+
 /* ══ ตั้งราคาพิเศษรายลูกค้า ══ */
 .cpsearch { display:flex; align-items:center; gap:9px; background:#fff; border:1px solid #e6ebf1;
   border-radius:12px; padding:0 13px; margin-bottom:12px; }
@@ -1914,7 +2044,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v81';
+const APP_VERSION = 'v82';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -6249,8 +6379,9 @@ async function renderReports(el) {
 
   const rangeLabels={today:'วันนี้',week:'สัปดาห์นี้',month:'เดือนนี้',year:'ปีนี้',all:'ทั้งหมด',custom:'กำหนดเอง'};
 
-  const [orders,invoices,customers,expenses]=await Promise.all([DB.getOrders(),DB.getInvoices(),DB.getCustomers(),DB.getExpenses()]);
-  const monthStart=new Date(now.getFullYear(),now.getMonth(),1).getTime();
+  // ไม่ดึง customers แล้ว — การ์ด "ลูกค้าทั้งหมด" ย้ายไปอยู่หน้าตั้งค่า/หน้าลูกค้า
+  // ดึงน้อยลง 1 คอลเลกชัน = ประหยัดโควต้าอ่านของ Firestore
+  const [orders,invoices,expenses]=await Promise.all([DB.getOrders(),DB.getInvoices(),DB.getExpenses()]);
 
   // ── วันนี้ (fixed — ไม่เปลี่ยนตาม filter) ──
   const todayOrders=orders.filter(o=>U.isToday(o.createdAt));
@@ -6290,9 +6421,6 @@ async function renderReports(el) {
   const monthProfit       = monthIncome - monthExpenseTotal;
   const allProfit         = allIncomeTotal - allExpenseTotal;
 
-  // expense breakdown 6 months
-  const monthExpenses6 = months.map(m=>expenses.filter(e=>{const d=new Date(e.date);return d.getFullYear()===m.year&&d.getMonth()===m.month;}).reduce((a,e)=>a+(e.amount||0),0));
-
   // ── Top ลูกค้า (ตามช่วงที่เลือก) ──
   const custMap={};
   rangeOrders.forEach(o=>{
@@ -6303,164 +6431,134 @@ async function renderReports(el) {
   });
   const topCusts=Object.values(custMap).sort((a,b)=>b.total-a.total).slice(0,5);
 
+  // ── ยอดขาย 6 เดือน: หาค่าสูงสุดไว้คิดความสูงแท่ง (กัน /0 ตอนยังไม่มีข้อมูล) ──
+  const maxRev  = Math.max(1, ...monthRevenue);
+  const maxProd = Math.max(1, ...topProds.map(([,v]) => v));
+  const curMi   = months.length - 1;   // เดือนปัจจุบันคือช่องสุดท้าย
+
   el.innerHTML=`
-  <!-- ── Filter bar ── -->
-  <div class="card-box mb-3" style="padding:12px 16px;">
-    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-      <span style="font-size:13px;font-weight:600;color:#374151;white-space:nowrap;"><i class="fa-solid fa-calendar-days me-1 text-primary"></i>ช่วงเวลา:</span>
-      ${['today','week','month','year','all','custom'].map(r=>`
-        <button onclick="setReportRange('${r}')" style="padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid ${rng===r?'#2563eb':'#d1d5db'};background:${rng===r?'#2563eb':'#fff'};color:${rng===r?'#fff':'#374151'};transition:all .15s;">${{today:'วันนี้',week:'สัปดาห์นี้',month:'เดือนนี้',year:'ปีนี้',all:'ทั้งหมด',custom:'กำหนดเอง'}[r]}</button>
+  <div class="oh">
+    <div><h2>รายงาน</h2>
+      <div class="cnt">${rangeLabels[rng]} · <b>${rangeOrders.length}</b> ออเดอร์ · <b>${rangeInvoices.length}</b> ใบเสร็จ</div></div>
+  </div>
+
+  <div class="ochips">
+    ${['today','week','month','year','all','custom'].map(r=>`
+      <button type="button" class="ochip${rng===r?' on':''}" onclick="setReportRange('${r}')">${rangeLabels[r]}</button>`).join('')}
+  </div>
+
+  ${rng==='custom' ? `
+  <div class="rpanel" style="padding:13px 14px;">
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;">
+      <input type="date" id="rpt_from" value="${window._reportFrom||''}" onchange="window._reportFrom=this.value"
+        style="flex:1;min-width:130px;min-height:44px;border:1px solid #e6ebf1;border-radius:11px;padding:0 10px;font-family:inherit;">
+      <span style="color:#64748b;">ถึง</span>
+      <input type="date" id="rpt_to" value="${window._reportTo||''}" onchange="window._reportTo=this.value"
+        style="flex:1;min-width:130px;min-height:44px;border:1px solid #e6ebf1;border-radius:11px;padding:0 10px;font-family:inherit;">
+      <button type="button" onclick="navigate('reports')"
+        style="min-height:44px;padding:0 18px;border:0;border-radius:11px;background:#0f172a;color:#fff;font-weight:700;font-family:inherit;">ดูข้อมูล</button>
+    </div>
+  </div>` : ''}
+
+  <!-- ── สั่งของวันนี้ — ไม่ขึ้นกับชิปช่วงเวลา ใช้ดูว่าวันนี้ต้องเตรียมอะไร ── -->
+  <div class="rpanel" style="border-left:4px solid #2563eb;">
+    <div class="ph">
+      <div class="t"><i class="fa-solid fa-sun me-1" style="color:#f59e0b;"></i>สั่งของวันนี้</div>
+      <div class="s">${new Date().toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'})}</div>
+    </div>
+    ${Object.keys(todayItemsMap).length ? `
+      ${Object.entries(todayItemsMap).map(([name,v])=>`
+        <div class="todr">
+          <div class="tn">${U.esc(name)}</div>
+          <div class="tq">${v.qty}<small> ชิ้น</small></div>
+          <div class="tv">${U.baht(v.total)}</div>
+        </div>
+        <div class="todc">${U.esc([...new Set(todayOrders.filter(o=>(o.items||[]).some(i=>i.productName===name)).map(o=>o.customerName))].join(' · '))}</div>
       `).join('')}
-      ${rng==='custom'?`
-        <input type="date" id="rpt_from" value="${window._reportFrom||''}" onchange="window._reportFrom=this.value" style="font-size:13px;border:1px solid #d1d5db;border-radius:6px;padding:4px 8px;">
-        <span style="font-size:13px;color:#6b7280;">ถึง</span>
-        <input type="date" id="rpt_to" value="${window._reportTo||''}" onchange="window._reportTo=this.value" style="font-size:13px;border:1px solid #d1d5db;border-radius:6px;padding:4px 8px;">
-        <button onclick="navigate('reports')" style="padding:5px 14px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid #2563eb;background:#2563eb;color:#fff;">ดูข้อมูล</button>
-      `:''}
-      <span style="margin-left:auto;font-size:12px;color:#6b7280;">${rangeLabels[rng]}: ${rangeOrders.length} ออเดอร์ | ${rangeInvoices.length} ใบเสร็จ</span>
+      <div class="todsum">
+        <span style="color:#64748b;">${todayOrders.length} ออเดอร์ · ${[...new Set(todayOrders.map(o=>o.customerName))].length} ลูกค้า · รวม ${Object.values(todayItemsMap).reduce((a,v)=>a+v.qty,0)} ชิ้น</span>
+        <b style="font-size:15px;color:#2563eb;">${U.baht(todayTotal)} บาท</b>
+      </div>`
+    : `<div style="text-align:center;padding:16px 0;color:#94a3b8;font-size:13px;">
+         <i class="fa-solid fa-moon" style="font-size:20px;display:block;margin-bottom:6px;opacity:.6;"></i>ยังไม่มีออเดอร์วันนี้</div>`}
+  </div>
+
+  <!-- ── สรุป 4 ตัวเลข ตามช่วงที่เลือก ── -->
+  <div class="rkpi">
+    <div class="rk">
+      <div class="lb"><span class="d" style="background:#16a34a;"></span>ยอดขาย</div>
+      <div class="n" style="color:#16a34a;">${U.baht(monthIncome)}<small> บาท</small></div>
+      <div class="s2">จาก ${rangeInvoices.length} ใบเสร็จ</div>
+    </div>
+    <div class="rk">
+      <div class="lb"><span class="d" style="background:#d97706;"></span>รายจ่าย</div>
+      <div class="n" style="color:#d97706;">${U.baht(monthExpenseTotal)}<small> บาท</small></div>
+      <div class="s2">${rangeExpenses.length ? rangeExpenses.length + ' รายการ' : 'ยังไม่ได้บันทึกรายจ่าย'}</div>
+    </div>
+    <div class="rk profit${monthProfit<0?' loss':''}">
+      <div class="lb">${monthProfit<0?'📉 ขาดทุนสุทธิ':'💰 กำไรสุทธิ'}</div>
+      <div class="n">${monthProfit<0?'−':''}${U.baht(Math.abs(monthProfit))}<small> บาท</small></div>
+      <div class="s2">ยอดขาย − รายจ่าย</div>
+    </div>
+    <div class="rk">
+      <div class="lb"><span class="d" style="background:#94a3b8;"></span>ออเดอร์</div>
+      <div class="n">${rangeOrders.length}</div>
+      <div class="s2">เฉลี่ย ${U.baht(avgOrder)} บาท/ใบ</div>
     </div>
   </div>
 
-  <!-- วันนี้สั่งอะไรบ้าง -->
-  <div class="card-box mb-4" style="border-left:4px solid #2563eb;">
-    <div class="card-head" style="background:#f0f7ff;">
-      <h2 style="color:#2563eb;"><i class="fa-solid fa-sun me-2"></i>สั่งของวันนี้ — ${new Date().toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</h2>
-      <div style="font-weight:700;font-size:18px;color:#2563eb;">รวม ${U.money(todayTotal)}</div>
+  ${(allIncomeTotal||allExpenseTotal) ? `
+  <div class="rpanel" style="padding:11px 14px;margin-bottom:14px;">
+    <div style="font-size:11.5px;color:#64748b;text-align:center;line-height:1.7;">
+      ตลอดทุกเวลา — ขาย <b style="color:#16a34a;">${U.baht(allIncomeTotal)}</b>
+      · จ่าย <b style="color:#d97706;">${U.baht(allExpenseTotal)}</b>
+      · ${allProfit>=0?'กำไร':'ขาดทุน'} <b style="color:${allProfit>=0?'#1d4ed8':'#dc2626'};">${U.baht(Math.abs(allProfit))}</b> บาท
     </div>
-    <div class="p-3">
-      ${Object.keys(todayItemsMap).length ? `
-      <div class="table-scroll">
-        <table class="table-clean">
-          <thead><tr><th>สินค้า</th><th style="text-align:center;">รวมจำนวน</th><th style="text-align:right;">รวมมูลค่า</th><th>ออเดอร์ที่เกี่ยวข้อง</th></tr></thead>
-          <tbody>
-            ${Object.entries(todayItemsMap).map(([name,v])=>`
-            <tr>
-              <td><strong>${U.esc(name)}</strong></td>
-              <td style="text-align:center;font-size:18px;font-weight:700;">${v.qty} <span style="font-size:13px;color:#6b7280;font-weight:400;">ชิ้น</span></td>
-              <td style="text-align:right;font-weight:600;">${U.money(v.total)}</td>
-              <td style="font-size:12px;color:#6b7280;">
-                ${todayOrders.filter(o=>(o.items||[]).some(i=>i.productName===name)).map(o=>`${U.esc(o.customerName)}`).join(', ')}
-              </td>
-            </tr>`).join('')}
-          </tbody>
-          <tfoot>
-            <tr style="background:#f8f9fa;">
-              <td style="font-weight:700;">รวมทั้งหมด</td>
-              <td style="text-align:center;font-weight:700;">${Object.values(todayItemsMap).reduce((a,v)=>a+v.qty,0)} ชิ้น</td>
-              <td style="text-align:right;font-weight:700;">${U.money(todayTotal)}</td>
-              <td style="font-size:12px;color:#6b7280;">${todayOrders.length} ออเดอร์ จาก ${[...new Set(todayOrders.map(o=>o.customerName))].length} ลูกค้า</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>` : '<div class="empty-state" style="padding:20px"><i class="fa-solid fa-moon"></i><p>ยังไม่มีออเดอร์วันนี้</p></div>'}
+  </div>` : ''}
+
+  <!-- ── ยอดขาย 6 เดือน ── -->
+  <div class="rpanel">
+    <div class="ph"><div class="t">ยอดขาย 6 เดือน</div><div class="s">พันบาท</div></div>
+    <div class="rchart">
+      ${months.map((m,i)=>`
+        <div class="rcol${i===curMi?' cur':''}">
+          <div class="v">${Math.round(monthRevenue[i]/1000).toLocaleString('th-TH')}</div>
+          <div class="bar" style="height:${Math.max(3, Math.round(monthRevenue[i]/maxRev*100))}%;"></div>
+          <div class="mo">${U.esc(m.label)}</div>
+          <div class="oc">${monthOrderCt[i]}</div>
+        </div>`).join('')}
     </div>
+    <div class="raxis">เลขบนแท่ง = ยอดขาย (พันบาท) · เลขล่างเดือน = จำนวนออเดอร์</div>
   </div>
 
-  <!-- Summary cards -->
-  <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
-      <div class="icon-wrap" style="background:#d1fae5;color:#059669;"><i class="fa-solid fa-baht-sign"></i></div>
-      <div><div class="label">ยอดรับเงิน (${rangeLabels[rng]})</div><div class="value" style="font-size:20px;">${U.money(monthIncome)}</div></div>
-    </div></div>
-    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
-      <div class="icon-wrap" style="background:#dbeafe;color:#2563eb;"><i class="fa-solid fa-list-check"></i></div>
-      <div><div class="label">ออเดอร์ (${rangeLabels[rng]})</div><div class="value">${rangeOrders.length}</div></div>
-    </div></div>
-    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
-      <div class="icon-wrap" style="background:#fef3c7;color:#d97706;"><i class="fa-solid fa-calculator"></i></div>
-      <div><div class="label">มูลค่าเฉลี่ยต่อออเดอร์</div><div class="value" style="font-size:20px;">${U.money(avgOrder)}</div></div>
-    </div></div>
-    <div class="col-sm-6 col-xl-3"><div class="stat-card d-flex align-items-center gap-3">
-      <div class="icon-wrap" style="background:#ede9fe;color:#7c3aed;"><i class="fa-solid fa-users"></i></div>
-      <div><div class="label">ลูกค้าทั้งหมด</div><div class="value">${customers.length}</div></div>
-    </div></div>
+  <!-- ── สินค้าขายดี ── -->
+  <div class="rpanel">
+    <div class="ph"><div class="t">สินค้าขายดี</div><div class="s">${rangeLabels[rng]} (ชิ้น)</div></div>
+    ${topProds.length ? `<div class="rrank">
+      ${topProds.map(([name,qty])=>`
+        <div class="rrow">
+          <span class="nm">${U.esc(name)}</span>
+          <span class="track"><i style="width:${Math.max(4, Math.round(qty/maxProd*100))}%;"></i></span>
+          <span class="q">${qty}</span>
+        </div>`).join('')}
+    </div>` : `<div style="text-align:center;padding:14px 0;color:#94a3b8;font-size:13px;">ยังไม่มีข้อมูลในช่วงนี้</div>`}
   </div>
 
-  <!-- กำไร / ขาดทุน ตามช่วงที่เลือก -->
-  <div class="card-box mb-4" style="border-left:4px solid ${monthProfit>=0?'#10b981':'#ef4444'};">
-    <div class="card-head" style="background:${monthProfit>=0?'#f0fdf4':'#fff5f5'};">
-      <h2 style="color:${monthProfit>=0?'#059669':'#dc2626'};"><i class="fa-solid fa-scale-balanced me-2"></i>กำไร / ขาดทุน</h2>
-      <div style="font-size:12.5px;color:#6b7280;">${rangeLabels[rng]}</div>
-    </div>
-    <div class="p-3">
-      <div class="row g-3 text-center">
-        <div class="col-sm-4">
-          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">รายรับ (${rangeLabels[rng]})</div>
-          <div style="font-size:22px;font-weight:700;color:#10b981;">${U.money(monthIncome)}</div>
-          <div style="font-size:12.5px;color:#6b7280;">จากใบเสร็จ</div>
-        </div>
-        <div class="col-sm-4">
-          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">รายจ่าย (${rangeLabels[rng]})</div>
-          <div style="font-size:22px;font-weight:700;color:#dc2626;">${U.money(monthExpenseTotal)}</div>
-          <div style="font-size:12.5px;color:#6b7280;">ค่าใช้จ่ายโรงงาน</div>
-        </div>
-        <div class="col-sm-4" style="border-top:${monthProfit>=0?'2px solid #10b981':'2px solid #dc2626'};padding-top:12px;margin-top:4px;">
-          <div style="font-size:13px;color:#6b7280;margin-bottom:4px;">${monthProfit>=0?'กำไร':'ขาดทุน'} (${rangeLabels[rng]})</div>
-          <div style="font-size:26px;font-weight:700;color:${monthProfit>=0?'#059669':'#dc2626'};">${monthProfit>=0?'+':''}${U.money(Math.abs(monthProfit))}</div>
-          <div style="font-size:12.5px;color:#6b7280;">รายรับ − รายจ่าย</div>
-        </div>
-      </div>
-      ${allIncomeTotal||allExpenseTotal ? `
-      <hr style="border-color:#f1f3f5;margin:16px 0 12px;">
-      <div style="font-size:12px;color:#6b7280;text-align:center;">
-        ตลอดทุกเวลา — รายรับรวม <strong style="color:#10b981;">${U.money(allIncomeTotal)}</strong>
-        &nbsp;|&nbsp; รายจ่ายรวม <strong style="color:#dc2626;">${U.money(allExpenseTotal)}</strong>
-        &nbsp;|&nbsp; ${allProfit>=0?'กำไร':'ขาดทุน'}รวม <strong style="color:${allProfit>=0?'#059669':'#dc2626'};">${allProfit>=0?'+':''}${U.money(Math.abs(allProfit))}</strong>
-      </div>` : ''}
-    </div>
-  </div>
-
-  <div class="row g-3">
-    <div class="col-xl-7"><div class="card-box"><div class="card-head"><h2>ยอดรับเงิน 6 เดือนล่าสุด</h2></div>
-      <div class="p-3"><canvas id="revenueChart" height="200"></canvas></div>
-    </div></div>
-    <div class="col-xl-5"><div class="card-box"><div class="card-head"><h2>สินค้าขายดี 5 อันดับ</h2></div>
-      <div class="p-3">
-        ${topProds.length?`<canvas id="topProdChart" height="200"></canvas>`:'<div class="empty-state" style="padding:30px"><p>ยังไม่มีข้อมูล</p></div>'}
-      </div>
-    </div></div>
-    <div class="col-12"><div class="card-box"><div class="card-head"><h2>จำนวนออเดอร์รายเดือน</h2></div>
-      <div class="p-3"><canvas id="orderChart" height="100"></canvas></div>
-    </div></div>
-    <div class="col-12"><div class="card-box">
-      <div class="card-head">
-        <h2><i class="fa-solid fa-trophy me-2" style="color:#f59e0b;"></i>Top ลูกค้า (${rangeLabels[rng]})</h2>
-      </div>
-      <div class="table-scroll">
-        ${topCusts.length ? `<table class="table-clean">
-          <thead><tr><th style="width:36px;">#</th><th>ลูกค้า</th><th style="text-align:center;">ออเดอร์</th><th style="text-align:center;">จำนวนชิ้น</th><th style="text-align:right;">ยอดรวม</th></tr></thead>
-          <tbody>
-            ${topCusts.map((c,i)=>`<tr>
-              <td><span style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:${i===0?'#fef3c7':i===1?'#f1f5f9':i===2?'#fef3c7':'#f9fafb'};color:${i===0?'#92400e':i===1?'#475569':i===2?'#b45309':'#6b7280'};font-size:12px;font-weight:700;">${i+1}</span></td>
-              <td><strong>${U.esc(c.name)}</strong></td>
-              <td style="text-align:center;">${c.orderCount} ออเดอร์</td>
-              <td style="text-align:center;">${c.items} ชิ้น</td>
-              <td style="text-align:right;font-weight:700;color:#2563eb;">${U.money(c.total)}</td>
-            </tr>`).join('')}
-          </tbody>
-        </table>` : '<div class="empty-state" style="padding:20px"><i class="fa-solid fa-users"></i><p>ยังไม่มีข้อมูล</p></div>'}
-      </div>
-    </div></div>
+  <!-- ── ลูกค้ายอดสูงสุด ── -->
+  <div class="rpanel">
+    <div class="ph"><div class="t">ลูกค้ายอดสูงสุด</div><div class="s">${rangeLabels[rng]}</div></div>
+    ${topCusts.length ? `<div class="rcust">
+      ${topCusts.map((c,i)=>`
+        <div class="rcrow">
+          <span class="rnk${i<3?' g'+(i+1):''}">${i+1}</span>
+          <div class="info">
+            <div class="cn">${U.esc(c.name||'-')}</div>
+            <div class="co">${c.orderCount} ออเดอร์ · ${c.items} ชิ้น</div>
+          </div>
+          <span class="ct">${U.baht(c.total)} บาท</span>
+        </div>`).join('')}
+    </div>` : `<div style="text-align:center;padding:14px 0;color:#94a3b8;font-size:13px;">ยังไม่มีข้อมูลในช่วงนี้</div>`}
   </div>`;
-
-  // โหลด chart.js ตอนนี้ (ครั้งแรกครั้งเดียว) แล้วค่อยวาดกราฟ
-  const chartBoxes = ['revenueChart','orderChart','topProdChart'];
-  const okChart = await ensureChart();
-  if (!okChart) {
-    chartBoxes.forEach(id => {
-      const c = document.getElementById(id);
-      if (c) c.outerHTML = `<div style="padding:22px;text-align:center;font-size:13px;color:#6b7280;">
-        <i class="fa-solid fa-chart-simple" style="font-size:22px;display:block;margin-bottom:7px;opacity:.5;"></i>
-        โหลดกราฟไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ต</div>`;
-    });
-    return;
-  }
-  if (window._currentPage !== 'reports') return;  // ผู้ใช้เปลี่ยนหน้าไปแล้วระหว่างโหลด
-
-  const font={family:'Sarabun',size:12};
-  new Chart(document.getElementById('revenueChart'),{type:'bar',data:{labels:months.map(m=>m.label),datasets:[{label:'รายรับ',data:monthRevenue,backgroundColor:'#2563eb88',borderColor:'#2563eb',borderWidth:2,borderRadius:6},{label:'รายจ่าย',data:monthExpenses6,backgroundColor:'#ef444488',borderColor:'#ef4444',borderWidth:2,borderRadius:6}]},options:{responsive:true,plugins:{legend:{labels:{font}}},scales:{y:{ticks:{font,callback:v=>v.toLocaleString()}},x:{ticks:{font}}}}});
-  new Chart(document.getElementById('orderChart'),{type:'line',data:{labels:months.map(m=>m.label),datasets:[{label:'ออเดอร์',data:monthOrderCt,borderColor:'#10b981',backgroundColor:'#10b98122',tension:.4,fill:true,pointRadius:5}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{font,stepSize:1}},x:{ticks:{font}}}}});
-  if (topProds.length) new Chart(document.getElementById('topProdChart'),{type:'bar',data:{labels:topProds.map(([n])=>n.length>16?n.slice(0,16)+'…':n),datasets:[{data:topProds.map(([,v])=>v),backgroundColor:['#2563eb','#10b981','#f59e0b','#8b5cf6','#ef4444'],borderRadius:6}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{font,stepSize:1}},y:{ticks:{font}}}}});
 }
 
 // ═══════════════════════════════════════
@@ -6715,207 +6813,175 @@ function _renderCraftsmenOld(el, craftsmen, products, craftsmanStats, totalCount
 //  SETTINGS
 // ═══════════════════════════════════════
 async function renderSettings(el) {
-  const [orders, customers, products, invoices, craftsmen] = await Promise.all([
-    DB.getOrders(), DB.getCustomers(), DB.getProducts(), DB.getInvoices(), DB.getCraftsmen()
+  document.getElementById('topbarActions').innerHTML = '';
+
+  const [orders, customers, products, invoices] = await Promise.all([
+    DB.getOrders(), DB.getCustomers(), DB.getProducts(), DB.getInvoices()
   ]);
   const lastBackup = await DB.getSetting('lastBackup');
   const muteUntil  = await getMuteUntil();
   const isMuted    = !!muteLabel(muteUntil);   // ปิดอยู่จริงไหม (เลยเวลาแล้ว = ไม่ปิด)
   const craftOn    = await getCraftOrderEnabled();
-  window._settingsCraftsmen = craftsmen;
 
-  el.innerHTML=`
-  <div class="row g-3 justify-content-center">
+  // ที่อยู่หลายบรรทัด — เอามาโชว์บรรทัดเดียวบนแถบร้าน
+  const addr1 = (CFG.businessAddress||'').split('\n').map(s=>s.trim()).filter(Boolean)[0] || '';
+  const shopMeta = [CFG.businessPhone, addr1].filter(Boolean).join(' · ') || 'ยังไม่ได้กรอกเบอร์/ที่อยู่';
 
-    <!-- ข้อมูลร้าน -->
-    <div class="col-lg-6">
-      <div class="card-box">
-        <div class="card-head"><h2><i class="fa-solid fa-store me-2 text-primary"></i>ข้อมูลร้าน</h2></div>
-        <div class="modal-body">
-          <div class="row g-3">
-            <div class="col-12"><label class="form-label">ชื่อร้าน / บริษัท <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="st_name" value="${U.esc(CFG.businessName)}"></div>
-            <div class="col-12"><label class="form-label">ชื่อคนขาย / เจ้าของ</label>
-              <input type="text" class="form-control" id="st_seller" value="${U.esc(CFG.sellerName)}" placeholder="เช่น พัชรี, คุณสมชาย"></div>
-            <div class="col-sm-6"><label class="form-label">เบอร์โทรศัพท์</label>
-              <input type="text" class="form-control" id="st_phone" value="${U.esc(CFG.businessPhone)}"></div>
-            <div class="col-sm-6"><label class="form-label">เลขผู้เสียภาษี</label>
-              <input type="text" class="form-control" id="st_taxId" value="${U.esc(CFG.businessTaxId)}"></div>
-            <div class="col-12"><label class="form-label">ที่อยู่ร้าน (แสดงบนใบเสร็จ)</label>
-              <textarea class="form-control" id="st_addr" rows="3">${U.esc(CFG.businessAddress)}</textarea></div>
-            <div class="col-12">
-              <label class="form-label"><i class="fa-solid fa-qrcode me-1 text-success"></i>PromptPay ID <span style="font-size:12.5px;color:#6b7280;">(เบอร์โทร 10 หลัก หรือเลขบัตรประชาชน 13 หลัก)</span></label>
-              <input type="text" class="form-control" id="st_promptpay" value="${U.esc(CFG.promptpayId)}" placeholder="เช่น 0812345678 หรือ 1234567890123">
-            </div>
-          </div>
-          <div class="mt-4">
-            <button class="btn btn-primary" onclick="saveSettings()">
-              <i class="fa-solid fa-floppy-disk me-1"></i>บันทึกการตั้งค่า
-            </button>
-          </div><!-- /mt-4 -->
-        </div><!-- /modal-body -->
-      </div><!-- /card-box -->
-    </div><!-- /col-lg-6 -->
+  el.innerHTML = `
+  <div class="oh">
+    <div><h2>ตั้งค่าร้าน</h2>
+      <div class="cnt">เวอร์ชัน <b>${APP_VERSION}</b> · ${U.esc(APP_BUILD)}</div></div>
+  </div>
 
-    <!-- สถิติ & Backup -->
-    <div class="col-lg-6">
-      <div class="card-box">
-        <div class="card-head"><h2><i class="fa-solid fa-chart-pie me-2 text-primary"></i>สถิติระบบ</h2></div>
-        <div class="modal-body">
-          <div class="row g-3 text-center">
-            <div class="col-6"><div style="font-size:32px;font-weight:700;color:#2563eb;">${orders.length}</div><div style="font-size:12px;color:#6b7280;">ออเดอร์ทั้งหมด</div></div>
-            <div class="col-6"><div style="font-size:32px;font-weight:700;color:#10b981;">${customers.length}</div><div style="font-size:12px;color:#6b7280;">ลูกค้าทั้งหมด</div></div>
-            <div class="col-6"><div style="font-size:32px;font-weight:700;color:#f59e0b;">${products.length}</div><div style="font-size:12px;color:#6b7280;">สินค้าทั้งหมด</div></div>
-            <div class="col-6"><div style="font-size:32px;font-weight:700;color:#8b5cf6;">${invoices.length}</div><div style="font-size:12px;color:#6b7280;">ใบเสร็จทั้งหมด</div></div>
-          </div>
-        </div>
-      </div>
+  <div class="stshop">
+    <div class="lg"><i class="fa-solid fa-store"></i></div>
+    <div class="who">
+      <div class="nm">${U.esc(CFG.businessName || 'ยังไม่ได้ตั้งชื่อร้าน')}</div>
+      <div class="meta">${U.esc(shopMeta)}</div>
     </div>
+    <button type="button" onclick="showShopModal()"
+      style="flex:0 0 auto;background:#fbbf24;color:#0f172a;font-weight:700;font-size:12.5px;
+             border:0;border-radius:9px;padding:10px 14px;font-family:inherit;min-height:40px;">แก้ไข</button>
+  </div>
 
-    <!-- Backup / Restore -->
-    <div class="col-lg-6">
-      <div class="card-box">
-        <div class="card-head"><h2><i class="fa-solid fa-database me-2 text-success"></i>สำรอง / กู้คืนข้อมูล</h2></div>
-        <div class="modal-body">
-
-          ${lastBackup ?
-              `<div style="font-size:12.5px;color:#10b981;margin-bottom:10px;text-align:center;">
-              <i class="fa-solid fa-clock me-1"></i>สำรองล่าสุด: ${U.datetime(lastBackup)}</div>` :
-              `<div style="font-size:12.5px;color:#ef4444;margin-bottom:10px;text-align:center;">
-              <i class="fa-solid fa-triangle-exclamation me-1"></i>ยังไม่เคยสำรองข้อมูล</div>`}
-
-          <div style="margin-bottom:16px;">
-            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📥 สำรองข้อมูล (Backup)</div>
-            <p style="font-size:13px;color:#6b7280;margin-bottom:10px;">
-              ดาวน์โหลดไฟล์ข้อมูลทั้งหมดไว้ในเครื่อง ควรทำสำรองทุกวันหรือทุกสัปดาห์
-            </p>
-            <button class="btn btn-success w-100" onclick="backupData()">
-              <i class="fa-solid fa-download me-2"></i>ดาวน์โหลดไฟล์สำรองข้อมูล (.json)
-            </button>
-          </div>
-
-          <hr style="border-color:#f1f3f5;">
-
-          <div>
-            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">📤 กู้คืนข้อมูล (Restore)</div>
-            <p style="font-size:13px;color:#6b7280;margin-bottom:10px;">
-              นำไฟล์ backup ที่ดาวน์โหลดไว้กลับเข้าระบบ
-              <span style="color:#ef4444;font-weight:600;">⚠️ ข้อมูลปัจจุบันจะถูกแทนที่ทั้งหมด</span>
-            </p>
-            <label class="btn btn-outline-danger w-100" style="cursor:pointer;">
-              <i class="fa-solid fa-upload me-2"></i>เลือกไฟล์ backup เพื่อกู้คืน
-              <input type="file" accept=".json" style="display:none;" onchange="restoreData(this)">
-            </label>
-          </div>
-
-          <hr style="margin:18px 0 14px;">
-          <div style="background:#f8fafc;border-radius:9px;padding:10px 12px;font-size:13px;color:#475569;">
-            <i class="fa-solid fa-code-branch me-1"></i>เวอร์ชันที่เครื่องนี้ใช้อยู่
-            <b style="color:#1a2332;">${APP_VERSION}</b>
-            <span style="color:#94a3b8;">· ${APP_BUILD}</span>
-          </div>
-
-          <hr style="margin:18px 0 14px;">
-          <div>
-            <div style="display:flex;align-items:center;gap:12px;">
-              <div style="width:40px;height:40px;border-radius:11px;flex:0 0 auto;display:flex;
-                align-items:center;justify-content:center;color:#fff;background:${isMuted?'#b45309':'#22c55e'};">
-                <i class="fa-solid fa-bell${isMuted?'-slash':''}" style="font-size:17px;"></i>
-              </div>
-              <div style="flex:1;min-width:0;">
-                <div style="font-size:14.5px;font-weight:700;color:#1a2332;">แจ้งเตือนเข้ากลุ่ม LINE</div>
-                <div style="font-size:12px;color:#6b7280;margin-top:1px;">ส่งข้อความเมื่อ รับ/แก้/ลบ ออเดอร์</div>
-              </div>
-              <button class="kl-switch${isMuted?'':' on'}" onclick="setMute(${isMuted?0:1})"
-                role="switch" aria-checked="${isMuted?'false':'true'}" aria-label="แจ้งเตือนเข้ากลุ่ม LINE">
-                <span class="tr"><span class="kn"></span></span>
-              </button>
-            </div>
-            <div id="muteStatus" style="font-size:12.5px;margin-top:11px;">${
-              isMuted
-                ? `<span style="color:#b45309;font-weight:700;"><i class="fa-solid fa-bell-slash me-1"></i>${U.esc(muteLabel(muteUntil))}</span>`
-                : `<span style="color:#16a34a;font-weight:700;"><i class="fa-solid fa-check me-1"></i>เปิดอยู่ — กลุ่มได้รับข้อความทุกครั้ง</span>`
-            }</div>
-            <div style="font-size:12px;color:#94a3b8;margin-top:5px;line-height:1.5;">${
-              isMuted
-                ? 'กดสวิตช์เพื่อเปิดแจ้งเตือนกลับทันที'
-                : 'ปิดสวิตช์ = เงียบ 1 ชั่วโมงแล้วเปิดเองอัตโนมัติ — มีผลทั้งหน้านี้และหน้าช่างแต่ง'
-            }</div>
-            ${isMuted && muteUntil < MUTE_FOREVER
-              ? `<button class="btn btn-link p-0" style="font-size:12.5px;color:#b45309;font-weight:600;margin-top:9px;"
-                   onclick="setMute('forever')">ปิดยาวจนกว่าจะกดเปิดเอง →</button>`
-              : ''}
-          </div>
-
-          <hr style="margin:18px 0 14px;">
-          <div>
-            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">🔨 ปุ่มรับออเดอร์ของช่างแต่ง</div>
-            <div style="font-size:13px;margin-bottom:10px;">${
-              craftOn
-                ? `<span style="color:#16a34a;font-weight:700;"><i class="fa-solid fa-lock-open me-1"></i>เปิดอยู่ — ช่างรับออเดอร์เองได้</span>`
-                : `<span style="color:#b45309;font-weight:700;"><i class="fa-solid fa-lock me-1"></i>ปิดอยู่ — ช่างรับออเดอร์ไม่ได้</span>`
-            }</div>
-            <p style="font-size:12.5px;color:#6b7280;margin-bottom:10px;">
-              ปิดแล้วปุ่ม "รับออเดอร์ใหม่" ในหน้าช่างจะกดไม่ได้ทันที ไม่ต้องให้ช่างรีเฟรช
-              — งานแต่งหีบยังกดได้ตามปกติ
-            </p>
-            <button class="btn ${craftOn ? 'btn-outline-danger' : 'btn-success'}" style="font-weight:700;"
-              onclick="setCraftOrder(${craftOn ? 'false' : 'true'})">
-              <i class="fa-solid fa-${craftOn ? 'lock' : 'lock-open'} me-1"></i>${craftOn ? 'ปิดไม่ให้ช่างรับออเดอร์' : 'เปิดให้ช่างรับออเดอร์'}
-            </button>
-          </div>
-
-          <hr style="margin:18px 0 14px;">
-          <div>
-            <div style="font-size:13px;font-weight:600;color:#374151;margin-bottom:8px;">🗑️ ถังขยะ</div>
-            <p style="font-size:13px;color:#6b7280;margin-bottom:10px;">
-              ของที่ลบไปไม่ได้หายจริง มาอยู่ในถังขยะและกู้คืนได้ตลอด
-            </p>
-            <button class="btn btn-outline-secondary w-100" onclick="navigate('trash')">
-              <i class="fa-solid fa-trash-can me-2"></i>เปิดถังขยะ
-            </button>
-          </div>
-
-        </div>
-      </div>
+  <!-- ── ข้อมูลร้าน ── -->
+  <div class="stgrp">
+    <div class="gh">ข้อมูลร้าน (แสดงบนใบเสร็จ)</div>
+    <div class="strows">
+      <button type="button" class="strow" onclick="showShopModal()">
+        <span class="si" style="background:#64748b;"><i class="fa-solid fa-shop"></i></span>
+        <span class="tx"><span class="st">ชื่อร้าน / ที่อยู่</span>
+          <span class="ss">${U.esc([CFG.businessName, addr1].filter(Boolean).join(' · ') || 'ยังไม่ได้ตั้ง')}</span></span>
+        <span class="val"><i class="fa-solid fa-chevron-right"></i></span>
+      </button>
+      <button type="button" class="strow" onclick="showShopModal()">
+        <span class="si" style="background:#0d9488;"><i class="fa-solid fa-qrcode"></i></span>
+        <span class="tx"><span class="st">PromptPay (พิมพ์บน QR ใบเสร็จ)</span>
+          <span class="ss">${U.esc(CFG.promptpayId || 'ยังไม่ได้ตั้ง — ใบเสร็จจะไม่มี QR')}</span></span>
+        <span class="val"><i class="fa-solid fa-chevron-right"></i></span>
+      </button>
+      <button type="button" class="strow" onclick="showShopModal()">
+        <span class="si" style="background:#94a3b8;"><i class="fa-solid fa-file-invoice"></i></span>
+        <span class="tx"><span class="st">ชื่อคนขาย / เลขผู้เสียภาษี</span>
+          <span class="ss">${U.esc([CFG.sellerName, CFG.businessTaxId].filter(Boolean).join(' · ') || 'ยังไม่ได้ตั้ง')}</span></span>
+        <span class="val"><i class="fa-solid fa-chevron-right"></i></span>
+      </button>
     </div>
+  </div>
 
-    <!-- ช่างแต่ง -->
-    <div class="col-12">
-      <div class="card-box">
-        <div class="card-head">
-          <h2><i class="fa-solid fa-hammer me-2 text-warning"></i>ช่างแต่ง</h2>
-          <button class="btn btn-primary btn-sm" onclick="showCraftsmanModal()"><i class="fa-solid fa-plus me-1"></i>เพิ่มช่าง</button>
-        </div>
-        <div class="modal-body">
-          <p style="font-size:13px;color:#6b7280;margin-bottom:14px;">
-            จัดการรายชื่อช่างแต่งและประเภทหีบที่ช่างแต่ละคนรับผิดชอบ
-            <a href="/craft.html" onclick="return goCraftPage()" style="margin-left:10px;font-size:13px;color:#2563eb;"><i class="fa-solid fa-hammer me-1"></i>เปิดหน้าช่าง</a>
-          </p>
-          <div id="craftsmenList">${renderCraftsmenRows(craftsmen, products)}</div>
-        </div>
+  <!-- ── แจ้งเตือน & การทำงาน ── -->
+  <div class="stgrp">
+    <div class="gh">การแจ้งเตือน &amp; การทำงาน</div>
+    <div class="strows">
+      <div class="strow" style="cursor:default;">
+        <span class="si" style="background:${isMuted?'#b45309':'#22c55e'};">
+          <i class="fa-solid fa-bell${isMuted?'-slash':''}"></i></span>
+        <span class="tx"><span class="st">แจ้งเตือนเข้ากลุ่ม LINE</span>
+          <span class="ss">${isMuted ? U.esc(muteLabel(muteUntil)) : 'เปิดอยู่ — ส่งเมื่อ รับ/แก้/ลบ ออเดอร์'}</span></span>
+        <button class="kl-switch${isMuted?'':' on'}" onclick="setMute(${isMuted?0:1})"
+          role="switch" aria-checked="${isMuted?'false':'true'}" aria-label="แจ้งเตือนเข้ากลุ่ม LINE">
+          <span class="tr"><span class="kn"></span></span>
+        </button>
       </div>
+      ${isMuted && muteUntil < MUTE_FOREVER ? `
+      <div class="stbtnrow" style="padding-top:0;">
+        <button type="button" class="stbk" style="background:#fffbeb;color:#b45309;border-color:#fde68a;min-height:40px;"
+          onclick="setMute('forever')">ปิดยาวจนกว่าจะกดเปิดเอง →</button>
+      </div>` : ''}
+      <div class="strow" style="cursor:default;">
+        <span class="si" style="background:${craftOn?'#d97706':'#94a3b8'};"><i class="fa-solid fa-hammer"></i></span>
+        <span class="tx"><span class="st">ให้ช่างรับออเดอร์เองได้</span>
+          <span class="ss">${craftOn ? 'เปิดอยู่ — ช่างกดรับออเดอร์ใหม่ได้' : 'ปิดอยู่ — งานแต่งหีบยังกดได้ตามปกติ'}</span></span>
+        <button class="kl-switch${craftOn?' on':''}" onclick="setCraftOrder(${craftOn?'false':'true'})"
+          role="switch" aria-checked="${craftOn?'true':'false'}" aria-label="ให้ช่างรับออเดอร์เองได้">
+          <span class="tr"><span class="kn"></span></span>
+        </button>
+      </div>
+      <button type="button" class="strow" onclick="navigate('craftsmen')">
+        <span class="si" style="background:#b45309;"><i class="fa-solid fa-users"></i></span>
+        <span class="tx"><span class="st">ช่างแต่ง</span>
+          <span class="ss">จัดการรายชื่อช่างและประเภทหีบที่รับผิดชอบ</span></span>
+        <span class="val"><i class="fa-solid fa-chevron-right"></i></span>
+      </button>
     </div>
+  </div>
 
+  <!-- ── ข้อมูล & ความปลอดภัย ── -->
+  <div class="stgrp">
+    <div class="gh">ข้อมูล &amp; ความปลอดภัย</div>
+    <div class="strows">
+      <div class="stbtnrow">
+        <div style="font-size:11.5px;margin-bottom:9px;color:${lastBackup?'#16a34a':'#dc2626'};font-weight:600;">
+          <i class="fa-solid fa-${lastBackup?'clock':'triangle-exclamation'} me-1"></i>${
+            lastBackup ? 'สำรองล่าสุด ' + U.datetime(lastBackup) : 'ยังไม่เคยสำรองข้อมูล'}</div>
+        <button type="button" class="stbk green" onclick="backupData()">
+          <i class="fa-solid fa-download"></i>ดาวน์โหลดไฟล์สำรอง (.json)</button>
+      </div>
+      <div class="stbtnrow">
+        <label class="stbk dgr" style="margin:0;">
+          <i class="fa-solid fa-upload"></i>กู้คืนข้อมูลจากไฟล์
+          <input type="file" accept=".json" style="display:none;" onchange="restoreData(this)">
+        </label>
+        <div style="font-size:11px;color:#94a3b8;margin-top:7px;text-align:center;">
+          ⚠️ ข้อมูลปัจจุบันจะถูกแทนที่ทั้งหมด (ระบบจะสำรองให้ก่อนอัตโนมัติ)</div>
+      </div>
+      <button type="button" class="strow" onclick="navigate('trash')">
+        <span class="si" style="background:#dc2626;"><i class="fa-solid fa-trash-can"></i></span>
+        <span class="tx"><span class="st">ถังขยะ</span>
+          <span class="ss">ของที่ลบไปไม่ได้หายจริง กู้คืนได้ตลอด</span></span>
+        <span class="val"><i class="fa-solid fa-chevron-right"></i></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── สถิติระบบ ── -->
+  <div class="stgrp">
+    <div class="gh">สถิติระบบ</div>
+    <div class="st4">
+      <div class="s4"><div class="n" style="color:#2563eb;">${orders.length}</div><div class="l">ออเดอร์</div></div>
+      <div class="s4"><div class="n" style="color:#16a34a;">${customers.length}</div><div class="l">ลูกค้า</div></div>
+      <div class="s4"><div class="n" style="color:#d97706;">${products.length}</div><div class="l">สินค้า</div></div>
+      <div class="s4"><div class="n" style="color:#7c3aed;">${invoices.length}</div><div class="l">ใบเสร็จ</div></div>
+    </div>
   </div>`;
 }
 
-function renderCraftsmenRows(craftsmen, products) {
-  if (!craftsmen.length) return `<div class="empty-state" style="padding:30px"><i class="fa-solid fa-hammer"></i><p>ยังไม่มีช่างแต่ง</p></div>`;
-  return `<table class="table-clean">
-    <thead><tr><th>ชื่อช่าง</th><th>ประเภทหีบที่รับผิดชอบ</th><th></th></tr></thead>
-    <tbody>${craftsmen.map(c => {
-      const types = (c.productTypes||[]).join(', ') || '<span style="color:#6b7280;">ทุกประเภท</span>';
-      return `<tr>
-        <td><strong>${U.esc(c.name)}</strong></td>
-        <td style="font-size:13px;">${types}</td>
-        <td class="g-act d-flex gap-1">
-          <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showCraftsmanModal('${c.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
-          <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteCraftsman('${c.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
-        </td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table>`;
+// ── แก้ไขข้อมูลร้าน ──
+// เดิมฟอร์มนี้กางอยู่กลางหน้าตั้งค่า พอจัดเป็นรายการแบบมือถือเลยย้ายมาอยู่ในป๊อปอัป
+// id ของช่องกรอกต้องคงเดิม (st_name, st_seller, ...) เพราะ saveSettings() อ่านจาก id พวกนี้
+function showShopModal() {
+  const body = `
+    <div class="row g-3">
+      <div class="col-12"><label class="form-label">ชื่อร้าน / บริษัท <span class="text-danger">*</span></label>
+        <input type="text" class="form-control" id="st_name" value="${U.esc(CFG.businessName)}"></div>
+      <div class="col-12"><label class="form-label">ชื่อคนขาย / เจ้าของ</label>
+        <input type="text" class="form-control" id="st_seller" value="${U.esc(CFG.sellerName)}" placeholder="เช่น พัชรี, คุณสมชาย"></div>
+      <div class="col-sm-6"><label class="form-label">เบอร์โทรศัพท์</label>
+        <input type="tel" class="form-control" id="st_phone" value="${U.esc(CFG.businessPhone)}"></div>
+      <div class="col-sm-6"><label class="form-label">เลขผู้เสียภาษี</label>
+        <input type="text" class="form-control" id="st_taxId" value="${U.esc(CFG.businessTaxId)}"></div>
+      <div class="col-12"><label class="form-label">ที่อยู่ร้าน (แสดงบนใบเสร็จ)</label>
+        <textarea class="form-control" id="st_addr" rows="3">${U.esc(CFG.businessAddress)}</textarea></div>
+      <div class="col-12">
+        <label class="form-label"><i class="fa-solid fa-qrcode me-1 text-success"></i>PromptPay ID
+          <span style="font-size:12.5px;color:#6b7280;">(เบอร์โทร 10 หลัก หรือเลขบัตรประชาชน 13 หลัก)</span></label>
+        <input type="text" class="form-control" id="st_promptpay" value="${U.esc(CFG.promptpayId)}"
+          placeholder="เช่น 0812345678 หรือ 1234567890123">
+      </div>
+    </div>`;
+  const footer = `
+    <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+    <button class="btn btn-primary" onclick="saveShopInfo()"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึก</button>`;
+  showModal('shopModal', 'แก้ไขข้อมูลร้าน', body, footer);
+}
+
+async function saveShopInfo() {
+  // เช็คชื่อร้านเองก่อน — ถ้าว่างต้องไม่ปิดป๊อปอัป ผู้ใช้จะได้กรอกต่อได้เลย
+  const name = document.getElementById('st_name')?.value.trim();
+  if (!name) { U.toast('กรุณากรอกชื่อร้าน', 'error'); return; }
+  await saveSettings();
+  closeModal('shopModal');
+  navigate('settings');   // วาดหน้าใหม่ให้แถบร้านด้านบนอัปเดตตาม
 }
 
 async function showCraftsmanModal(id) {
@@ -7275,116 +7341,130 @@ async function restoreTrashItem(btn) {
 // ═══════════════════════════════════════
 //  EXPENSES PAGE
 // ═══════════════════════════════════════
+// ── หมวดรายจ่าย: สี + ไอคอนประจำหมวด ──
+// ชื่อหมวดเปลี่ยนให้ตรงกับงานโรงศพ (วัตถุดิบ→ค่าไม้, ค่าแรง→ค่าแรงช่าง)
+// EXP_ALIAS ไว้ให้ข้อมูลเก่าที่กู้คืนจากไฟล์ backup ยังได้สีถูกหมวดเหมือนเดิม
+const EXP_CATS = {
+  'ค่าไม้':      { c:'#92400e', bg:'#f5ede4', i:'fa-tree' },
+  'ค่าแรงช่าง':  { c:'#2563eb', bg:'#e7effe', i:'fa-user-group' },
+  'ค่าไฟ/น้ำ':   { c:'#b45309', bg:'#fdf0dc', i:'fa-bolt' },
+  'ค่าเช่า':     { c:'#7c3aed', bg:'#f1ebfe', i:'fa-house' },
+  'ขนส่ง':       { c:'#0f766e', bg:'#e3f5f3', i:'fa-truck' },
+  'ซ่อมแซม':     { c:'#be185d', bg:'#fce7f0', i:'fa-screwdriver-wrench' },
+  'อื่นๆ':       { c:'#475569', bg:'#eef1f5', i:'fa-box' },
+};
+const EXP_ALIAS = { 'วัตถุดิบ':'ค่าไม้', 'ค่าแรง':'ค่าแรงช่าง' };
+const EXP_CAT_LIST = Object.keys(EXP_CATS);
+function expStyle(name) {
+  return EXP_CATS[name] || EXP_CATS[EXP_ALIAS[name]] || EXP_CATS['อื่นๆ'];
+}
+
+const EXP_RANGES = {
+  month: 'เดือนนี้', prev: 'เดือนก่อน', year: 'ปีนี้', all: 'ทั้งหมด',
+};
+function setExpRange(r) {
+  window._expRange = r;
+  navigate('expenses');
+}
+
 async function renderExpenses(el) {
   const expenses = await DB.getExpenses();
   expenses.sort((a,b) => b.date - a.date);
 
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-  const thisMonthExp = expenses.filter(e => e.date >= monthStart).reduce((s,e) => s+(e.amount||0), 0);
-  const totalAll     = expenses.reduce((s,e) => s+(e.amount||0), 0);
+  const rng = window._expRange || 'month';
+  const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  let from = 0, to = Date.now();
+  if (rng === 'month') from = new Date(y, m, 1).getTime();
+  else if (rng === 'prev') { from = new Date(y, m-1, 1).getTime(); to = new Date(y, m, 1).getTime() - 1; }
+  else if (rng === 'year') from = new Date(y, 0, 1).getTime();
+
+  const list  = expenses.filter(e => e.date >= from && e.date <= to);
+  const total = list.reduce((s,e) => s + (Number(e.amount)||0), 0);
 
   const byCat = {};
-  expenses.forEach(e => { const c=e.category||'อื่นๆ'; byCat[c]=(byCat[c]||0)+(e.amount||0); });
-  const catEntries = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  list.forEach(e => { const c = e.category || 'อื่นๆ'; byCat[c] = (byCat[c]||0) + (Number(e.amount)||0); });
+  const cats = Object.entries(byCat).sort((a,b) => b[1] - a[1]);
+  const maxCat = Math.max(1, ...cats.map(([,v]) => v));
 
   el.innerHTML = `
-  <div class="row g-3 mb-4">
-    <div class="col-sm-6 col-xl-3">
-      <div class="stat-card d-flex align-items-center gap-3">
-        <div class="icon-wrap" style="background:#fee2e2;color:#dc2626;"><i class="fa-solid fa-money-bill-wave"></i></div>
-        <div><div class="label">รายจ่ายเดือนนี้</div><div class="value" style="color:#dc2626;">${U.money(thisMonthExp)}</div></div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-      <div class="stat-card d-flex align-items-center gap-3">
-        <div class="icon-wrap" style="background:#fef3c7;color:#d97706;"><i class="fa-solid fa-list"></i></div>
-        <div><div class="label">รายการทั้งหมด</div><div class="value">${expenses.length} รายการ</div></div>
-      </div>
-    </div>
-    <div class="col-sm-6 col-xl-3">
-      <div class="stat-card d-flex align-items-center gap-3">
-        <div class="icon-wrap" style="background:#fce7f3;color:#be185d;"><i class="fa-solid fa-sigma"></i></div>
-        <div><div class="label">รายจ่ายรวมทั้งหมด</div><div class="value" style="color:#be185d;">${U.money(totalAll)}</div></div>
-      </div>
-    </div>
+  <div class="oh">
+    <div><h2>รายจ่ายโรงงาน</h2>
+      <div class="cnt">${EXP_RANGES[rng]} · <b>${list.length}</b> รายการ</div></div>
+    <button class="btn btn-danger" onclick="showExpenseModal()" style="white-space:nowrap;">
+      <i class="fa-solid fa-plus me-1"></i>เพิ่ม</button>
   </div>
 
-  <div class="row g-3">
-    <div class="col-xl-8">
-      <div class="card-box">
-        <div class="card-head">
-          <h2><i class="fa-solid fa-receipt me-2 text-danger"></i>รายจ่ายโรงงาน</h2>
-          <button class="btn btn-danger btn-sm" onclick="showExpenseModal()">
-            <i class="fa-solid fa-plus me-1"></i>เพิ่มรายจ่าย
-          </button>
-        </div>
-        <div class="table-scroll">
-          <table class="table-clean">
-            <thead>
-              <tr>
-                <th>วันที่</th>
-                <th>หมวดหมู่</th>
-                <th>รายละเอียด</th>
-                <th style="text-align:right;">จำนวนเงิน</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              ${expenses.length ? expenses.map(exp => `
-              <tr>
-                <td style="white-space:nowrap;font-size:13px;">${new Date(exp.date).toLocaleDateString('th-TH-u-ca-buddhist',{year:'numeric',month:'short',day:'numeric'})}</td>
-                <td><span style="display:inline-block;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#dc2626;font-size:12.5px;font-weight:600;">${U.esc(exp.category||'อื่นๆ')}</span></td>
-                <td style="font-size:13px;">${U.esc(exp.note||'-')}</td>
-                <td style="text-align:right;font-weight:600;color:#dc2626;">${U.money(exp.amount||0)}</td>
-                <td style="text-align:right;white-space:nowrap;">
-                  <button class="btn btn-sm" style="background:#f3f4f6;color:#374151;border:none;margin-right:4px;" onclick="showExpenseModal('${exp.id}')">
-                    <i class="fa-solid fa-pen-to-square"></i>
-                  </button>
-                  <button class="btn btn-sm" style="background:#fee2e2;color:#dc2626;border:none;" onclick="deleteExpense('${exp.id}')">
-                    <i class="fa-solid fa-trash"></i>
-                  </button>
-                </td>
-              </tr>`).join('') : emptyRow(5,'ยังไม่มีรายจ่าย','fa-receipt')}
-            </tbody>
-            ${expenses.length ? `
-            <tfoot>
-              <tr style="background:#fff5f5;">
-                <td colspan="3" style="font-weight:700;color:#dc2626;">รวมทั้งหมด</td>
-                <td style="text-align:right;font-weight:700;color:#dc2626;font-size:16px;">${U.money(totalAll)}</td>
-                <td></td>
-              </tr>
-            </tfoot>` : ''}
-          </table>
-        </div>
-      </div>
-    </div>
+  <div class="ochips">
+    ${Object.entries(EXP_RANGES).map(([k,label])=>`
+      <button type="button" class="ochip${rng===k?' on':''}" onclick="setExpRange('${k}')">${label}</button>`).join('')}
+  </div>
 
-    <div class="col-xl-4">
-      <div class="card-box">
-        <div class="card-head"><h2><i class="fa-solid fa-chart-pie me-2 text-danger"></i>แยกตามหมวดหมู่</h2></div>
-        <div class="p-3">
-          ${catEntries.length ? catEntries.map(([cat,amt])=>`
-          <div style="margin-bottom:12px;">
-            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;">
-              <span style="font-weight:600;">${U.esc(cat)}</span>
-              <span style="color:#dc2626;font-weight:600;">${U.money(amt)}</span>
-            </div>
-            <div style="height:6px;background:#f3f4f6;border-radius:3px;">
-              <div style="height:6px;background:#dc2626;border-radius:3px;width:${totalAll?Math.round(amt/totalAll*100):0}%;"></div>
-            </div>
-            <div style="font-size:12.5px;color:#6b7280;text-align:right;">${totalAll?Math.round(amt/totalAll*100):0}%</div>
-          </div>`).join('') : '<div class="empty-state" style="padding:20px"><i class="fa-solid fa-chart-pie"></i><p>ยังไม่มีข้อมูล</p></div>'}
+  <div class="ivsum" style="background:linear-gradient(135deg,#9f1239,#e11d48);box-shadow:0 6px 16px rgba(225,29,72,.25);">
+    <div>
+      <div class="big">${U.baht(total)} <span style="font-size:15px;">บาท</span></div>
+      <div class="lb">รายจ่าย${EXP_RANGES[rng]}</div>
+    </div>
+    <div class="divi"></div>
+    <div class="side"><div class="n">${list.length} รายการ</div><div class="l">${EXP_RANGES[rng]}</div></div>
+  </div>
+
+  ${cats.length ? `
+  <div class="rpanel excat">
+    <div class="ph"><div class="t">แยกตามหมวดหมู่</div><div class="s">${EXP_RANGES[rng]}</div></div>
+    <div class="rrank">
+      ${cats.map(([cat,amt])=>{
+        const s = expStyle(cat);
+        return `<div>
+          <div class="l1">
+            <span class="cat"><span class="d" style="background:${s.c};"></span>${U.esc(cat)}</span>
+            <span class="amt">${U.baht(amt)} บาท</span>
+          </div>
+          <div class="track"><i style="width:${Math.max(4, Math.round(amt/maxCat*100))}%;background:${s.c};"></i></div>
+          <div class="pct">${total?Math.round(amt/total*100):0}%</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>` : ''}
+
+  <div style="font-weight:800;font-size:14px;margin:4px 2px 10px;">รายการ${EXP_RANGES[rng]}</div>
+
+  ${list.length ? list.map(e=>{
+    const s = expStyle(e.category);
+    return `<div class="exrow">
+      <div class="ci" style="background:${s.c};"><i class="fa-solid ${s.i}"></i></div>
+      <div class="tx">
+        <div class="nt">${U.esc(e.note || e.category || 'รายจ่าย')}</div>
+        <div class="mt">
+          <span class="exchip" style="background:${s.bg};color:${s.c};">${U.esc(e.category||'อื่นๆ')}</span>
+          ${new Date(e.date).toLocaleDateString('th-TH-u-ca-buddhist',{day:'numeric',month:'short',year:'2-digit'})}
         </div>
       </div>
+      <div class="money">${U.baht(e.amount||0)}</div>
+      <button type="button" class="mm" aria-label="ตัวเลือก"
+        onclick="this.parentElement.nextElementSibling.classList.toggle('open')">
+        <i class="fa-solid fa-ellipsis-vertical"></i></button>
     </div>
-  </div>`;
+    <div class="exmenu">
+      <button type="button" class="ed"  onclick="showExpenseModal('${e.id}')"><i class="fa-solid fa-pen"></i>แก้ไข</button>
+      <button type="button" class="del" onclick="deleteExpense('${e.id}')"><i class="fa-solid fa-trash"></i>ลบ</button>
+    </div>`;
+  }).join('') : `
+    <div class="empty-state" style="padding:36px">
+      <i class="fa-solid fa-receipt"></i>
+      <p>ยังไม่มีรายจ่าย${rng==='all'?'':EXP_RANGES[rng]}</p>
+      <p style="font-size:12.5px;color:#94a3b8;">บันทึกค่าไม้ ค่าแรง ค่าไฟ ไว้ที่นี่ แล้วหน้ารายงานจะคิดกำไรสุทธิให้อัตโนมัติ</p>
+    </div>`}`;
 }
 
 async function showExpenseModal(id) {
-  const CATS = ['วัตถุดิบ','ค่าแรง','ค่าไฟ/น้ำ','ค่าเช่า','ขนส่ง','ซ่อมแซม','อื่นๆ'];
   const exp = id ? await DB.getExpense(id) : null;
   const today = todayLocal();
+
+  // ใช้รายชื่อหมวดชุดเดียวกับหน้ารายจ่าย จะได้ไม่หลุดกันเวลาแก้ชื่อหมวด
+  // ⚠️ ต้องประกาศหลัง exp — ถ้ารายการเก่าใช้ชื่อหมวดที่เลิกใช้แล้ว (วัตถุดิบ/ค่าแรง)
+  //    ต้องเติมกลับเข้าไปด้วย ไม่งั้นกดแก้ไขแล้วหมวดจะเด้งไปเป็นค่าแรกเงียบๆ
+  const CATS = EXP_CAT_LIST.slice();
+  if (exp?.category && !CATS.includes(exp.category)) CATS.unshift(exp.category);
 
   const body = `
     <div class="row g-3">
