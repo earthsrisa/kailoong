@@ -2044,7 +2044,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v82';
+const APP_VERSION = 'v83';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -6815,13 +6815,14 @@ function _renderCraftsmenOld(el, craftsmen, products, craftsmanStats, totalCount
 async function renderSettings(el) {
   document.getElementById('topbarActions').innerHTML = '';
 
-  const [orders, customers, products, invoices] = await Promise.all([
-    DB.getOrders(), DB.getCustomers(), DB.getProducts(), DB.getInvoices()
+  // ⚠️ ห้ามรอ getOrders/getInvoices ตรงนี้ — ออเดอร์ 300 กว่าใบคือข้อมูลเกือบ 400 KB
+  //    เน็ตช้าเมื่อไหร่หน้าจะหมุนค้างยาว ทั้งที่เอามาใช้แค่ตัวเลข 4 ตัวล่างสุด
+  //    → วาดหน้าให้เสร็จก่อนด้วยของที่อ่านเร็ว (settings เป็น doc เดี่ยว ~60 มิลลิวินาที)
+  //      แล้วค่อยเติมตัวเลขสถิติทีหลังใน loadSettingsStats()
+  const [lastBackup, muteUntil, craftOn] = await Promise.all([
+    DB.getSetting('lastBackup'), getMuteUntil(), getCraftOrderEnabled()
   ]);
-  const lastBackup = await DB.getSetting('lastBackup');
-  const muteUntil  = await getMuteUntil();
-  const isMuted    = !!muteLabel(muteUntil);   // ปิดอยู่จริงไหม (เลยเวลาแล้ว = ไม่ปิด)
-  const craftOn    = await getCraftOrderEnabled();
+  const isMuted = !!muteLabel(muteUntil);      // ปิดอยู่จริงไหม (เลยเวลาแล้ว = ไม่ปิด)
 
   // ที่อยู่หลายบรรทัด — เอามาโชว์บรรทัดเดียวบนแถบร้าน
   const addr1 = (CFG.businessAddress||'').split('\n').map(s=>s.trim()).filter(Boolean)[0] || '';
@@ -6934,16 +6935,37 @@ async function renderSettings(el) {
     </div>
   </div>
 
-  <!-- ── สถิติระบบ ── -->
+  <!-- ── สถิติระบบ — ตัวเลขมาทีหลัง ── -->
   <div class="stgrp">
     <div class="gh">สถิติระบบ</div>
     <div class="st4">
-      <div class="s4"><div class="n" style="color:#2563eb;">${orders.length}</div><div class="l">ออเดอร์</div></div>
-      <div class="s4"><div class="n" style="color:#16a34a;">${customers.length}</div><div class="l">ลูกค้า</div></div>
-      <div class="s4"><div class="n" style="color:#d97706;">${products.length}</div><div class="l">สินค้า</div></div>
-      <div class="s4"><div class="n" style="color:#7c3aed;">${invoices.length}</div><div class="l">ใบเสร็จ</div></div>
+      <div class="s4"><div class="n" id="stOrders"   style="color:#2563eb;">–</div><div class="l">ออเดอร์</div></div>
+      <div class="s4"><div class="n" id="stCusts"    style="color:#16a34a;">–</div><div class="l">ลูกค้า</div></div>
+      <div class="s4"><div class="n" id="stProds"    style="color:#d97706;">–</div><div class="l">สินค้า</div></div>
+      <div class="s4"><div class="n" id="stInvoices" style="color:#7c3aed;">–</div><div class="l">ใบเสร็จ</div></div>
     </div>
   </div>`;
+
+  loadSettingsStats();   // ไม่ await — ปล่อยให้วิ่งเบื้องหลัง หน้าขึ้นไปแล้ว
+}
+
+// เติมตัวเลขสถิติหลังหน้าขึ้นแล้ว ถ้าเปลี่ยนหน้าไปก่อนก็ทิ้งไปเฉยๆ
+async function loadSettingsStats() {
+  try {
+    const [orders, customers, products, invoices] = await Promise.all([
+      DB.getOrders(), DB.getCustomers(), DB.getProducts(), DB.getInvoices()
+    ]);
+    if (window._currentPage !== 'settings') return;
+    const put = (id, n) => { const e = document.getElementById(id); if (e) e.textContent = n; };
+    put('stOrders', orders.length);   put('stCusts', customers.length);
+    put('stProds', products.length);  put('stInvoices', invoices.length);
+  } catch (e) {
+    if (window._currentPage !== 'settings') return;
+    ['stOrders','stCusts','stProds','stInvoices'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = '?'; el.style.color = '#94a3b8'; }
+    });
+  }
 }
 
 // ── แก้ไขข้อมูลร้าน ──
