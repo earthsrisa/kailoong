@@ -11,6 +11,14 @@
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <title>ระบบจัดการธุรกิจ — ขายส่งโลงศพ</title>
+<!-- บอกเบราว์เซอร์ให้เริ่มต่อโดเมนพวกนี้ไว้ล่วงหน้า (DNS+TLS)
+     หน้าแรกต้องดึงไฟล์จาก 6 โดเมน ถ้าไม่บอกไว้จะเสียเวลาจับมือทีละโดเมนตอนเจอ tag -->
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -2044,7 +2052,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v83';
+const APP_VERSION = 'v84';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
