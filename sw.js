@@ -1,4 +1,4 @@
-const CACHE = 'kailoong-v88';        // ไฟล์ของแอพเอง — ล้างทิ้งทุกครั้งที่ขึ้นเวอร์ชัน
+const CACHE = 'kailoong-v89';        // ไฟล์ของแอพเอง — ล้างทิ้งทุกครั้งที่ขึ้นเวอร์ชัน
 const CDN   = 'kailoong-cdn-v1';     // ไฟล์จากเน็ตนอก — คนละถัง จะได้ไม่โดนล้างตามเวอร์ชันแอพ
                                      // (URL พวกนี้มีเลขเวอร์ชันในตัวอยู่แล้ว ของใหม่ = คนละ URL)
 
@@ -177,4 +177,45 @@ self.addEventListener('fetch', e => {
       return res;
     }))
   );
+});
+
+// ═══════════════════════════════════════
+//  แจ้งเตือน Push — เด้งแม้ปิดแอพอยู่
+//  ตัวส่งคือ api/push.js · เปิด/ปิดรับได้ที่หน้าตั้งค่าของแต่ละเครื่อง
+// ═══════════════════════════════════════
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; }
+  catch (_) { d = { body: e.data ? e.data.text() : '' }; }
+  // ⚠️ ต้องโชว์แจ้งเตือนทุกครั้งที่มี push เข้ามา — ถ้าไม่โชว์ iPhone/Chrome จะตัดสิทธิ์ push ของเรา
+  e.waitUntil(self.registration.showNotification(d.title || 'มีออเดอร์ใหม่', {
+    body: d.body || 'แตะเพื่อดูออเดอร์',
+    icon: '/icon-192.png',
+    tag: d.tag || ('kl-' + Date.now()),  // คนละออเดอร์ = คนละแจ้งเตือน ไม่ทับกัน
+    renotify: true,
+    data: { url: d.url || '/#orders' },
+    lang: 'th',
+    vibrate: [150, 80, 150],
+  }));
+});
+
+// แตะแจ้งเตือน → ถ้าเปิดแอพค้างไว้ ให้เด้งหน้าต่างเดิมขึ้นมาแล้วไปหน้าออเดอร์ ไม่งั้นเปิดใหม่
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const target = new URL((e.notification.data && e.notification.data.url) || '/#orders', self.location.origin);
+  const page = (target.hash || '').replace('#', '') || 'orders';
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    // เลือกหน้าต่างแอดมิน ไม่เอาหน้าช่าง (หน้าช่างไม่มีหน้าออเดอร์)
+    const admin = wins.find(w => {
+      try { const u = new URL(w.url); return u.origin === target.origin && !u.pathname.includes('craft'); }
+      catch (_) { return false; }
+    });
+    if (admin) {
+      await admin.focus();
+      admin.postMessage({ type: 'KL_OPEN_PAGE', page });   // index.html ฟังข้อความนี้แล้วเปลี่ยนหน้า
+      return;
+    }
+    await self.clients.openWindow(target.href);
+  })());
 });

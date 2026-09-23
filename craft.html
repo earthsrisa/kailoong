@@ -1850,6 +1850,7 @@ async function submitDraft() {
       await db.collection('orders').add(data);
       toast('✅ บันทึกออเดอร์แล้ว');
       notifyLine('new', items);
+      pushNewOrderCraft(data.customerName, items, data.orderNo, _craftsman ? _craftsman.name : '');
     }
     _draft = null; _cur = null; _editOrderId = null;
     closeOrderSheet();
@@ -1904,7 +1905,43 @@ async function nextOrderNoCraft() {
   }
 }
 
+// ── แจ้งเตือน push ออเดอร์ใหม่ (ชุดเดียวกับหน้าแอดมิน: settings/pushSubs → api/push.js) ──
+// รับค่าเป็นพารามิเตอร์ ไม่อ่าน _draft เอง เพราะ submitDraft ล้าง _draft ทิ้งทันทีหลังเรียก
+async function pushNewOrderCraft(customerName, items, orderNo, takenBy) {
+  try {
+    const ref = db.collection('settings').doc('pushSubs');
+    const snap = await ref.get();
+    const map = (snap.exists && snap.data().value) || {};
+    let mine = null;
+    try { const reg = await navigator.serviceWorker.getRegistration();
+          const s = reg && reg.pushManager ? await reg.pushManager.getSubscription() : null;
+          mine = s ? s.endpoint : null; } catch (_) {}
+    const subs = Object.values(map).filter(s => s && s.endpoint && s.endpoint !== mine)
+                                   .map(s => ({ endpoint: s.endpoint, keys: s.keys }));
+    if (!subs.length) return;
+    const pcs = items.reduce((a, i) => a + (Number(i.qty) || 0), 0);
+    const lines = items.slice(0, 3).map(i =>
+      [i.productName, i.color, i.trimColor].filter(x => x && x !== '-').join(' ') + ' ×' + i.qty);
+    const body = lines.join('\n') + (items.length > 3 ? `\n…และอีก ${items.length - 3} รายการ` : '')
+               + `\nรวม ${pcs} ใบ` + (takenBy ? ` · ช่าง${takenBy}รับ` : '');
+    const r = await fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subs, title: '📦 ออเดอร์ใหม่ — ' + (customerName || 'ลูกค้า'), body,
+                             url: '/#orders', tag: 'order-' + (orderNo || Date.now()) }) });
+    const j = await r.json().catch(() => ({}));
+    if (j.gone && j.gone.length) {
+      const upd = {};
+      for (const [id, s] of Object.entries(map)) if (j.gone.includes(s.endpoint)) upd['value.' + id] = firebase.firestore.FieldValue.delete();
+      if (Object.keys(upd).length) await ref.update(upd);
+    }
+  } catch (e) { console.warn('push new order:', e); }
+}
+
 async function notifyLine(type, items) {
+  // ⚠️ ต้องจำค่าไว้ "ก่อน" await ตัวแรก — submitDraft เรียกฟังก์ชันนี้แบบไม่รอ
+  //    แล้วล้าง _draft = null ทันที พอ await กลับมา _draft หายไปแล้ว
+  //    เดิมอ่าน _draft.customerName หลัง await → พังเงียบ ข้อความ LINE ไม่ออกเลย (เจอ 24 ก.ย. 69)
+  const customerName = _draft ? _draft.customerName : '';
+  const takenBy = _craftsman ? _craftsman.name : '';
   // เช็คสวิตช์ปิดแจ้งเตือนของร้าน (ตั้งจากหน้าแอดมิน เก็บใน settings/lineMuteUntil)
   // เก็บเป็นเวลา "ปิดถึงเมื่อไร" จึงหมดอายุเองโดยไม่ต้องมีใครมาเปิดกลับ
   try {
@@ -1917,8 +1954,8 @@ async function notifyLine(type, items) {
     method: 'POST', headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
       type,
-      customerName: _draft.customerName,
-      takenBy: _craftsman.name,
+      customerName,
+      takenBy,
       items: items.map(i => ({name:i.productName, qty:i.qty, color:i.color, trimColor:i.trimColor,
                               changeType: type==='edit' ? 'modified' : undefined})),
       createdAt: Date.now(),
@@ -2705,7 +2742,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v88</span>
+      <span style="opacity:.6;margin-left:6px;">· v89</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">

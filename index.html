@@ -2205,7 +2205,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v88';
+const APP_VERSION = 'v89';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -4729,6 +4729,8 @@ async function doSaveOrder() {
         await DB.putOrder(freezeDeliveryBeforeEdit(merged, origItems));
         savedOrderNo = mergeTarget.orderNo || '';
         mergedInto = savedOrderNo;
+        // ลูกค้าเดิมสั่งเพิ่มในวันเดียวกัน → ระบบรวมเข้าใบเดิมให้ แต่คนรับต้องรู้ว่ามีงานเข้า
+        pushNewOrder({ customerName: data.customerName, items, orderNo: mergeTarget.orderNo, merged: true });
         // แจ้ง LINE แบบเดียวกับตอนกด "เพิ่มรายการเข้าออเดอร์" — รูปแบบเดิมที่กลุ่มคุ้นอยู่แล้ว
         const addKeys = items.map(it => `${it.productName}|${it.color||''}|${it.trimColor||''}`);
         const todayAdd = await getTodayOrdersSummary({ currentOrderId: mergeTarget.id, actionType: 'edit', actionItemKeys: addKeys });
@@ -4749,6 +4751,8 @@ async function doSaveOrder() {
         data.isDelivered = false;
         savedOrderNo = data.orderNo;
         const newOrderId = await DB.addOrder(data);
+        // แจ้งเตือน push ทุกเครื่องที่เปิดรับไว้ (ไม่รอ — ห้ามขวางการบันทึก)
+        pushNewOrder({ customerName: data.customerName, items: data.items, orderNo: data.orderNo });
         // แจ้งเตือน LINE กลุ่ม — ออเดอร์ใหม่ (fire-and-forget)
         const lineItems = data.items.map(it=>({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'' }));
         const todayNew = await getTodayOrdersSummary({ currentOrderId: newOrderId, actionType: 'new' });
@@ -6984,6 +6988,14 @@ async function renderSettings(el) {
     DB.getSetting('lastBackup'), getMuteUntil(), getCraftOrderEnabled()
   ]);
   const isMuted = !!muteLabel(muteUntil);      // ปิดอยู่จริงไหม (เลยเวลาแล้ว = ไม่ปิด)
+  const pst = await pushState().catch(() => 'unsupported');   // แจ้งเตือน push บนเครื่องนี้
+  const PUSH_TXT = {
+    on:          'เปิดอยู่ — เด้งเตือนแม้ปิดแอพ',
+    off:         'ปิดอยู่ — กดสวิตช์เพื่อให้เครื่องนี้เด้งเตือนเมื่อมีออเดอร์ใหม่',
+    denied:      'ถูกบล็อกไว้ — ต้องไปอนุญาตการแจ้งเตือนของเว็บนี้ในตั้งค่าเบราว์เซอร์ก่อน',
+    'ios-install': 'iPhone: กดปุ่มแชร์ → "เพิ่มไปยังหน้าจอโฮม" แล้วเปิดจากไอคอนนั้นก่อน',
+    unsupported: 'เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน',
+  };
 
   // ที่อยู่หลายบรรทัด — เอามาโชว์บรรทัดเดียวบนแถบร้าน
   const addr1 = (CFG.businessAddress||'').split('\n').map(s=>s.trim()).filter(Boolean)[0] || '';
@@ -7050,6 +7062,16 @@ async function renderSettings(el) {
         <button type="button" class="stbk" style="background:#fffbeb;color:#b45309;border-color:#fde68a;min-height:40px;"
           onclick="setMute('forever')">ปิดยาวจนกว่าจะกดเปิดเอง →</button>
       </div>` : ''}
+      <div class="strow" style="cursor:default;">
+        <span class="si" style="background:${pst==='on'?'#2563eb':'#94a3b8'};"><i class="fa-solid fa-mobile-screen-button"></i></span>
+        <span class="tx"><span class="st">แจ้งเตือนออเดอร์ใหม่บนเครื่องนี้</span>
+          <span class="ss" style="white-space:normal;">${PUSH_TXT[pst] || ''}</span></span>
+        ${(pst === 'on' || pst === 'off') ? `
+        <button class="kl-switch${pst==='on'?' on':''}" onclick="this.disabled=true;${pst==='on'?'pushDisable()':'pushEnable()'}"
+          role="switch" aria-checked="${pst==='on'}" aria-label="แจ้งเตือนออเดอร์ใหม่บนเครื่องนี้">
+          <span class="tr"><span class="kn"></span></span>
+        </button>` : ''}
+      </div>
       <div class="strow" style="cursor:default;">
         <span class="si" style="background:${craftOn?'#d97706':'#94a3b8'};"><i class="fa-solid fa-hammer"></i></span>
         <span class="tx"><span class="st">ให้ช่างรับออเดอร์เองได้</span>
@@ -7133,6 +7155,129 @@ async function loadSettingsStats() {
       if (el) { el.textContent = '?'; el.style.color = '#94a3b8'; }
     });
   }
+}
+
+// ═══════════════════════════════════════
+//  แจ้งเตือน Push — เด้งบนเครื่องแม้ปิดแอพอยู่
+//  แต่ละเครื่องเปิด/ปิดเองที่หน้าตั้งค่า · ตัวส่งคือ api/push.js · ตัวรับคือ sw.js
+//  รายชื่อเครื่องเก็บใน settings/pushSubs (collection settings มีในกฎ Firestore อยู่แล้ว
+//  ถ้าตั้ง collection ใหม่จะโดนกฎบล็อก)
+// ═══════════════════════════════════════
+// กุญแจสาธารณะ — เปิดเผยได้ ตัวคู่ (กุญแจลับ) อยู่ใน Vercel env VAPID_PRIVATE_KEY เท่านั้น
+// ⚠️ ถ้าเปลี่ยนกุญแจ ต้องเปลี่ยนทั้งตรงนี้และใน Vercel พร้อมกัน แล้วทุกเครื่องต้องกดเปิดใหม่
+const VAPID_PUBLIC = 'BIlBe8nCh6Lvbwut0lidGPImm9I491QKsF1dFO7sl_ZSDP8LZg3O0qJ51gWRftY2Q8OmyLOlzMWedgP1nk1XCzA';
+const pushDoc = () => DB._fs.collection('settings').doc('pushSubs');
+
+function pushSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function pushIsIOS() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function pushStandalone() { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+// ชื่อช่องต่อเครื่อง — สั้น คงที่ ไม่มีจุด (จุดใน Firestore = เข้าไปในแผนที่ย่อย)
+function pushSubId(endpoint) {
+  let h = 0; for (let i = 0; i < endpoint.length; i++) h = (h * 31 + endpoint.charCodeAt(i)) >>> 0;
+  return 'd' + h.toString(36) + endpoint.length.toString(36);
+}
+function b64uToU8(s) {
+  const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
+  return Uint8Array.from(b, c => c.charCodeAt(0));
+}
+function pushDeviceLabel() {
+  const ua = navigator.userAgent;
+  const os = /Android/.test(ua) ? 'Android' : pushIsIOS() ? 'iPhone/iPad' : /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'Mac' : 'อุปกรณ์';
+  const br = /Edg\//.test(ua) ? 'Edge' : /SamsungBrowser/.test(ua) ? 'Samsung' : /Chrome\//.test(ua) ? 'Chrome'
+           : /Firefox/.test(ua) ? 'Firefox' : /Safari/.test(ua) ? 'Safari' : '';
+  return os + (br ? ' · ' + br : '') + (pushStandalone() ? ' (แอพ)' : '');
+}
+// ใช้ getRegistration ไม่ใช้ .ready — .ready ค้างตลอดไปถ้าลง service worker ไม่สำเร็จ
+async function pushGetSub() {
+  if (!pushSupported()) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+async function pushState() {
+  if (pushIsIOS() && !pushStandalone()) return 'ios-install';   // iPhone ต้องเปิดจากไอคอนหน้าจอโฮมเท่านั้น
+  if (!pushSupported()) return 'unsupported';
+  if (Notification.permission === 'denied') return 'denied';
+  const sub = await pushGetSub().catch(() => null);
+  return sub ? 'on' : 'off';
+}
+async function pushSend(subs, msg) {
+  try {
+    const r = await fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                         body: JSON.stringify({ subs, ...msg }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) return { error: j.error || ('HTTP ' + r.status) };
+    if (!j.sent && j.failed && j.failed.length) return { ...j, error: 'push service ตอบ ' + (j.failed[0].status || j.failed[0].error) };
+    return j;
+  } catch (e) { return { error: e.message || String(e) }; }
+}
+
+async function pushEnable() {
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      U.toast(perm === 'denied' ? 'ถูกปฏิเสธ — ต้องไปอนุญาตการแจ้งเตือนในตั้งค่าเบราว์เซอร์ก่อน' : 'ยังไม่ได้กดอนุญาต', 'error');
+      return navigate('settings');
+    }
+    const reg = await withTimeout(navigator.serviceWorker.ready, 8000, 'ระบบแจ้งเตือนยังไม่พร้อม ลองรีเฟรชแล้วกดใหม่');
+    const key = b64uToU8(VAPID_PUBLIC);
+    let sub = await reg.pushManager.getSubscription();
+    // เคยสมัครไว้ด้วยกุญแจคนละตัว (เช่นเปลี่ยนกุญแจ) → ส่งไม่ถึง ต้องสมัครใหม่
+    if (sub && sub.options && sub.options.applicationServerKey) {
+      const old = new Uint8Array(sub.options.applicationServerKey);
+      if (old.length !== key.length || old.some((b, i) => b !== key[i])) { await sub.unsubscribe(); sub = null; }
+    }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    const j = sub.toJSON();
+    await pushDoc().set({ value: { [pushSubId(j.endpoint)]: {
+      endpoint: j.endpoint, keys: j.keys, label: pushDeviceLabel(), at: Date.now() } } }, { merge: true });
+    // ส่งทดสอบหาเครื่องตัวเองทันที — พิสูจน์ว่าทั้งสาย Vercel → push service → เครื่องนี้ ใช้ได้จริง
+    const r = await pushSend([{ endpoint: j.endpoint, keys: j.keys }],
+      { title: '✅ เปิดแจ้งเตือนแล้ว', body: 'เครื่องนี้จะเด้งเตือนทุกครั้งที่มีออเดอร์ใหม่', url: '/#settings', tag: 'kl-test' });
+    if (r.error) U.toast('บันทึกเครื่องแล้ว แต่ส่งทดสอบไม่ผ่าน: ' + r.error, 'error');
+    else U.toast('เปิดแจ้งเตือนแล้ว ✓ ควรมีแจ้งเตือนทดสอบเด้งขึ้นมา');
+  } catch (e) { U.toast('เปิดไม่สำเร็จ: ' + (e.message || e), 'error'); }
+  navigate('settings');
+}
+
+async function pushDisable() {
+  try {
+    const sub = await pushGetSub();
+    if (sub) {
+      const id = pushSubId(sub.endpoint);
+      await sub.unsubscribe().catch(() => {});
+      await pushDoc().update({ ['value.' + id]: firebase.firestore.FieldValue.delete() }).catch(() => {});
+    }
+    U.toast('ปิดแจ้งเตือนบนเครื่องนี้แล้ว');
+  } catch (e) { U.toast('ปิดไม่สำเร็จ: ' + (e.message || e), 'error'); }
+  navigate('settings');
+}
+
+// ── เตือนทุกเครื่องว่ามีออเดอร์ใหม่ ──
+// ไม่เตือนเครื่องที่เป็นคนกดบันทึกเอง · เครื่องที่เลิกรับแล้ว (404/410) ลบออกจากรายชื่อให้เอง
+// เรียกแบบไม่ต้องรอ — ส่งไม่สำเร็จก็ห้ามไปขวางการบันทึกออเดอร์
+async function pushNewOrder({ customerName, items, orderNo, merged }) {
+  try {
+    const snap = await pushDoc().get();
+    const map = (snap.exists && snap.data().value) || {};
+    const mine = ((await pushGetSub().catch(() => null)) || {}).endpoint;
+    const subs = Object.values(map).filter(s => s && s.endpoint && s.endpoint !== mine)
+                                   .map(s => ({ endpoint: s.endpoint, keys: s.keys }));
+    if (!subs.length) return;
+    const list = items || [];
+    const pcs = list.reduce((a, i) => a + (Number(i.qty) || 0), 0);
+    const lines = list.slice(0, 3).map(i =>
+      [i.productName || i.name, i.color, i.trimColor].filter(x => x && x !== '-').join(' ') + ' ×' + i.qty);
+    const body = lines.join('\n') + (list.length > 3 ? `\n…และอีก ${list.length - 3} รายการ` : '') + `\nรวม ${pcs} ใบ`;
+    const r = await pushSend(subs, {
+      title: (merged ? '➕ สั่งเพิ่ม — ' : '📦 ออเดอร์ใหม่ — ') + (customerName || 'ลูกค้า'),
+      body, url: '/#orders', tag: 'order-' + (orderNo || Date.now()),
+    });
+    if (r.gone && r.gone.length) {
+      const upd = {};
+      for (const [id, s] of Object.entries(map)) if (r.gone.includes(s.endpoint)) upd['value.' + id] = firebase.firestore.FieldValue.delete();
+      if (Object.keys(upd).length) await pushDoc().update(upd);
+    }
+  } catch (e) { console.warn('push new order:', e); }
 }
 
 // ── ประวัติการเปิดแอพ ──
@@ -7849,6 +7994,14 @@ function klRegisterSW() {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController) return;
     klReloadOnce();
+  });
+
+  // แตะแจ้งเตือนออเดอร์ใหม่ขณะเปิดแอพค้างไว้ → sw ส่งข้อความมาให้เปลี่ยนหน้า (ไม่ต้องโหลดใหม่)
+  navigator.serviceWorker.addEventListener('message', e => {
+    if (e.data && e.data.type === 'KL_OPEN_PAGE' && PAGE_TITLES[e.data.page]) {
+      DB._bust('orders');          // เผื่อ cache ยังไม่มีออเดอร์ที่เพิ่งเข้ามา
+      navigate(e.data.page);
+    }
   });
 }
 let _klReloading = false;
