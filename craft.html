@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" style="background:#eef2f7">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
@@ -35,6 +35,37 @@
         การต่อ Firestore จึงย้ายไปอยู่ใน initFirebase() ที่เรียกตอน init() -->
 <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<!-- CSS ก้อนใหญ่ของแอพย้ายลงไปอยู่ข้างล่าง หลังหน้าจอต้อนรับแล้ว -->
+</head>
+<body style="background:#eef2f7;margin:0">
+
+<!-- ══ หน้าจอต้อนรับ ══
+     ⚠️ ก้อนนี้ต้องอยู่บนสุดของหน้า และห้ามพึ่ง CSS ภายนอก
+     เดิม CSS ก้อนใหญ่ 35 KB ขวางอยู่ข้างหน้า ช่างต้องรอโหลด 25% ของไฟล์
+     ก่อนจะเห็นอะไรบนจอ — เน็ตในโรงงานอ่อน = ขาวค้าง -->
+<div id="klSplash" style="position:fixed;inset:0;z-index:9999;background:#0f172a;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#fff;">
+  <div style="font-size:46px;line-height:1;margin-bottom:14px;">&#x1F528;</div>
+  <div style="font-size:18px;font-weight:700;">หน้าช่างแต่ง</div>
+  <div style="width:34px;height:34px;margin:18px 0 10px;border:3px solid rgba(255,255,255,.22);border-top-color:#fbbf24;border-radius:50%;animation:klspin .8s linear infinite;"></div>
+  <div id="klSplashMsg" style="font-size:13.5px;color:#94a3b8;">กำลังเปิด...</div>
+  <style>@keyframes klspin{to{transform:rotate(360deg)}}</style>
+</div>
+<script>
+setTimeout(function(){var m=document.getElementById('klSplashMsg');
+  if(m&&document.getElementById('klSplash'))m.textContent='เน็ตช้าหน่อย กำลังโหลด...';},5000);
+function klHideSplash(){
+  var el=document.getElementById('klSplash'); if(!el)return;
+  el.style.transition='opacity .25s'; el.style.opacity='0';
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },260);
+}
+// กันค้าง — 12 วิแล้วยังไม่พร้อม โชว์ปุ่มโหลดใหม่แทนวงกลมหมุน
+setTimeout(function(){
+  if (window._klBooted) return;
+  var m=document.getElementById('klSplashMsg'); if(!m) return;
+  m.innerHTML='โหลดไม่สำเร็จ<br><button onclick="location.reload()" style="margin-top:12px;min-height:46px;padding:0 24px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-size:16px;font-weight:700;font-family:inherit;">โหลดใหม่</button>';
+}, 12000);
+</script>
+
 <style>
 * { font-family: 'Sarabun', sans-serif; box-sizing: border-box; }
 body { background: #f0f2f5; margin: 0; min-height: 100vh; }
@@ -584,8 +615,6 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .ord-foot-sum b { font-size:16px; font-weight:800; color:#1a2332; }
 .ord-foot-sum i { font-size:12.5px; font-weight:600; color:#6b7280; font-style:normal; }
 </style>
-</head>
-<body>
 
 <script>
 const FIREBASE_CONFIG = {
@@ -1074,6 +1103,7 @@ async function init() {
   // ถ้าโหลดไม่สำเร็จจริงๆ ให้ขึ้นข้อความบอก ดีกว่าค้างเงียบๆ
   try { initFirebase(); }
   catch (e) {
+    window._klBooted = true; klHideSplash();
     contentEl.innerHTML =
       `<div class="empty-craft"><i class="fa-solid fa-wifi" style="color:#ef4444;"></i>
         <p style="color:#ef4444;font-weight:700;">โหลดระบบไม่ครบ</p>
@@ -1105,10 +1135,13 @@ async function init() {
         <i class="fa-solid fa-rotate-right me-1"></i>รีเฟรช
       </button>
     </div>`;
+    window._klBooted = true; klHideSplash();   // ต้องเปิดหน้าจอต้อนรับออก ไม่งั้นบังข้อความนี้
     return;
   }
 
   _craftsmen = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  window._klBooted = true;
+  klHideSplash();               // หน้าพร้อมใช้แล้ว เอาหน้าจอต้อนรับออก
 
   // Populate dropdown
   const sel = document.getElementById('craftsmanSel');
@@ -2599,7 +2632,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v85</span>
+      <span style="opacity:.6;margin-left:6px;">· v86</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">

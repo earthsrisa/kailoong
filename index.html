@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="th">
+<html lang="th" style="background:#f0f2f5">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
@@ -36,6 +36,34 @@
 </noscript>
 <!-- chart.js / xlsx ไม่โหลดตรงนี้แล้ว — โหลดตอนใช้จริงผ่าน loadScriptOnce()
      ช่วยให้หน้าแรกเบาลงเกือบ 1 MB (ดู renderReports / exportExcel) -->
+<!-- CSS ก้อนใหญ่ของแอพย้ายลงไปอยู่ข้างล่าง หลังหน้าจอต้อนรับแล้ว -->
+</head>
+<body style="background:#f0f2f5;margin:0">
+
+<!-- ══ หน้าจอต้อนรับ ══
+     ⚠️ ก้อนนี้ต้องอยู่บนสุดของหน้า และห้ามพึ่ง CSS ภายนอกเด็ดขาด
+     เดิม CSS ก้อนใหญ่ 84 KB วางขวางอยู่ข้างหน้า เบราว์เซอร์จึงต้องโหลด
+     ไปถึง 18% ของไฟล์ก่อนจะมีอะไรให้วาด = จอขาวค้างตอนเน็ตอ่อน
+     ย้าย CSS ไปไว้ข้างล่างแล้ว ก้อนนี้จึงอยู่ใน 1 KB แรก จอมีอะไรขึ้นแทบทันที
+     เอาออกด้วย klHideSplash() ตอนแอพวาดหน้าแรกเสร็จ -->
+<div id="klSplash" style="position:fixed;inset:0;z-index:9999;background:#f0f2f5;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;">
+  <div style="font-size:46px;line-height:1;margin-bottom:14px;">&#x1FAA6;</div>
+  <div style="font-size:17px;font-weight:700;color:#1a2332;">ขายส่งโลงศพ</div>
+  <div style="width:34px;height:34px;margin:18px 0 10px;border:3px solid #dbe3ec;border-top-color:#2563eb;border-radius:50%;animation:klspin .8s linear infinite;"></div>
+  <div id="klSplashMsg" style="font-size:13px;color:#64748b;">กำลังเปิดแอพ...</div>
+  <style>@keyframes klspin{to{transform:rotate(360deg)}}</style>
+</div>
+<script>
+// เน็ตช้าเกิน 5 วิ บอกให้รู้ว่ายังทำงานอยู่ ไม่ได้ค้าง
+setTimeout(function(){var m=document.getElementById('klSplashMsg');
+  if(m&&document.getElementById('klSplash'))m.textContent='เน็ตช้าหน่อย กำลังโหลด...';},5000);
+function klHideSplash(){
+  var el=document.getElementById('klSplash'); if(!el)return;
+  el.style.transition='opacity .25s'; el.style.opacity='0';
+  setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },260);
+}
+</script>
+
 <style>
 * { font-family: 'Sarabun', sans-serif; }
 body { background: #f0f2f5; margin: 0; }
@@ -1281,8 +1309,6 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-grand span { font-size:15px; font-weight:800; }
 .oc-grand b { font-size:24px; font-weight:800; color:#0f766e; }
 </style>
-</head>
-<body>
 
 <!-- SIDEBAR -->
 <div id="sidebar">
@@ -1369,6 +1395,7 @@ setTimeout(function () {
   if (window._klBooted) return;
   var el = document.getElementById('page-content');
   if (!el) return;
+  if (window.klHideSplash) klHideSplash();   // ไม่งั้นหน้าจอต้อนรับจะบังข้อความนี้ไว้
   el.innerHTML =
     '<div style="text-align:center;padding:40px 20px;color:#374151;font-family:sans-serif;">'
     + '<div style="font-size:38px;margin-bottom:8px;">📶</div>'
@@ -2112,7 +2139,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v85';
+const APP_VERSION = 'v86';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -7662,9 +7689,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     window._currentPage = null;   // บังคับให้ navigate ทำงานเต็มรูปแบบ
     navigate(start, {fromPop:true});
     window._klBooted = true;      // บอกตัวจับเวลากันหน้าค้างว่าขึ้นหน้าได้แล้ว
+    klHideSplash();               // เอาหน้าจอต้อนรับออก
   } catch(e) {
     console.error('init error', e);
     window._klBooted = true;    // ขึ้นข้อความของตัวเองแล้ว ตัวจับเวลาไม่ต้องมาทับ
+    klHideSplash();             // ต้องเอาหน้าจอต้อนรับออก ไม่งั้นมันบังข้อความ
     document.getElementById('page-content').innerHTML =
       `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i>
         <p>โหลดข้อมูลไม่ได้ กรุณารีเฟรช</p>
