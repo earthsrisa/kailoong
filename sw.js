@@ -1,4 +1,4 @@
-const CACHE = 'kailoong-v89';        // ไฟล์ของแอพเอง — ล้างทิ้งทุกครั้งที่ขึ้นเวอร์ชัน
+const CACHE = 'kailoong-v90';        // ไฟล์ของแอพเอง — ล้างทิ้งทุกครั้งที่ขึ้นเวอร์ชัน
 const CDN   = 'kailoong-cdn-v1';     // ไฟล์จากเน็ตนอก — คนละถัง จะได้ไม่โดนล้างตามเวอร์ชันแอพ
                                      // (URL พวกนี้มีเลขเวอร์ชันในตัวอยู่แล้ว ของใหม่ = คนละ URL)
 
@@ -8,6 +8,7 @@ const ASSETS = [
   '/index.html',
   '/craft.html',
   '/manifest.json',
+  '/manifest-craft.json',
   '/icon-192.png',
   '/icon-512.png',
   '/craft-icon-180.png',
@@ -206,7 +207,16 @@ self.addEventListener('notificationclick', e => {
   const page = (target.hash || '').replace('#', '') || 'orders';
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    // เลือกหน้าต่างแอดมิน ไม่เอาหน้าช่าง (หน้าช่างไม่มีหน้าออเดอร์)
+    const isCraft = u => { try { return new URL(u).pathname.startsWith('/craft'); } catch (_) { return false; } };
+
+    // แจ้งเตือนของช่าง → เปิดหน้าช่าง (หน้าช่างอัปเดตสดอยู่แล้ว แค่เด้งหน้าต่างขึ้นมาพอ)
+    if (target.pathname.startsWith('/craft')) {
+      const cw = wins.find(w => isCraft(w.url));
+      if (cw) { await cw.focus(); return; }
+      await self.clients.openWindow(target.href);
+      return;
+    }
+    // แจ้งเตือนของแอดมิน → เลือกหน้าต่างแอดมิน ไม่เอาหน้าช่าง (หน้าช่างไม่มีหน้าออเดอร์)
     const admin = wins.find(w => {
       try { const u = new URL(w.url); return u.origin === target.origin && !u.pathname.includes('craft'); }
       catch (_) { return false; }

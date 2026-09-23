@@ -2205,7 +2205,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v89';
+const APP_VERSION = 'v90';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -7198,7 +7198,13 @@ async function pushState() {
   if (!pushSupported()) return 'unsupported';
   if (Notification.permission === 'denied') return 'denied';
   const sub = await pushGetSub().catch(() => null);
-  return sub ? 'on' : 'off';
+  if (!sub) return 'off';
+  // เครื่องนี้อาจเปิดไว้จากหน้าช่างอย่างเดียว — ต้องดูว่าเปิดฝั่งแอดมินไว้ด้วยหรือเปล่า
+  try {
+    const snap = await pushDoc().get();
+    const rec = ((snap.exists && snap.data().value) || {})[pushSubId(sub.endpoint)];
+    return rec && rec.admin !== false ? 'on' : 'off';   // ข้อมูลรุ่น v89 ไม่มีช่อง admin = มาจากหน้าแอดมิน
+  } catch (_) { return 'on'; }
 }
 async function pushSend(subs, msg) {
   try {
@@ -7228,8 +7234,9 @@ async function pushEnable() {
     }
     if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
     const j = sub.toJSON();
+    // merge = ถ้าเครื่องนี้เปิดฝั่งช่างไว้ด้วย ช่อง craft/craftsmanId จะยังอยู่ครบ
     await pushDoc().set({ value: { [pushSubId(j.endpoint)]: {
-      endpoint: j.endpoint, keys: j.keys, label: pushDeviceLabel(), at: Date.now() } } }, { merge: true });
+      endpoint: j.endpoint, keys: j.keys, label: pushDeviceLabel(), at: Date.now(), admin: true } } }, { merge: true });
     // ส่งทดสอบหาเครื่องตัวเองทันที — พิสูจน์ว่าทั้งสาย Vercel → push service → เครื่องนี้ ใช้ได้จริง
     const r = await pushSend([{ endpoint: j.endpoint, keys: j.keys }],
       { title: '✅ เปิดแจ้งเตือนแล้ว', body: 'เครื่องนี้จะเด้งเตือนทุกครั้งที่มีออเดอร์ใหม่', url: '/#settings', tag: 'kl-test' });
@@ -7244,8 +7251,15 @@ async function pushDisable() {
     const sub = await pushGetSub();
     if (sub) {
       const id = pushSubId(sub.endpoint);
-      await sub.unsubscribe().catch(() => {});
-      await pushDoc().update({ ['value.' + id]: firebase.firestore.FieldValue.delete() }).catch(() => {});
+      const snap = await pushDoc().get().catch(() => null);
+      const rec = snap && snap.exists ? (snap.data().value || {})[id] : null;
+      if (rec && rec.craft) {
+        // เครื่องนี้ยังรับแจ้งเตือนของหน้าช่างอยู่ → ปิดเฉพาะฝั่งแอดมิน ห้ามยกเลิกทั้งเครื่อง
+        await pushDoc().update({ ['value.' + id + '.admin']: false });
+      } else {
+        await sub.unsubscribe().catch(() => {});
+        await pushDoc().update({ ['value.' + id]: firebase.firestore.FieldValue.delete() }).catch(() => {});
+      }
     }
     U.toast('ปิดแจ้งเตือนบนเครื่องนี้แล้ว');
   } catch (e) { U.toast('ปิดไม่สำเร็จ: ' + (e.message || e), 'error'); }
@@ -7260,21 +7274,31 @@ async function pushNewOrder({ customerName, items, orderNo, merged }) {
     const snap = await pushDoc().get();
     const map = (snap.exists && snap.data().value) || {};
     const mine = ((await pushGetSub().catch(() => null)) || {}).endpoint;
-    const subs = Object.values(map).filter(s => s && s.endpoint && s.endpoint !== mine)
-                                   .map(s => ({ endpoint: s.endpoint, keys: s.keys }));
-    if (!subs.length) return;
+    // แยกเครื่องเป็น 2 กลุ่ม — เครื่องที่เป็นทั้งแอดมินและช่าง ได้ข้อความแอดมินอย่างเดียว (ไม่เด้งซ้ำ)
+    // ⚠️ ตรรกะนี้ต้องตรงกับ pushNewOrderCraft() ใน craft.html
+    const admins = [], crafts = [];
+    for (const s of Object.values(map)) {
+      if (!s || !s.endpoint || s.endpoint === mine) continue;
+      const t = { endpoint: s.endpoint, keys: s.keys };
+      if (s.admin !== false) admins.push(t);   // ข้อมูลรุ่น v89 ไม่มีช่องนี้ = มาจากหน้าแอดมิน
+      else if (s.craft) crafts.push(t);        // เปิดไว้จากหน้าช่างอย่างเดียว
+    }
+    if (!admins.length && !crafts.length) return;
     const list = items || [];
     const pcs = list.reduce((a, i) => a + (Number(i.qty) || 0), 0);
     const lines = list.slice(0, 3).map(i =>
       [i.productName || i.name, i.color, i.trimColor].filter(x => x && x !== '-').join(' ') + ' ×' + i.qty);
     const body = lines.join('\n') + (list.length > 3 ? `\n…และอีก ${list.length - 3} รายการ` : '') + `\nรวม ${pcs} ใบ`;
-    const r = await pushSend(subs, {
-      title: (merged ? '➕ สั่งเพิ่ม — ' : '📦 ออเดอร์ใหม่ — ') + (customerName || 'ลูกค้า'),
-      body, url: '/#orders', tag: 'order-' + (orderNo || Date.now()),
-    });
-    if (r.gone && r.gone.length) {
+    const name = customerName || 'ลูกค้า', tag = 'order-' + (orderNo || Date.now());
+    const jobs = [];
+    if (admins.length) jobs.push(pushSend(admins,
+      { title: (merged ? '➕ สั่งเพิ่ม — ' : '📦 ออเดอร์ใหม่ — ') + name, body, url: '/#orders', tag }));
+    if (crafts.length) jobs.push(pushSend(crafts,
+      { title: (merged ? '➕ สั่งเพิ่ม — ' : '🔨 งานใหม่เข้า — ') + name, body, url: '/craft.html', tag }));
+    const gone = (await Promise.all(jobs)).flatMap(r => r.gone || []);
+    if (gone.length) {
       const upd = {};
-      for (const [id, s] of Object.entries(map)) if (r.gone.includes(s.endpoint)) upd['value.' + id] = firebase.firestore.FieldValue.delete();
+      for (const [id, s] of Object.entries(map)) if (gone.includes(s.endpoint)) upd['value.' + id] = firebase.firestore.FieldValue.delete();
       if (Object.keys(upd).length) await pushDoc().update(upd);
     }
   } catch (e) { console.warn('push new order:', e); }

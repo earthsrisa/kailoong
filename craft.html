@@ -9,6 +9,9 @@
 <meta name="apple-mobile-web-app-title" content="ขายโลง">
 <meta name="theme-color" content="#1a2332">
 <link rel="apple-touch-icon" sizes="180x180" href="/craft-icon-180.png">
+<!-- manifest แยกของหน้าช่าง — ติดตั้งลงหน้าจอโฮมแล้วเปิดมาที่หน้าช่างเลย (ของเดิมจะพาไปหน้าแอดมิน)
+     iPhone ต้องติดตั้งแบบนี้ก่อน ถึงจะรับแจ้งเตือนได้ -->
+<link rel="manifest" href="/manifest-craft.json">
 <title>หน้าช่างแต่ง — ขายโลง</title>
 <!-- เริ่มต่อโดเมนไว้ล่วงหน้า ลดเวลาจับมือ DNS/TLS ตอนเปิดครั้งแรก -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -378,6 +381,20 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
   justify-content: center; cursor: pointer; color: #fff; font-size: 15px; transition: all .15s;
 }
 #refreshBtn:hover { background: rgba(255,255,255,.22); }
+
+/* ปุ่มกระดิ่ง เปิด/ปิดแจ้งเตือนงานใหม่บนเครื่องนี้ — หน้าตาเดียวกับปุ่มรีเฟรช
+   ใหญ่กว่านิดหน่อย (42px) เพราะช่างมือเปื้อน กดด้วยนิ้วโป้ง */
+#pushBtn {
+  background: rgba(255,255,255,.12); border: 1.5px solid rgba(255,255,255,.3);
+  border-radius: 8px; width: 42px; height: 42px; display: flex; align-items: center;
+  justify-content: center; cursor: pointer; color: rgba(255,255,255,.75); font-size: 17px;
+  transition: all .15s; margin-right: 8px; flex: none; position: relative;
+}
+#pushBtn.on { background: rgba(251,191,36,.18); border-color: #fbbf24; color: #fbbf24; }
+#pushBtn.busy { opacity: .5; pointer-events: none; }
+/* จุดแดงเล็กๆ ชวนให้กด ตอนยังไม่เปิด */
+#pushBtn.off::after { content: ""; position: absolute; top: 5px; right: 5px; width: 8px; height: 8px;
+  border-radius: 50%; background: #ef4444; box-shadow: 0 0 0 2px #1a2332; }
 
 /* ปุ่มกลับหน้าแอดมิน — โผล่เฉพาะคนที่เข้ามาจากหน้าแอดมิน (ดู kl_fromAdmin)
    ช่างที่เปิดหน้านี้เองจะไม่เห็นปุ่มนี้เลย */
@@ -1215,6 +1232,7 @@ async function init() {
   klHideSplash();               // หน้าพร้อมใช้แล้ว เอาหน้าจอต้อนรับออก
   klRecordLoad('ok');
   klBootDone();
+  craftPushPaint();             // สถานะปุ่มกระดิ่งแจ้งเตือน
 
   // Populate dropdown
   const sel = document.getElementById('craftsmanSel');
@@ -1905,33 +1923,167 @@ async function nextOrderNoCraft() {
   }
 }
 
-// ── แจ้งเตือน push ออเดอร์ใหม่ (ชุดเดียวกับหน้าแอดมิน: settings/pushSubs → api/push.js) ──
+// ═══════════════════════════════════════
+//  แจ้งเตือน Push ของหน้าช่าง — ระบบเดียวกับหน้าแอดมิน
+//  รายชื่อเครื่อง: settings/pushSubs · ตัวส่ง: api/push.js · ตัวรับ: sw.js
+//  แต่ละเครื่องมีช่อง admin / craft แยกกัน เครื่องเดียวเปิดได้ทั้งสองฝั่ง
+//  และตอนส่ง เครื่องที่เป็นทั้งสองได้ข้อความเดียว (ไม่เด้งซ้ำ)
+// ═══════════════════════════════════════
+// ⚠️ ต้องตรงกับ VAPID_PUBLIC ใน index.html และ VAPID_PUBLIC_KEY ใน Vercel
+const VAPID_PUBLIC = 'BIlBe8nCh6Lvbwut0lidGPImm9I491QKsF1dFO7sl_ZSDP8LZg3O0qJ51gWRftY2Q8OmyLOlzMWedgP1nk1XCzA';
+const cpDoc = () => db.collection('settings').doc('pushSubs');
+function cpSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function cpIsIOS() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function cpStandalone() { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+// ⚠️ ต้องคำนวณเหมือน pushSubId() ใน index.html ทุกตัวอักษร ไม่งั้นเครื่องเดียวจะกลายเป็น 2 รายการ
+function cpSubId(endpoint) {
+  let h = 0; for (let i = 0; i < endpoint.length; i++) h = (h * 31 + endpoint.charCodeAt(i)) >>> 0;
+  return 'd' + h.toString(36) + endpoint.length.toString(36);
+}
+function cpKey() {
+  const s = VAPID_PUBLIC, b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
+  return Uint8Array.from(b, c => c.charCodeAt(0));
+}
+function cpLabel() {
+  const ua = navigator.userAgent;
+  const os = /Android/.test(ua) ? 'Android' : cpIsIOS() ? 'iPhone/iPad' : /Windows/.test(ua) ? 'Windows' : 'อุปกรณ์';
+  return os + ' · หน้าช่าง' + (_craftsman ? ' (' + _craftsman.name + ')' : '');
+}
+async function cpGetSub() {
+  if (!cpSupported()) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+async function cpRecord(sub) {
+  const snap = await cpDoc().get();
+  return ((snap.exists && snap.data().value) || {})[cpSubId(sub.endpoint)] || null;
+}
+async function craftPushState() {
+  if (cpIsIOS() && !cpStandalone()) return 'ios-install';
+  if (!cpSupported()) return 'unsupported';
+  if (Notification.permission === 'denied') return 'denied';
+  const sub = await cpGetSub().catch(() => null);
+  if (!sub) return 'off';
+  try { const rec = await cpRecord(sub); return rec && rec.craft ? 'on' : 'off'; }
+  catch (_) { return 'off'; }
+}
+async function craftPushPaint() {
+  const btn = document.getElementById('pushBtn'); if (!btn) return;
+  const st = await craftPushState().catch(() => 'unsupported');
+  btn.style.display = st === 'unsupported' ? 'none' : 'flex';    // เบราว์เซอร์ทำไม่ได้ ก็ไม่ต้องโชว์ปุ่ม
+  btn.className = st === 'on' ? 'on' : (st === 'denied' ? '' : 'off');
+  btn.innerHTML = `<i class="fa-solid fa-${st === 'on' ? 'bell' : 'bell-slash'}"></i>`;
+  btn.title = st === 'on' ? 'แจ้งเตือนงานใหม่: เปิดอยู่' : 'แจ้งเตือนงานใหม่: ปิดอยู่ (กดเพื่อเปิด)';
+  btn.dataset.state = st;
+}
+async function craftPushToggle() {
+  const btn = document.getElementById('pushBtn');
+  const st = (btn && btn.dataset.state) || await craftPushState();
+  if (st === 'on') {
+    showConfirm({ icon: '🔕', title: 'ปิดแจ้งเตือนบนเครื่องนี้?', desc: 'จะไม่เด้งเตือนเมื่อมีงานใหม่เข้า',
+      itemLabel: 'เปิดกลับได้ทุกเมื่อ โดยกดปุ่มกระดิ่งอีกครั้ง', yesLabel: 'ปิดแจ้งเตือน', yesColor: '#dc2626',
+      onYes: craftPushDisable });
+  } else if (st === 'off') {
+    craftPushEnable();
+  } else if (st === 'ios-install') {
+    showConfirm({ icon: '📲', title: 'iPhone ต้องติดตั้งก่อน',
+      desc: 'กดปุ่มแชร์ (สี่เหลี่ยมมีลูกศรชี้ขึ้น) ด้านล่าง → "เพิ่มไปยังหน้าจอโฮม" แล้วเปิดหน้าช่างจากไอคอนนั้น จากนั้นกดกระดิ่งอีกครั้ง',
+      itemLabel: 'ต้องเป็น iOS 16.4 ขึ้นไป', yesLabel: 'เข้าใจแล้ว', yesColor: '#2563eb', onYes: () => {} });
+  } else if (st === 'denied') {
+    showConfirm({ icon: '🚫', title: 'การแจ้งเตือนถูกบล็อกไว้',
+      desc: 'ต้องไปอนุญาตการแจ้งเตือนของเว็บนี้ในตั้งค่าเบราว์เซอร์ก่อน แล้วกดกระดิ่งอีกครั้ง',
+      itemLabel: 'Chrome: กดรูปแม่กุญแจข้างชื่อเว็บ → การแจ้งเตือน → อนุญาต', yesLabel: 'เข้าใจแล้ว', yesColor: '#2563eb', onYes: () => {} });
+  } else {
+    toast('เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน');
+  }
+}
+async function craftPushEnable() {
+  const btn = document.getElementById('pushBtn'); if (btn) btn.classList.add('busy');
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { toast(perm === 'denied' ? '⚠️ ถูกปฏิเสธ — ต้องไปอนุญาตในตั้งค่าเบราว์เซอร์' : 'ยังไม่ได้กดอนุญาต'); return; }
+    const reg = await withTimeout(navigator.serviceWorker.ready, 8000, 'ระบบแจ้งเตือนยังไม่พร้อม ลองรีเฟรชแล้วกดใหม่');
+    const key = cpKey();
+    let sub = await reg.pushManager.getSubscription();
+    if (sub && sub.options && sub.options.applicationServerKey) {   // สมัครไว้ด้วยกุญแจคนละตัว → ส่งไม่ถึง ต้องสมัครใหม่
+      const old = new Uint8Array(sub.options.applicationServerKey);
+      if (old.length !== key.length || old.some((b, i) => b !== key[i])) { await sub.unsubscribe(); sub = null; }
+    }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    const j = sub.toJSON();
+    const rec = await cpRecord(sub).catch(() => null);
+    await cpDoc().set({ value: { [cpSubId(j.endpoint)]: {
+      endpoint: j.endpoint, keys: j.keys, label: cpLabel(), at: Date.now(),
+      craft: true, craftsmanId: _craftsman ? _craftsman.id : '', craftsmanName: _craftsman ? _craftsman.name : '',
+      // เครื่องใหม่ = ช่างอย่างเดียว · เครื่องที่เปิดฝั่งแอดมินไว้แล้ว = คงไว้ตามเดิม
+      admin: rec ? rec.admin !== false : false,
+    } } }, { merge: true });
+    // ส่งทดสอบหาเครื่องตัวเอง — พิสูจน์ว่าทั้งสายใช้ได้จริง
+    const r = await fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subs: [{ endpoint: j.endpoint, keys: j.keys }], title: '✅ เปิดแจ้งเตือนแล้ว',
+        body: 'เครื่องนี้จะเด้งเตือนทุกครั้งที่มีงานใหม่เข้า', url: '/craft.html', tag: 'kl-test' }) });
+    const res = await r.json().catch(() => ({}));
+    toast(r.ok && res.sent ? '🔔 เปิดแจ้งเตือนแล้ว ควรมีแจ้งเตือนทดสอบเด้งขึ้นมา'
+                           : '⚠️ บันทึกเครื่องแล้ว แต่ส่งทดสอบไม่ผ่าน: ' + (res.error || ('HTTP ' + r.status)));
+  } catch (e) {
+    toast('⚠️ เปิดไม่สำเร็จ: ' + (e.message || e));
+  } finally {
+    if (btn) btn.classList.remove('busy');
+    craftPushPaint();
+  }
+}
+async function craftPushDisable() {
+  try {
+    const sub = await cpGetSub();
+    if (sub) {
+      const id = cpSubId(sub.endpoint);
+      const rec = await cpRecord(sub).catch(() => null);
+      if (rec && rec.admin !== false) {
+        // เครื่องนี้ยังรับแจ้งเตือนฝั่งแอดมินอยู่ → ปิดเฉพาะฝั่งช่าง ห้ามยกเลิกทั้งเครื่อง
+        await cpDoc().update({ ['value.' + id + '.craft']: false });
+      } else {
+        await sub.unsubscribe().catch(() => {});
+        await cpDoc().update({ ['value.' + id]: firebase.firestore.FieldValue.delete() }).catch(() => {});
+      }
+    }
+    toast('🔕 ปิดแจ้งเตือนบนเครื่องนี้แล้ว');
+  } catch (e) { toast('⚠️ ปิดไม่สำเร็จ: ' + (e.message || e)); }
+  craftPushPaint();
+}
+
+// ── ส่งแจ้งเตือนออเดอร์ใหม่ที่ช่างรับเอง ──
 // รับค่าเป็นพารามิเตอร์ ไม่อ่าน _draft เอง เพราะ submitDraft ล้าง _draft ทิ้งทันทีหลังเรียก
+// ⚠️ ตรรกะแยกกลุ่มต้องตรงกับ pushNewOrder() ใน index.html
 async function pushNewOrderCraft(customerName, items, orderNo, takenBy) {
   try {
-    const ref = db.collection('settings').doc('pushSubs');
-    const snap = await ref.get();
+    const snap = await cpDoc().get();
     const map = (snap.exists && snap.data().value) || {};
-    let mine = null;
-    try { const reg = await navigator.serviceWorker.getRegistration();
-          const s = reg && reg.pushManager ? await reg.pushManager.getSubscription() : null;
-          mine = s ? s.endpoint : null; } catch (_) {}
-    const subs = Object.values(map).filter(s => s && s.endpoint && s.endpoint !== mine)
-                                   .map(s => ({ endpoint: s.endpoint, keys: s.keys }));
-    if (!subs.length) return;
-    const pcs = items.reduce((a, i) => a + (Number(i.qty) || 0), 0);
-    const lines = items.slice(0, 3).map(i =>
+    const mine = ((await cpGetSub().catch(() => null)) || {}).endpoint;
+    const admins = [], crafts = [];
+    for (const s of Object.values(map)) {
+      if (!s || !s.endpoint || s.endpoint === mine) continue;
+      const t = { endpoint: s.endpoint, keys: s.keys };
+      if (s.admin !== false) admins.push(t);   // ข้อมูลรุ่น v89 ไม่มีช่องนี้ = มาจากหน้าแอดมิน
+      else if (s.craft) crafts.push(t);
+    }
+    if (!admins.length && !crafts.length) return;
+    const list = items || [];
+    const pcs = list.reduce((a, i) => a + (Number(i.qty) || 0), 0);
+    const lines = list.slice(0, 3).map(i =>
       [i.productName, i.color, i.trimColor].filter(x => x && x !== '-').join(' ') + ' ×' + i.qty);
-    const body = lines.join('\n') + (items.length > 3 ? `\n…และอีก ${items.length - 3} รายการ` : '')
+    const body = lines.join('\n') + (list.length > 3 ? `\n…และอีก ${list.length - 3} รายการ` : '')
                + `\nรวม ${pcs} ใบ` + (takenBy ? ` · ช่าง${takenBy}รับ` : '');
-    const r = await fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ subs, title: '📦 ออเดอร์ใหม่ — ' + (customerName || 'ลูกค้า'), body,
-                             url: '/#orders', tag: 'order-' + (orderNo || Date.now()) }) });
-    const j = await r.json().catch(() => ({}));
-    if (j.gone && j.gone.length) {
+    const name = customerName || 'ลูกค้า', tag = 'order-' + (orderNo || Date.now());
+    const send = (subs, title, url) => fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subs, title, body, url, tag }) }).then(r => r.json()).catch(() => ({}));
+    const jobs = [];
+    if (admins.length) jobs.push(send(admins, '📦 ออเดอร์ใหม่ — ' + name, '/#orders'));
+    if (crafts.length) jobs.push(send(crafts, '🔨 งานใหม่เข้า — ' + name, '/craft.html'));
+    const gone = (await Promise.all(jobs)).flatMap(r => r.gone || []);
+    if (gone.length) {
       const upd = {};
-      for (const [id, s] of Object.entries(map)) if (j.gone.includes(s.endpoint)) upd['value.' + id] = firebase.firestore.FieldValue.delete();
-      if (Object.keys(upd).length) await ref.update(upd);
+      for (const [id, s] of Object.entries(map)) if (gone.includes(s.endpoint)) upd['value.' + id] = firebase.firestore.FieldValue.delete();
+      if (Object.keys(upd).length) await cpDoc().update(upd);
     }
   } catch (e) { console.warn('push new order:', e); }
 }
@@ -2742,9 +2894,12 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v89</span>
+      <span style="opacity:.6;margin-left:6px;">· v90</span>
     </div>
   </div>
+  <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">
+    <i class="fa-solid fa-bell-slash"></i>
+  </button>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">
     <i class="fa-solid fa-rotate-right"></i>
   </button>
