@@ -58,9 +58,78 @@ function klHideSplash(){
   el.style.transition='opacity .25s'; el.style.opacity='0';
   setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },260);
 }
+// ── ตัวบันทึกเวลาเปิดหน้า (ชุดเดียวกับหน้าแอดมิน) ── ดูได้โดยแตะเลขเวอร์ชันมุมบน 3 ครั้ง
+function klRecordLoad(status){
+  try {
+    var K='kl_loadlog_craft';
+    if (window._klRecorded) {
+      if (status==='ok') { var o=JSON.parse(localStorage.getItem(K)||'[]');
+        if(o[0]){ o[0].s='ขึ้นได้แต่ช้า'; o[0].ready=Math.round(performance.now()); localStorage.setItem(K,JSON.stringify(o)); } }
+      return;
+    }
+    window._klRecorded = true;
+    var n=(performance.getEntriesByType&&performance.getEntriesByType('navigation')[0])||{};
+    var fcp=performance.getEntriesByName?performance.getEntriesByName('first-contentful-paint')[0]:null;
+    var c=navigator.connection||{}; var r=function(x){return (x&&x>0)?Math.round(x):null;};
+    var ver=(document.body.innerText.match(/v\d+/)||['?'])[0];
+    var rec={t:Date.now(),s:status,v:ver,
+      m:(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)?'แอพ':'เว็บ', net:c.effectiveType||'',
+      sw:n.workerStart>0?r(n.fetchStart-n.workerStart):null, wait:r(n.responseStart-n.requestStart)||r(n.responseStart-n.fetchStart),
+      first:r(n.responseStart), dl:r(n.responseEnd-n.responseStart), fcp:fcp?r(fcp.startTime):null, ready:r(performance.now())};
+    var a=JSON.parse(localStorage.getItem(K)||'[]'); a.unshift(rec); localStorage.setItem(K,JSON.stringify(a.slice(0,20)));
+  } catch(e){}
+}
+function klShowLoadLog(){
+  var a=[]; try{a=JSON.parse(localStorage.getItem('kl_loadlog_craft')||'[]');}catch(e){}
+  var s=function(ms){return ms==null?'–':(ms/1000).toFixed(1)+'วิ';};
+  var h='<div style="font-weight:800;font-size:16px;margin-bottom:10px;">ประวัติการเปิดหน้า ('+a.length+')</div>';
+  a.forEach(function(x){ var d=new Date(x.t);
+    h+='<div style="border-bottom:1px solid #334155;padding:8px 0;font-size:13px;line-height:1.6;">'
+      +'<b>'+d.toLocaleString('th-TH',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+'</b> '+x.v+' · '+x.m+(x.net?' · '+x.net:'')
+      +'<br>จอขาว <b style="color:'+((x.fcp||0)>3000?'#f87171':'#4ade80')+'">'+s(x.fcp)+'</b> · พร้อมใช้ '+s(x.ready)
+      +' · ปลุก '+s(x.sw)+' · ไบต์แรก '+s(x.first)+(x.s!=='ok'?' · <span style="color:#fbbf24">'+x.s+'</span>':'')+'</div>'; });
+  var o=document.createElement('div');
+  o.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(15,23,42,.97);color:#e2e8f0;padding:18px;overflow:auto;font-family:system-ui,sans-serif;';
+  o.innerHTML=h+'<button style="margin-top:14px;width:100%;min-height:48px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-size:16px;font-weight:700;">ปิด</button>';
+  o.querySelector('button').onclick=function(){o.remove();};
+  document.body.appendChild(o);
+}
+// แตะเลขเวอร์ชัน 3 ครั้งติดกัน → เปิดประวัติ
+(function(){ var c=0,t; document.addEventListener('click',function(e){
+  if(!e.target||!/·\s*v\d+/.test(e.target.textContent||'')||(e.target.textContent||'').length>12) return;
+  c++; clearTimeout(t); t=setTimeout(function(){c=0;},900); if(c>=3){c=0; klShowLoadLog();} }); })();
+
+// ล้าง service worker + ไฟล์ที่เก็บในเครื่อง แล้วโหลดใหม่ (ข้อมูลงานอยู่บนเซิร์ฟเวอร์ ไม่หาย)
+function klHardReset(){
+  var done=function(){location.reload();};
+  try{ var jobs=[];
+    if(window.caches) jobs.push(caches.keys().then(function(ks){return Promise.all(ks.map(function(k){return caches.delete(k);}));}));
+    if(navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.map(function(r){return r.unregister();}));}));
+    Promise.all(jobs).then(done).catch(done); setTimeout(done,3000);
+  }catch(e){done();}
+}
+// ── ซ่อมตัวเองอัตโนมัติ ── เปิดไม่ขึ้น 2 ครั้งติด = ไฟล์ในเครื่องน่าจะเสีย → ล้างให้เอง
+// (ไม่เกิน 1 ครั้ง / 10 นาที กันวนลูป)
+(function(){
+  try{
+    var n=+(localStorage.getItem('kl_bootPending_craft')||0);
+    var last=+(localStorage.getItem('kl_lastAutoReset_craft')||0);
+    if(n>=2 && Date.now()-last>600000){
+      localStorage.setItem('kl_bootPending_craft','0');
+      localStorage.setItem('kl_lastAutoReset_craft',String(Date.now()));
+      klRecordLoad('ซ่อมอัตโนมัติ (ค้าง '+n+' ครั้งติด)');
+      var m=document.getElementById('klSplashMsg'); if(m) m.textContent='กำลังซ่อมหน้าช่าง รอสักครู่...';
+      klHardReset(); return;
+    }
+    localStorage.setItem('kl_bootPending_craft',String(n+1));
+  }catch(e){}
+})();
+function klBootDone(){ try{ localStorage.setItem('kl_bootPending_craft','0'); }catch(e){} }
+
 // กันค้าง — 12 วิแล้วยังไม่พร้อม โชว์ปุ่มโหลดใหม่แทนวงกลมหมุน
 setTimeout(function(){
   if (window._klBooted) return;
+  klRecordLoad('ค้างเกิน 12 วิ');
   var m=document.getElementById('klSplashMsg'); if(!m) return;
   m.innerHTML='โหลดไม่สำเร็จ<br><button onclick="location.reload()" style="margin-top:12px;min-height:46px;padding:0 24px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-size:16px;font-weight:700;font-family:inherit;">โหลดใหม่</button>';
 }, 12000);
@@ -1103,7 +1172,7 @@ async function init() {
   // ถ้าโหลดไม่สำเร็จจริงๆ ให้ขึ้นข้อความบอก ดีกว่าค้างเงียบๆ
   try { initFirebase(); }
   catch (e) {
-    window._klBooted = true; klHideSplash();
+    window._klBooted = true; klHideSplash(); klRecordLoad('โหลด firebase ไม่ได้');
     contentEl.innerHTML =
       `<div class="empty-craft"><i class="fa-solid fa-wifi" style="color:#ef4444;"></i>
         <p style="color:#ef4444;font-weight:700;">โหลดระบบไม่ครบ</p>
@@ -1136,12 +1205,16 @@ async function init() {
       </button>
     </div>`;
     window._klBooted = true; klHideSplash();   // ต้องเปิดหน้าจอต้อนรับออก ไม่งั้นบังข้อความนี้
+    klRecordLoad('ต่อไม่ได้: ' + (err && err.message || err));
+    klBootDone();   // ไฟล์มาครบ ปัญหาอยู่ที่เน็ต ล้างแคชไปก็ไม่ช่วย
     return;
   }
 
   _craftsmen = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   window._klBooted = true;
   klHideSplash();               // หน้าพร้อมใช้แล้ว เอาหน้าจอต้อนรับออก
+  klRecordLoad('ok');
+  klBootDone();
 
   // Populate dropdown
   const sel = document.getElementById('craftsmanSel');
@@ -2632,7 +2705,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v86</span>
+      <span style="opacity:.6;margin-left:6px;">· v88</span>
     </div>
   </div>
   <button id="refreshBtn" onclick="refreshData()" title="รีเฟรช">

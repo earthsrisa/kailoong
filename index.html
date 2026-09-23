@@ -62,6 +62,84 @@ function klHideSplash(){
   el.style.transition='opacity .25s'; el.style.opacity='0';
   setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); },260);
 }
+
+// ── ตัวบันทึกเวลาเปิดแอพ (ไว้หาสาเหตุจอขาวบนมือถือจริง) ──
+// จดทุกครั้งที่เปิดว่าเวลาหมดไปกับช่วงไหน เก็บแค่ในเครื่อง 20 ครั้งล่าสุด ไม่แตะ Firestore
+// ดูได้ที่ ตั้งค่า → ประวัติการเปิดแอพ
+// อยู่ในสคริปต์ก้อนแรกสุด จะได้ยังจดได้แม้สคริปต์หลักพัง
+function klRecordLoad(status, key){
+  try {
+    var k0 = key || 'kl_loadlog';
+    // ตัวจับเวลา 12 วิจดไปก่อนแล้ว แต่แอพเพิ่งขึ้นได้ทีหลัง → แก้บรรทัดเดิมให้เป็นเวลาจริง
+    if (window._klRecorded) {
+      if (status === 'ok') {
+        var old = JSON.parse(localStorage.getItem(k0) || '[]');
+        if (old[0]) { old[0].s = 'ขึ้นได้แต่ช้า'; old[0].ready = Math.round(performance.now());
+                      localStorage.setItem(k0, JSON.stringify(old)); }
+      }
+      return;
+    }
+    window._klRecorded = true;   // จดครั้งเดียวต่อการเปิด
+    var n = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || {};
+    var fcp = performance.getEntriesByName ? performance.getEntriesByName('first-contentful-paint')[0] : null;
+    var c = navigator.connection || {};
+    var r = function(x){ return (x && x > 0) ? Math.round(x) : null; };
+    var rec = {
+      t: Date.now(), s: status,
+      v: (typeof APP_VERSION !== 'undefined' ? APP_VERSION : '?'),
+      m: (window.matchMedia && matchMedia('(display-mode: standalone)').matches) ? 'แอพ' : 'เว็บ',
+      net: c.effectiveType || '',
+      sw:    n.workerStart > 0 ? r(n.fetchStart - n.workerStart) : null,  // ปลุก service worker
+      wait:  r(n.responseStart - n.requestStart) || r(n.responseStart - n.fetchStart), // รอไบต์แรก
+      first: r(n.responseStart),        // ไบต์แรกของหน้ามาถึงที่ ms
+      dl:    r(n.responseEnd - n.responseStart),  // โหลดไฟล์หน้าเว็บ
+      fcp:   fcp ? r(fcp.startTime) : null,       // เห็นภาพแรกบนจอ (จอขาวจบตรงนี้)
+      ready: r(performance.now())                  // แอพพร้อมใช้
+    };
+    var k = key || 'kl_loadlog';
+    var a = JSON.parse(localStorage.getItem(k) || '[]');
+    a.unshift(rec); localStorage.setItem(k, JSON.stringify(a.slice(0, 20)));
+  } catch (e) {}
+}
+
+// ล้าง service worker + ไฟล์ที่เก็บไว้ในเครื่องทั้งหมด แล้วโหลดใหม่
+// ข้อมูลออเดอร์อยู่บนเซิร์ฟเวอร์ ไม่ได้อยู่ในนี้ จึงไม่หาย
+// (ย้ายมาไว้สคริปต์ก้อนแรก เพราะระบบซ่อมตัวเองข้างล่างต้องเรียกใช้ตั้งแต่ต้น)
+function klHardReset() {
+  var done = function () { location.reload(); };
+  try {
+    var jobs = [];
+    if (window.caches) jobs.push(caches.keys().then(function (ks) {
+      return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
+    if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+      return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
+    Promise.all(jobs).then(done).catch(done);
+    setTimeout(done, 3000);           // เผื่อค้าง ยังไงก็ต้องโหลดใหม่
+  } catch (e) { done(); }
+}
+
+// ── ซ่อมตัวเองอัตโนมัติ ──
+// นับว่าเปิดแอพแล้ว "ไม่ถึงหน้าแรก" ติดกันกี่ครั้ง (ค้าง หรือทนไม่ไหวปิดทิ้งก่อนขึ้น)
+// ครบ 2 ครั้ง = ไฟล์ที่เก็บไว้ในเครื่องน่าจะเสีย → ล้างให้เองแล้วโหลดใหม่ ไม่ต้องรอคนกดปุ่ม
+// กันวนลูป: ซ่อมเองได้ไม่เกิน 1 ครั้งต่อ 10 นาที
+// klBootDone() เรียกตอนขึ้นหน้าแรกสำเร็จ → ตัวนับกลับเป็น 0
+(function () {
+  try {
+    var n = +(localStorage.getItem('kl_bootPending') || 0);
+    var last = +(localStorage.getItem('kl_lastAutoReset') || 0);
+    if (n >= 2 && Date.now() - last > 600000) {
+      localStorage.setItem('kl_bootPending', '0');
+      localStorage.setItem('kl_lastAutoReset', String(Date.now()));
+      klRecordLoad('ซ่อมอัตโนมัติ (ค้าง ' + n + ' ครั้งติด)');
+      var m = document.getElementById('klSplashMsg');
+      if (m) m.textContent = 'กำลังซ่อมแอพ รอสักครู่...';
+      klHardReset();
+      return;
+    }
+    localStorage.setItem('kl_bootPending', String(n + 1));
+  } catch (e) {}
+})();
+function klBootDone() { try { localStorage.setItem('kl_bootPending', '0'); } catch (e) {} }
 </script>
 
 <style>
@@ -1396,6 +1474,7 @@ setTimeout(function () {
   var el = document.getElementById('page-content');
   if (!el) return;
   if (window.klHideSplash) klHideSplash();   // ไม่งั้นหน้าจอต้อนรับจะบังข้อความนี้ไว้
+  if (window.klRecordLoad) klRecordLoad('ค้างเกิน 12 วิ');
   el.innerHTML =
     '<div style="text-align:center;padding:40px 20px;color:#374151;font-family:sans-serif;">'
     + '<div style="font-size:38px;margin-bottom:8px;">📶</div>'
@@ -1408,20 +1487,7 @@ setTimeout(function () {
     + '</div>';
 }, 12000);
 
-// ล้าง service worker + ไฟล์ที่เก็บไว้ในเครื่องทั้งหมด แล้วโหลดใหม่
-// ข้อมูลออเดอร์อยู่บนเซิร์ฟเวอร์ ไม่ได้อยู่ในนี้ จึงไม่หาย
-function klHardReset() {
-  var done = function () { location.reload(); };
-  try {
-    var jobs = [];
-    if (window.caches) jobs.push(caches.keys().then(function (ks) {
-      return Promise.all(ks.map(function (k) { return caches.delete(k); })); }));
-    if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
-      return Promise.all(rs.map(function (r) { return r.unregister(); })); }));
-    Promise.all(jobs).then(done).catch(done);
-    setTimeout(done, 3000);           // เผื่อค้าง ยังไงก็ต้องโหลดใหม่
-  } catch (e) { done(); }
-}
+// klHardReset() ย้ายขึ้นไปอยู่สคริปต์ก้อนแรกสุดแล้ว (ระบบซ่อมตัวเองต้องใช้ตั้งแต่ต้น)
 </script>
 
 <!-- defer = ดาวน์โหลดไปพร้อมกับที่เบราว์เซอร์วาดจอ ไม่ต้องหยุดรอ
@@ -2139,7 +2205,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v86';
+const APP_VERSION = 'v88';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -7027,6 +7093,12 @@ async function renderSettings(el) {
           <span class="ss">ของที่ลบไปไม่ได้หายจริง กู้คืนได้ตลอด</span></span>
         <span class="val"><i class="fa-solid fa-chevron-right"></i></span>
       </button>
+      <button type="button" class="strow" onclick="showLoadLogModal()">
+        <span class="si" style="background:#0ea5e9;"><i class="fa-solid fa-stopwatch"></i></span>
+        <span class="tx"><span class="st">ประวัติการเปิดแอพ</span>
+          <span class="ss">ใช้หาสาเหตุเวลาเปิดแล้วจอขาว/ช้า</span></span>
+        <span class="val"><i class="fa-solid fa-chevron-right"></i></span>
+      </button>
     </div>
   </div>
 
@@ -7061,6 +7133,49 @@ async function loadSettingsStats() {
       if (el) { el.textContent = '?'; el.style.color = '#94a3b8'; }
     });
   }
+}
+
+// ── ประวัติการเปิดแอพ ──
+// อ่านจากที่ klRecordLoad() จดไว้ในเครื่อง — แต่ละเครื่องเห็นแค่ของตัวเอง
+function showLoadLogModal() {
+  let a = [];
+  try { a = JSON.parse(localStorage.getItem('kl_loadlog') || '[]'); } catch (e) {}
+  const sec = ms => ms == null ? '–' : (ms / 1000).toFixed(1) + ' วิ';
+  const bad = ms => ms != null && ms > 3000;
+  const tag = (label, ms) =>
+    `<span style="display:inline-block;margin:2px 6px 2px 0;padding:2px 8px;border-radius:6px;font-size:11.5px;
+      background:${bad(ms) ? '#fef2f2' : '#f1f5f9'};color:${bad(ms) ? '#b91c1c' : '#475569'};font-weight:${bad(ms) ? 700 : 500};">
+      ${label} ${sec(ms)}</span>`;
+  const rows = a.map(x => {
+    const d = new Date(x.t);
+    const when = d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' ' +
+                 d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    const white = x.fcp;   // จอขาวจบตอนเห็นภาพแรก
+    return `<div style="border:1px solid #eef2f6;border-radius:12px;padding:10px 12px;margin-bottom:8px;
+               ${bad(white) ? 'border-left:4px solid #dc2626;' : ''}">
+      <div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;margin-bottom:5px;">
+        <b>${U.esc(when)}</b>
+        <span style="color:#64748b;">${U.esc(x.v)} · ${U.esc(x.m)}${x.net ? ' · ' + U.esc(x.net) : ''}</span>
+      </div>
+      <div style="font-size:14px;margin-bottom:4px;">จอขาว <b style="color:${bad(white) ? '#dc2626' : '#16a34a'};">${sec(white)}</b>
+        · พร้อมใช้ <b>${sec(x.ready)}</b>
+        ${x.s !== 'ok' ? `· <span style="color:#b45309;font-weight:700;">${U.esc(x.s)}</span>` : ''}</div>
+      <div>${tag('ปลุกระบบ', x.sw)}${tag('รอเน็ต', x.wait)}${tag('ไบต์แรก', x.first)}${tag('โหลดไฟล์', x.dl)}</div>
+    </div>`;
+  }).join('');
+
+  const body = `
+    <div style="font-size:12.5px;color:#475569;background:#f8fafc;border-radius:10px;padding:10px 12px;margin-bottom:12px;line-height:1.7;">
+      ช่องที่ขึ้น<b style="color:#b91c1c;">สีแดง</b> = ช้าเกิน 3 วินาที<br>
+      • <b>ปลุกระบบ</b>/<b>ไบต์แรก</b> แดง → ติดที่เครื่อง/เน็ต ก่อนหน้าเว็บจะมาถึง<br>
+      • <b>ไบต์แรก</b> ปกติ แต่ <b>จอขาว</b> แดง → ติดที่เครื่องประมวลผลช้า<br>
+      • <b>จอขาว</b> ปกติ แต่ <b>พร้อมใช้</b> นาน → ติดที่ต่อฐานข้อมูล (ตอนนั้นเห็นหน้าต้อนรับแล้ว)
+    </div>
+    ${a.length ? rows : '<div class="empty-state" style="padding:26px"><p>ยังไม่มีข้อมูล — ลองปิดแล้วเปิดแอพใหม่สักครั้ง</p></div>'}`;
+  const footer = `
+    <button class="btn btn-outline-danger" onclick="localStorage.removeItem('kl_loadlog');closeModal('loadLogModal');U.toast('ล้างประวัติแล้ว');">ล้างประวัติ</button>
+    <button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>`;
+  showModal('loadLogModal', 'ประวัติการเปิดแอพ (' + a.length + ' ครั้งล่าสุด)', body, footer);
 }
 
 // ── แก้ไขข้อมูลร้าน ──
@@ -7690,10 +7805,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     navigate(start, {fromPop:true});
     window._klBooted = true;      // บอกตัวจับเวลากันหน้าค้างว่าขึ้นหน้าได้แล้ว
     klHideSplash();               // เอาหน้าจอต้อนรับออก
+    klRecordLoad('ok');
+    klBootDone();                 // เปิดสำเร็จ ตัวนับ "เปิดไม่ขึ้น" กลับเป็น 0
   } catch(e) {
     console.error('init error', e);
     window._klBooted = true;    // ขึ้นข้อความของตัวเองแล้ว ตัวจับเวลาไม่ต้องมาทับ
     klHideSplash();             // ต้องเอาหน้าจอต้อนรับออก ไม่งั้นมันบังข้อความ
+    klRecordLoad('error: ' + (e && e.message || e));
+    // พังเพราะไม่มี firebase = ไฟล์ไลบรารีในเครื่องอาจเสีย → ไม่นับว่าสำเร็จ ให้ระบบซ่อมตัวเองทำงาน
+    // พังเพราะอย่างอื่น (เช่น เน็ตหลุด) = ไฟล์ปกติดี ล้างแคชไปก็ไม่ช่วย
+    if (typeof firebase !== 'undefined') klBootDone();
     document.getElementById('page-content').innerHTML =
       `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i>
         <p>โหลดข้อมูลไม่ได้ กรุณารีเฟรช</p>

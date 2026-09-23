@@ -1,4 +1,4 @@
-const CACHE = 'kailoong-v86';        // ไฟล์ของแอพเอง — ล้างทิ้งทุกครั้งที่ขึ้นเวอร์ชัน
+const CACHE = 'kailoong-v88';        // ไฟล์ของแอพเอง — ล้างทิ้งทุกครั้งที่ขึ้นเวอร์ชัน
 const CDN   = 'kailoong-cdn-v1';     // ไฟล์จากเน็ตนอก — คนละถัง จะได้ไม่โดนล้างตามเวอร์ชันแอพ
                                      // (URL พวกนี้มีเลขเวอร์ชันในตัวอยู่แล้ว ของใหม่ = คนละ URL)
 
@@ -26,13 +26,19 @@ self.addEventListener('install', e => {
 });
 
 self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      // ล้างเฉพาะถังเก่าของแอพ — ถัง CDN ต้องเก็บไว้ ไม่งั้นขึ้นเวอร์ชันทีไร
-      // ก็ต้องโหลด Bootstrap/ฟอนต์/Firebase ใหม่หมดทุกที ทั้งที่ไฟล์ไม่ได้เปลี่ยน
-      Promise.all(keys.filter(k => k !== CACHE && k !== CDN).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
-  );
+  e.waitUntil((async () => {
+    // Navigation Preload — ให้เบราว์เซอร์เริ่มโหลดหน้าเว็บไปพร้อมกับตอนปลุก sw
+    // มือถือรุ่นถูกปลุก sw ช้า ถ้าไม่เปิดตัวนี้ต้องรอปลุกเสร็จก่อนถึงจะเริ่มโหลด
+    // (iPhone ยังไม่รองรับ — เช็คก่อนเรียก ไม่รองรับก็ข้ามไปเฉยๆ)
+    if (self.registration.navigationPreload) {
+      try { await self.registration.navigationPreload.enable(); } catch (_) {}
+    }
+    // ล้างเฉพาะถังเก่าของแอพ — ถัง CDN ต้องเก็บไว้ ไม่งั้นขึ้นเวอร์ชันทีไร
+    // ก็ต้องโหลด Bootstrap/ฟอนต์/Firebase ใหม่หมดทุกที ทั้งที่ไฟล์ไม่ได้เปลี่ยน
+    const keys = await caches.keys();
+    await Promise.all(keys.filter(k => k !== CACHE && k !== CDN).map(k => caches.delete(k)));
+    await self.clients.claim();
+  })());
 });
 
 // หน้าเว็บสั่งให้อัปเดตทันที (ผู้ใช้กดปุ่ม "อัปเดต")
@@ -63,6 +69,32 @@ const OFFLINE_HTML =
   '<p style="color:#6b7280">ต่อเน็ตแล้วกดรีเฟรชอีกครั้ง</p>' +
   '<button onclick="location.reload()" style="padding:10px 22px;border:0;border-radius:8px;background:#3b82f6;color:#fff;font-size:16px">รีเฟรช</button></div>';
 
+// เก็บหน้าเว็บด้วย URL ที่ตัด ?... และ #... ออก
+// เดิมเก็บตาม URL เต็ม เลยได้ของซ้ำๆ อย่าง /#settings, /index.html?b=123 เต็มถัง
+function pageKey(url) {
+  try { const u = new URL(url); u.search = ''; u.hash = ''; return u.href; }
+  catch (_) { return url; }
+}
+
+// หน้ารอ — ส่งให้ตอนเน็ตช้าเกิน 4 วิ และในเครื่องยังไม่มีหน้าเว็บเก็บไว้
+// ระหว่างนี้ sw ยังโหลดของจริงต่อเบื้องหลัง พอเก็บลงเครื่องเสร็จ หน้านี้จะรีโหลดตัวเอง
+// → ได้หน้าจริงจากในเครื่องทันที
+const WAIT_HTML =
+  '<!doctype html><html lang="th" style="background:#f0f2f5"><head><meta charset="utf-8">' +
+  '<meta name="viewport" content="width=device-width,initial-scale=1"><title>กำลังโหลด</title></head>' +
+  '<body style="margin:0;background:#f0f2f5;font-family:system-ui,-apple-system,sans-serif;">' +
+  '<div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#1a2332;text-align:center;padding:20px;">' +
+  '<div style="width:34px;height:34px;border:3px solid #dbe3ec;border-top-color:#2563eb;border-radius:50%;animation:s .8s linear infinite;margin-bottom:14px"></div>' +
+  '<div style="font-size:17px;font-weight:700;margin-bottom:6px">เน็ตช้าหน่อย กำลังโหลด...</div>' +
+  '<div style="font-size:13px;color:#64748b">โหลดเสร็จแล้วจะเปิดให้เอง ไม่ต้องกดอะไร</div>' +
+  '<button onclick="location.reload()" style="margin-top:22px;min-height:46px;padding:0 24px;border:0;border-radius:12px;background:#2563eb;color:#fff;font-size:15px;font-weight:700">ลองใหม่</button>' +
+  '</div><style>@keyframes s{to{transform:rotate(360deg)}}</style>' +
+  '<script>(function(){var k=location.href.split("#")[0].split("?")[0];' +
+  'var t=setInterval(function(){if(!window.caches)return;caches.match(k).then(function(r){if(r){clearInterval(t);location.reload();}});},1500);' +
+  'setTimeout(function(){location.reload();},30000);' +
+  'window.addEventListener("online",function(){location.reload();});})();</script>' +
+  '</body></html>';
+
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;          // POST/PUT ปล่อยผ่าน
@@ -84,7 +116,9 @@ self.addEventListener('fetch', e => {
             return res;
           }
           return fetch(req);            // cors ไม่ผ่าน — เอาแบบปกติไปก่อน ไม่ต้องเก็บ
-        }).catch(() => fetch(req).catch(() => caches.match(req)));
+        }).catch(() => fetch(req).catch(() =>
+          // ⚠️ caches.match คืน undefined ได้ถ้าไม่มีในเครื่อง — ส่ง undefined ให้ respondWith = sw พัง
+          caches.match(req).then(r => r || Response.error())));
       })
     );
     return;
@@ -94,26 +128,39 @@ self.addEventListener('fetch', e => {
                 (req.headers.get('accept') || '').includes('text/html');
 
   if (isDoc) {
-    // HTML — เปิดจากของที่เก็บไว้ทันที แล้วค่อยโหลดตัวใหม่เงียบๆ เบื้องหลัง
-    // (เดิมรอเน็ตให้เสร็จก่อนเสมอ = ทุกครั้งที่เปิดแอพต้องรอ 120 KB)
-    // ได้ของใหม่แล้วจะถูกใช้รอบเปิดถัดไป ส่วนแถบ "มีเวอร์ชันใหม่" ยังทำงานเหมือนเดิม
-    // เพราะมันดูจาก sw.js ไม่ได้ดูจากไฟล์ HTML
-    e.respondWith((async () => {
-      const cached = await caches.match(req, { ignoreSearch: true });
-      const fresh = fetch(req).then(res => {
+    // HTML — มีในเครื่อง: เปิดทันที แล้วโหลดตัวใหม่เงียบๆ เบื้องหลัง (ใช้รอบเปิดถัดไป)
+    //        ไม่มีในเครื่อง: รอเน็ตได้ไม่เกิน 4 วิ เกินนั้นส่งหน้ารอเบาๆ ไปก่อน
+    //        (เดิมไม่มีเพดานเวลา เน็ตอืดเท่าไหร่ก็ขาวค้างเท่านั้น)
+    // แถบ "มีเวอร์ชันใหม่" ยังทำงานเหมือนเดิม เพราะมันดูจาก sw.js ไม่ได้ดูจากไฟล์ HTML
+    const key = pageKey(req.url);
+
+    // เริ่มโหลดของสดทันที — ใช้ preload ถ้าเบราว์เซอร์เริ่มไว้ให้แล้วตอนปลุก sw
+    // ⚠️ ต้องเรียก waitUntil ก่อน await ตัวแรก ไม่งั้นบางเบราว์เซอร์ไม่ยอม
+    const fresh = (async () => {
+      try {
+        const pre = e.preloadResponse ? await e.preloadResponse.catch(() => null) : null;
+        const res = pre || await fetch(req);
         if (res && res.ok) {
           const copy = res.clone();
-          caches.open(CACHE).then(c => c.put(req, copy)).catch(() => {});
+          // ห้าม await ตรงนี้ — put ต้องรอโหลดครบทั้งไฟล์ ถ้ารอ หน้าเว็บจะไม่ได้ไหลลงมาทีละส่วน
+          // แต่ต้องบอก sw ให้อยู่รอจนเก็บเสร็จ ไม่งั้นหน้ารอจะไม่มีวันเจอของในเครื่อง
+          const saving = caches.open(CACHE).then(c => c.put(key, copy)).catch(() => {});
+          try { e.waitUntil(saving); } catch (_) {}
         }
         return res;
-      }).catch(() => null);
+      } catch (_) { return null; }
+    })();
+    try { e.waitUntil(fresh); } catch (_) {}
 
-      if (cached) {
-        // กันเบราว์เซอร์ฆ่า sw ก่อนโหลดเสร็จ — บางตัวไม่ยอมให้เรียกหลัง await เลยต้อง try
-        try { e.waitUntil(fresh); } catch (_) {}
-        return cached;                  // มีของเก่า → ใช้เลย ไม่ต้องรอเน็ต
+    e.respondWith((async () => {
+      const cached = await caches.match(key) || await caches.match(req, { ignoreSearch: true });
+      if (cached) return cached;        // มีของเก่า → ใช้เลย ไม่ต้องรอเน็ต
+
+      const res = await Promise.race([fresh, new Promise(r => setTimeout(() => r('slow'), 4000))]);
+      if (res === 'slow') {
+        return new Response(WAIT_HTML,
+          { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } });
       }
-      const res = await fresh;          // เปิดครั้งแรก ยังไม่มีอะไรเก็บไว้
       return res || new Response(OFFLINE_HTML,
         { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
     })());
