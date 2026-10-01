@@ -1916,6 +1916,7 @@ async function submitDraft() {
         items,
         customerId: _draft.customerId, customerName: _draft.customerName,
         needsReview: true,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),   // ⚠️ ต้องมีทุกการเขียนออเดอร์ หน้าแอดมินใช้ดึงเฉพาะที่เปลี่ยน
         editLog: firebase.firestore.FieldValue.arrayUnion({
           id: Date.now().toString(36) + Math.random().toString(36).slice(2,7),
           at: Date.now(), by: _craftsman.id, byName: _craftsman.name,
@@ -1938,7 +1939,8 @@ async function submitDraft() {
         createdByCraftsmanId: _craftsman.id,
         createdByCraftsmanName: _craftsman.name,
         takenAt: now,
-        needsReview: true
+        needsReview: true,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()   // ⚠️ ต้องมี (ดูเหตุผลข้างบน)
       };
       await db.collection('orders').add(data);
       toast('✅ บันทึกออเดอร์แล้ว');
@@ -2842,6 +2844,8 @@ async function saveSourceCraftedQty(src, newCraftedQty, delta) {
   }
   // ลบคีย์เก่าทิ้ง (migrate ทีละรายการตอนใช้งานจริง) — ไม่ลบคีย์ใหม่แม้จำนวนเป็น 0 เพื่อรักษา log
   if (kOld !== k) patch[`craftStatus.${kOld}`] = DEL;
+  // ⚠️ ต้องติด updatedAt ทุกครั้ง — หน้าแอดมินดึงเฉพาะออเดอร์ที่ updatedAt เปลี่ยน ถ้าลืม แอดมินจะไม่เห็นว่าแต่งแล้ว
+  patch.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
   await ref.update(patch);
 }
 

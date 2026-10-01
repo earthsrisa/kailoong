@@ -73,8 +73,17 @@ export function vapidAuth(endpoint, publicB64, privateB64, subject, nowSec) {
   return `vapid t=${data}.${b64u.enc(sig)}, k=${publicB64}`;
 }
 
+// ── รับเฉพาะคำขอที่มาจากเว็บของร้าน (กันคนนอกยิงมาส่ง LINE/แจ้งเตือนขยะ) ──
+// kailoong.vercel.app + ลิงก์ของโปรเจกต์ (kailoong-...vercel.app) ทั้งเว็บจริงและเว็บทดสอบ
+function fromOurSite(req) {
+  const o = req.headers.origin || req.headers.referer || '';
+  try { const h = new URL(o).hostname; return h === 'kailoong.vercel.app' || /^kailoong-[a-z0-9-]+\.vercel\.app$/.test(h) || h === 'localhost'; }
+  catch (e) { return false; }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (!fromOurSite(req)) return res.status(403).json({ error: 'Forbidden' });
 
   const PUB = process.env.VAPID_PUBLIC_KEY;
   const PRIV = process.env.VAPID_PRIVATE_KEY;
