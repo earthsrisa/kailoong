@@ -54,6 +54,24 @@
   <style>@keyframes klspin{to{transform:rotate(360deg)}}</style>
 </div>
 <script>
+// ── เว็บจริง หรือ เว็บทดสอบ ── ⚠️ รายชื่อต้องตรงกับใน index.html
+// ไม่รู้จักโดเมน = ทดสอบ (ถ้าพลาด แค่เห็นข้อมูลทดสอบ ไม่ไปแตะข้อมูลจริง)
+var KL_PROD_HOSTS = ['kailoong.vercel.app',
+                     'kailoong-earthlo0021-8469s-projects.vercel.app',
+                     'kailoong-git-main-earthlo0021-8469s-projects.vercel.app'];
+var KL_IS_TEST = KL_PROD_HOSTS.indexOf(location.hostname) < 0;
+if (KL_IS_TEST) {
+  document.title = '🧪 ทดสอบ · ' + document.title;
+  var klTf = document.createElement('div');
+  klTf.id = 'klTestFrame';
+  klTf.style.cssText = 'position:fixed;inset:0;border:4px solid #f97316;pointer-events:none;z-index:100000;';
+  klTf.innerHTML = '<div style="position:absolute;top:0;left:50%;transform:translateX(-50%);background:#f97316;color:#fff;'
+    + 'font:700 12px/1 system-ui,sans-serif;padding:5px 14px 6px;border-radius:0 0 10px 10px;white-space:nowrap;'
+    + 'box-shadow:0 2px 6px rgba(0,0,0,.2);">🧪 เว็บทดสอบ · ไม่ใช่ข้อมูลจริง</div>';
+  document.body.appendChild(klTf);
+  var klSm = document.getElementById('klSplashMsg');
+  if (klSm) klSm.textContent = '🧪 เว็บทดสอบ · กำลังเปิด...';
+}
 setTimeout(function(){var m=document.getElementById('klSplashMsg');
   if(m&&document.getElementById('klSplash'))m.textContent='เน็ตช้าหน่อย กำลังโหลด...';},5000);
 function klHideSplash(){
@@ -202,6 +220,33 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .order-card-head .cust-name { font-size: 16px; font-weight: 700; color: #1a2332; }
 .order-card-head .cust-count { font-size: 12px; color: #6b7280; }
 .order-card-body { padding: 6px 16px; }
+/* ══ แถวเดียวต่อรายการ — ชื่อซ้าย ปุ่มขวา (เดิม 1 ใบกินครึ่งจอ) ══ */
+.order-card-body.rows { padding: 0; }
+.order-card-head { padding: 10px 14px; }
+.wrow { display:flex; align-items:center; gap:10px; padding:10px 14px; border-top:1px solid #eef2f6; }
+.wrow:first-child { border-top:none; }
+.wrow .tx { flex:1; min-width:0; }
+.wrow .nm { font-weight:800; font-size:16px; line-height:1.25; color:#0f172a; }
+.wrow .sub { display:flex; align-items:center; gap:7px; margin-top:3px; font-size:12.5px; color:#64748b; flex-wrap:wrap; }
+.wrow .sub b { color:#0f172a; font-size:14px; }
+.wrow .pips { display:inline-flex; gap:3px; }
+.wrow .pips i { width:9px; height:9px; border-radius:50%; background:#e2e8f0; display:inline-block; }
+.wrow .pips i.on { background:#16a34a; }
+.wrow .crafter-row { margin-top:4px; }
+/* ช่องนับทีละใบแบบเดิม แต่ย่อให้เล็กลงพออยู่ในแถว */
+.wrow .wcells { gap:5px; margin:6px 0 0; }
+.wrow .wcell { width:30px; height:30px; border-radius:8px; font-size:13px; }
+.wrow .wbar { margin:6px 0 0; }
+.wrow .rgo { flex:0 0 auto; height:46px; min-width:92px; padding:0 14px; border:none; border-radius:12px; cursor:pointer;
+  background:linear-gradient(135deg,#ea580c,#c2410c); color:#fff; font-weight:800; font-size:15px;
+  display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 3px 9px rgba(234,88,12,.28); }
+.wrow .rgo.last { background:linear-gradient(135deg,#2563eb,#1d4ed8); box-shadow:0 3px 9px rgba(37,99,235,.28); }
+.wrow .rundo { flex:0 0 auto; width:40px; height:46px; border-radius:12px; border:2px solid #e2e8f0; background:#fff;
+  color:#64748b; font-size:20px; font-weight:800; cursor:pointer; }
+.wrow .rgo:active, .wrow .rundo:active { transform:scale(.96); }
+.wrow.done { background:#f0fdf4; }
+.wrow.done .nm { color:#15803d; }
+.wrow.done .rundo { width:auto; padding:0 10px; font-size:12.5px; font-weight:700; height:36px; border-width:1.5px; }
 
 /* ══ หัวข้อดำด้านบน — เห็นปราดเดียวว่าเหลือกี่ใบ ══ */
 .chero { background:linear-gradient(135deg,#0f172a,#1e293b); color:#fff;
@@ -643,6 +688,15 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 .tf-chip.on { border-color:#2563eb; background:#eff6ff; color:#1e3a8a; font-weight:800; }
 .tf-chip.on-all { border-color:#1a2332; background:#1a2332; color:#fff; font-weight:800; }
 .tf-chip.on-all b { opacity:.75; }
+/* ตัวกรองชนิดหีบ: ติดใต้หัวจอตลอด (เลื่อนลงก็ยังกดได้) + ชิปใหญ่ขึ้น ตัวเลขเด่น */
+#type-filter-bar { position:sticky; top:var(--hdr-h,64px); z-index:90; box-shadow:0 3px 8px rgba(15,23,42,.06); }
+.tf-chips { overflow-x:auto; flex-wrap:nowrap; padding-bottom:2px; scrollbar-width:none; }
+.tf-chips::-webkit-scrollbar { display:none; }
+.tf-chip { font-size:14.5px; padding:7px 14px; border-radius:20px; font-weight:700; flex:0 0 auto; }
+.tf-chip b { display:inline-block; min-width:22px; text-align:center; background:#f1f5f9; color:#0f172a;
+  opacity:1; border-radius:10px; padding:0 7px; margin-left:4px; font-size:14px; font-weight:800; }
+.tf-chip.on b { background:#2563eb; color:#fff; }
+.tf-chip.on-all b { background:rgba(255,255,255,.22); color:#fff; }
 
 /* ── ป้ายชื่อช่างที่แต่ง ── */
 .crafter-row { display:flex; flex-wrap:wrap; gap:4px; margin-top:6px; }
@@ -703,7 +757,7 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
 </style>
 
 <script>
-const FIREBASE_CONFIG = {
+const FIREBASE_CONFIG_PROD = {
   apiKey: "AIzaSyAC85V_FLtSDR0BR3tJEvDDpv1hSIx2Zug",
   authDomain: "kailoong-e63ed.firebaseapp.com",
   projectId: "kailoong-e63ed",
@@ -711,11 +765,25 @@ const FIREBASE_CONFIG = {
   messagingSenderId: "388629310479",
   appId: "1:388629310479:web:9eb9565ac22ad5914b477a"
 };
+// ฐานข้อมูลทดสอบ (โปรเจกต์ kailoong-test) — ⚠️ ต้องตรงกับใน index.html · null = ยังไม่ได้ตั้ง
+const FIREBASE_CONFIG_TEST = {
+  apiKey: "AIzaSyDmDHYILIPeZO0IplMxYO4c9mq-zBQShZk",
+  authDomain: "kailoong-test.firebaseapp.com",
+  projectId: "kailoong-test",
+  storageBucket: "kailoong-test.firebasestorage.app",
+  messagingSenderId: "142486923524",
+  appId: "1:142486923524:web:5079302d0a348641688851"
+};
+// ค่าไม่ชัด = ถือว่าทดสอบ (ห้ามตกไปใช้ฐานข้อมูลจริง)
+const FIREBASE_CONFIG = (window.KL_IS_TEST === false) ? FIREBASE_CONFIG_PROD : FIREBASE_CONFIG_TEST;
 // ⚠️ firebase-*.js โหลดแบบ defer จึงยังไม่มีตัวตนตอนบรรทัดนี้ทำงาน
 // ห้ามเรียก firebase.* นอกฟังก์ชัน — ต้องเรียก initFirebase() ก่อนใช้ db เสมอ
 let db = null;
 function initFirebase() {
   if (db) return db;
+  if (!FIREBASE_CONFIG) {
+    const err = new Error('เว็บทดสอบยังไม่ได้ต่อฐานข้อมูลทดสอบ'); err.code = 'kl-no-test-db'; throw err;
+  }
   if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
   db = firebase.firestore();
   return db;
@@ -1189,6 +1257,13 @@ async function init() {
   // ถ้าโหลดไม่สำเร็จจริงๆ ให้ขึ้นข้อความบอก ดีกว่าค้างเงียบๆ
   try { initFirebase(); }
   catch (e) {
+    if (e && e.code === 'kl-no-test-db') {
+      window._klBooted = true; klHideSplash(); klBootDone();
+      contentEl.innerHTML = `<div class="empty-craft"><div style="font-size:40px;">🧪</div>
+        <p style="color:#c2410c;font-weight:700;">เว็บทดสอบยังไม่ได้ต่อฐานข้อมูลทดสอบ</p>
+        <p style="font-size:13px;color:#6b7280;">ต้องใส่ค่า FIREBASE_CONFIG_TEST ในโค้ดก่อน</p></div>`;
+      return;
+    }
     window._klBooted = true; klHideSplash(); klRecordLoad('โหลด firebase ไม่ได้');
     contentEl.innerHTML =
       `<div class="empty-craft"><i class="fa-solid fa-wifi" style="color:#ef4444;"></i>
@@ -2094,6 +2169,8 @@ async function notifyLine(type, items) {
   //    เดิมอ่าน _draft.customerName หลัง await → พังเงียบ ข้อความ LINE ไม่ออกเลย (เจอ 24 ก.ย. 69)
   const customerName = _draft ? _draft.customerName : '';
   const takenBy = _craftsman ? _craftsman.name : '';
+  // เว็บทดสอบห้ามส่งเข้ากลุ่ม LINE จริง
+  if (window.KL_IS_TEST !== false) { console.log('🧪 เว็บทดสอบ — ไม่ส่ง LINE:', type); return; }
   // เช็คสวิตช์ปิดแจ้งเตือนของร้าน (ตั้งจากหน้าแอดมิน เก็บใน settings/lineMuteUntil)
   // เก็บเป็นเวลา "ปิดถึงเมื่อไร" จึงหมดอายุเองโดยไม่ต้องมีใครมาเปิดกลับ
   try {
@@ -2404,7 +2481,7 @@ function renderCustomerCard(group) {
 
   const pendingHtml = pendingItems.map(it => renderItemActive(group.customerName, it)).join('');
   const doneHtml    = doneItems.length
-    ? `<div class="done-divider">✅ เสร็จแล้ว</div>` +
+    ? `<div class="done-divider" style="padding:6px 14px 4px;margin:0;">✅ เสร็จแล้ว</div>` +
       doneItems.map(it => renderItemDone(group.customerName, it)).join('')
     : '';
 
@@ -2418,7 +2495,7 @@ function renderCustomerCard(group) {
       <div class="cust-name">${esc(group.customerName)}</div>
       ${countLabel}
     </div>
-    <div class="order-card-body">
+    <div class="order-card-body rows">
       ${pendingHtml}
       ${doneHtml}
     </div>
@@ -2442,6 +2519,9 @@ function renderTypeChips(groups) {
   // ล้างชนิดที่ไม่มีแล้วออกจากตัวกรอง
   for (const t of [..._typeFilter]) if (!(t in cnt)) _typeFilter.delete(t);
 
+  // ให้แถบกรองติดใต้หัวจอพอดี ไม่ว่าหัวจอจะสูงเท่าไหร่ (มือถือมีรอยบาก ฯลฯ)
+  const hdr = document.getElementById('header');
+  if (hdr) document.documentElement.style.setProperty('--hdr-h', hdr.offsetHeight + 'px');
   const types = Object.keys(cnt).sort((a,b) => cnt[b] - cnt[a]);
   if (types.length <= 1) { bar.style.display = 'none'; return; }  // มีชนิดเดียวไม่ต้องกรอง
   bar.style.display = '';
@@ -2458,6 +2538,12 @@ function pickType(t) {
   if (!t) _typeFilter.clear();
   else _typeFilter.has(t) ? _typeFilter.delete(t) : _typeFilter.add(t);
   renderCraftOrders();
+  // กดกรองตอนเลื่อนลงไปแล้ว → พากลับไปต้นรายการ จะได้เห็นผลทันที
+  const bar = document.getElementById('type-filter-bar');
+  if (bar && bar.getBoundingClientRect().top <= (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--hdr-h')) || 64) + 1) {
+    const c = document.getElementById('craft-content');
+    if (c) window.scrollTo({ top: c.offsetTop - bar.offsetHeight - (document.getElementById('header')?.offsetHeight || 0), behavior: 'smooth' });
+  }
 }
 
 // กรองกลุ่มงานตามชนิดที่เลือก — ลูกค้าที่ไม่เหลือรายการจะหายทั้งการ์ด
@@ -2566,41 +2652,31 @@ function renderItemActive(custName, it) {
   const done = it.craftedQty, total = it.totalQty;
   const isLast = (done + 1) >= total;
   const started = done > 0;
-
-  return `<div class="wcard">
-    <div class="top">
-      <div class="sym">${wSym(it)}</div>
-      <div class="tx">
-        <div class="nm">${esc(it.label)}</div>
-        <div class="cnt">แต่งแล้ว <b>${done}</b> / ${total} ใบ${isLast && total > 1 ? ' · เหลือใบสุดท้าย' : ''}</div>
-      </div>
+  return `<div class="wrow">
+    <div class="tx">
+      <div class="nm">${esc(it.label)}</div>
+      <div class="sub"><span>แต่งแล้ว <b>${done}</b>/${total}</span>${isLast && total > 1 ? '<span style="color:#1d4ed8;font-weight:700;">ใบสุดท้าย</span>' : ''}</div>
+      ${wProgressHtml(done, total)}
+      ${crafterBadges(it.by)}
     </div>
-    ${wProgressHtml(done, total)}
-    ${crafterBadges(it.by)}
-    <div class="wact">
-      ${started ? `<button type="button" class="wundo" onclick="stepItem('${ec}','${ek}',-1)" title="ยกเลิก 1 ใบ">−</button>` : ''}
-      <button type="button" class="wgo${isLast ? ' last' : ''}" onclick="stepItem('${ec}','${ek}',1)">
-        <i class="fa-solid fa-check"></i>${total === 1 ? 'แต่งเสร็จแล้ว' : isLast ? 'แต่งเสร็จใบสุดท้าย!' : 'แต่งเสร็จ 1 ใบ'}
-      </button>
-    </div>
+    ${started ? `<button type="button" class="rundo" onclick="stepItem('${ec}','${ek}',-1)" title="ยกเลิก 1 ใบ">−</button>` : ''}
+    <button type="button" class="rgo${isLast ? ' last' : ''}" onclick="stepItem('${ec}','${ek}',1)">
+      <i class="fa-solid fa-check"></i>${total === 1 || isLast ? 'เสร็จ' : 'เสร็จ 1'}
+    </button>
   </div>`;
 }
 
 // ── Done item row (craftedQty >= totalQty) ──
 function renderItemDone(custName, it) {
   const ec = encC(custName), ek = encC(it.key);
-  return `<div class="wcard done">
-    <div class="top">
-      <div class="sym" style="background:#dcfce7;border-color:#bbf7d0;">${wSym(it)}</div>
-      <div class="tx">
-        <div class="nm">${esc(it.label)}</div>
-        <div class="cnt" style="color:#15803d;font-weight:600;">แต่งครบทุกใบแล้ว</div>
-      </div>
+  return `<div class="wrow done">
+    <div class="tx">
+      <div class="nm">${esc(it.label)}</div>
+      <div class="sub" style="color:#15803d;font-weight:700;"><i class="fa-solid fa-check"></i>ครบ ${it.totalQty}/${it.totalQty} ใบ</div>
+      ${crafterBadges(it.by)}
     </div>
-    <div class="wflag"><i class="fa-solid fa-check"></i>เสร็จครบ ${it.totalQty} / ${it.totalQty} ใบ</div>
-    ${crafterBadges(it.by)}
-    <button type="button" class="wundo-sm" onclick="stepItem('${ec}','${ek}',-1)">
-      <i class="fa-solid fa-rotate-left me-1"></i>กดผิด? ยกเลิก 1 ใบ</button>
+    <button type="button" class="rundo" onclick="stepItem('${ec}','${ek}',-1)" title="กดผิด ยกเลิก 1 ใบ">
+      <i class="fa-solid fa-rotate-left me-1"></i>ยกเลิก</button>
   </div>`;
 }
 
@@ -2894,7 +2970,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v90</span>
+      <span style="opacity:.6;margin-left:6px;">· v94</span>
     </div>
   </div>
   <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">
@@ -2922,7 +2998,7 @@ klRegisterSW();
 
 <!-- กรองตามชนิดหีบ (เลือกได้หลายชนิด) -->
 <div id="type-filter-bar" style="display:none;">
-  <div class="tf-hd"><i class="fa-solid fa-filter"></i>ชนิดหีบ</div>
+  <div class="tf-hd"><i class="fa-solid fa-filter"></i>ชนิดหีบ · แตะเพื่อดูเฉพาะแบบ (ตัวเลข = ใบที่ยังค้างแต่ง)</div>
   <div class="tf-chips" id="typeChips"></div>
 </div>
 

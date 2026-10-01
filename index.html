@@ -54,6 +54,28 @@
   <style>@keyframes klspin{to{transform:rotate(360deg)}}</style>
 </div>
 <script>
+// ── เว็บจริง หรือ เว็บทดสอบ ── (ต้องอยู่บนสุด ก่อนโค้ดอื่นทั้งหมด)
+// เว็บจริง = 3 โดเมนนี้เท่านั้น (Vercel ตั้งให้อัตโนมัติ) · นอกนั้นทั้งหมด = โหมดทดสอบ → ต่อฐานข้อมูลทดสอบ
+// ⚠️ ตั้งใจให้ "ไม่รู้จัก = ทดสอบ" — ถ้าพลาด แค่เห็นข้อมูลทดสอบ ดีกว่าเผลอให้โค้ดทดสอบไปแตะข้อมูลจริง
+// ⚠️ รายชื่อนี้ต้องตรงกับใน craft.html
+var KL_PROD_HOSTS = ['kailoong.vercel.app',
+                     'kailoong-earthlo0021-8469s-projects.vercel.app',
+                     'kailoong-git-main-earthlo0021-8469s-projects.vercel.app'];
+var KL_IS_TEST = KL_PROD_HOSTS.indexOf(location.hostname) < 0;
+if (KL_IS_TEST) {
+  document.title = '🧪 ทดสอบ · ' + document.title;
+  // กรอบส้มรอบจอ + ป้ายด้านบน — กดทะลุได้ (pointer-events:none) ไม่ขวางการใช้งาน
+  var klTf = document.createElement('div');
+  klTf.id = 'klTestFrame';
+  klTf.style.cssText = 'position:fixed;inset:0;border:4px solid #f97316;pointer-events:none;z-index:100000;';
+  klTf.innerHTML = '<div style="position:absolute;top:0;left:50%;transform:translateX(-50%);background:#f97316;color:#fff;'
+    + 'font:700 12px/1 system-ui,sans-serif;padding:5px 14px 6px;border-radius:0 0 10px 10px;white-space:nowrap;'
+    + 'box-shadow:0 2px 6px rgba(0,0,0,.2);">🧪 เว็บทดสอบ · ไม่ใช่ข้อมูลจริง</div>';
+  document.body.appendChild(klTf);
+  var klSm = document.getElementById('klSplashMsg');
+  if (klSm) klSm.textContent = '🧪 เว็บทดสอบ · กำลังเปิด...';
+}
+
 // เน็ตช้าเกิน 5 วิ บอกให้รู้ว่ายังทำงานอยู่ ไม่ได้ค้าง
 setTimeout(function(){var m=document.getElementById('klSplashMsg');
   if(m&&document.getElementById('klSplash'))m.textContent='เน็ตช้าหน่อย กำลังโหลด...';},5000);
@@ -94,13 +116,32 @@ function klRecordLoad(status, key){
       first: r(n.responseStart),        // ไบต์แรกของหน้ามาถึงที่ ms
       dl:    r(n.responseEnd - n.responseStart),  // โหลดไฟล์หน้าเว็บ
       fcp:   fcp ? r(fcp.startTime) : null,       // เห็นภาพแรกบนจอ (จอขาวจบตรงนี้)
-      ready: r(performance.now())                  // แอพพร้อมใช้
+      ready: r(performance.now()),                 // แอพพร้อมใช้
+      sid: window._klSid
     };
+    try { Object.assign(rec, window._klNotes || {}); } catch (e) {}
     var k = key || 'kl_loadlog';
     var a = JSON.parse(localStorage.getItem(k) || '[]');
     a.unshift(rec); localStorage.setItem(k, JSON.stringify(a.slice(0, 20)));
   } catch (e) {}
 }
+
+// ── จดว่าข้อมูลมาถึงตอนไหน / ติดอะไร — ต่อท้ายบันทึกการเปิดแอพครั้งนี้ ──
+// เดิมบันทึกแค่ "ขึ้นหน้าได้" แต่หน้าค้าง skeleton เกิดหลังจากนั้น (รอข้อมูล) เลยจับไม่ได้
+window._klNotes = window._klNotes || {};
+function klNoteData(f) {
+  try {
+    var n = window._klNotes;
+    for (var k in f) {
+      if (k === 'err' || k === 'fixed') { n[k + 's'] = (n[k + 's'] || []).concat(f[k]).slice(-4); }
+      else if (n[k] == null) n[k] = f[k];
+    }
+    if (!window._klRecorded) return;   // ยังไม่มีบรรทัดของรอบนี้ (จะถูกรวมตอน klRecordLoad)
+    var a = JSON.parse(localStorage.getItem('kl_loadlog') || '[]');
+    if (a[0] && a[0].sid === window._klSid) { Object.assign(a[0], n); localStorage.setItem('kl_loadlog', JSON.stringify(a)); }
+  } catch (e) {}
+}
+window._klSid = Date.now() + '' + Math.random().toString(36).slice(2, 6);
 
 // ล้าง service worker + ไฟล์ที่เก็บไว้ในเครื่องทั้งหมด แล้วโหลดใหม่
 // ข้อมูลออเดอร์อยู่บนเซิร์ฟเวอร์ ไม่ได้อยู่ในนี้ จึงไม่หาย
@@ -294,6 +335,41 @@ body { background: #f0f2f5; margin: 0; }
 .today-card h3 { font-size: 15px; font-weight: 700; margin: 0 0 14px; opacity: .85; }
 .today-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.12); font-size: 14px; }
 .today-item:last-child { border-bottom: none; }
+/* รายการรอส่ง: แตะทั้งแถวเพื่อเลือก (แทนช่องติ๊ก) */
+.pend-row.tap { cursor:pointer; border-radius:9px; padding:5px 8px; margin:1px -8px; user-select:none;
+  -webkit-tap-highlight-color:transparent; transition:background .12s; border-left:3px solid transparent; }
+.pend-row.tap:hover { background:rgba(255,255,255,.07); }
+.pend-row.tap:active { background:rgba(255,255,255,.12); }
+.pend-row.on { background:rgba(74,222,128,.22) !important; border-left-color:#4ade80; }
+.pend-row .pk { width:0; flex:0 0 auto; color:#86efac; font-size:14px; overflow:hidden; transition:width .12s; }
+.pend-row.on .pk { width:16px; }
+/* ── สายส่ง: ก้อนละสาย แถบสีข้าง + จุด + ชื่อสาย + จำนวน (สีมาจาก --rc) ── */
+.rtg { background:rgba(255,255,255,.10); border-radius:12px; margin-bottom:12px; overflow:hidden; position:relative; padding-left:8px; }
+.rtg:last-of-type { margin-bottom:0; }
+.rtg::before { content:""; position:absolute; left:0; top:0; bottom:0; width:8px; background:var(--rc); }
+.rth { display:flex; align-items:center; gap:10px; padding:10px 14px; cursor:pointer; user-select:none; }
+.rth:hover { background:rgba(255,255,255,.05); }
+.rtd { width:12px; height:12px; border-radius:50%; background:var(--rc); flex:0 0 auto; }
+.rtn { font-weight:800; font-size:15.5px; }
+.rtc { margin-left:auto; font-size:13px; font-weight:800; white-space:nowrap; }
+.rtv { font-size:11px; opacity:.55; }
+.rtr { display:flex; align-items:center; gap:10px; padding:8px 14px; border-top:1px solid rgba(255,255,255,.13); font-size:14px; }
+.rtr.rtclick { cursor:pointer; } .rtr.rtclick:hover { background:rgba(255,255,255,.06); }
+.rtr.rtsub { padding-left:30px; border-top-color:rgba(255,255,255,.06); }
+.rtr.rtcust { padding-top:9px; padding-bottom:5px; border-top:1px solid rgba(255,255,255,.22); gap:8px; }
+.rtcust .rtw { font-size:15px; font-weight:800; color:#fff; display:inline-flex; align-items:center; gap:7px; }
+.rtcust .rtw::before { content:""; width:7px; height:7px; border-radius:50%; background:var(--rc); flex:0 0 auto; }
+.rtcust + .rtsub { border-top:none; }
+.rtr.dim { opacity:.62; }
+.rtw { font-weight:700; flex:0 0 auto; }
+.rtp { color:#dbe6f5; min-width:0; }
+.rtq { margin-left:auto; font-weight:800; white-space:nowrap; }
+.rtst { font-size:11px; font-weight:700; color:#fde68a; white-space:nowrap; }
+.rtlink { display:block; background:none; border:none; border-top:1px solid rgba(255,255,255,.08); width:100%; text-align:left; color:rgba(255,255,255,.72); font-size:12px; padding:6px 14px 8px; cursor:pointer; }
+.rtlink:hover { color:#fff; }
+.rtopen { border-top:1px solid rgba(255,255,255,.13); padding:0 12px 2px; background:rgba(0,0,0,.14); }
+.rttot { display:flex; justify-content:flex-end; align-items:baseline; gap:6px; margin-top:12px; font-size:13px; opacity:.85; }
+.rttot b { font-size:26px; opacity:1; }
 /* ชิปเลือกลูกค้า — เดิมขาวโปร่ง 15% บนพื้นเขียว ตัวหนังสือขาวได้ contrast ~3.4
    กลางแดดอ่านไม่ออก เปลี่ยนเป็นพื้นขาวทึบ ตัวหนังสือเขียวเข้ม ได้เกิน 12
    หมายเหตุ: เอกสารแนะนำให้เพิ่มความทึบของพื้นขาว ซึ่งกลับทำให้แย่ลง
@@ -524,11 +600,14 @@ body.modal-open #bottom-nav {
 .ocard.s-craft::before { background:#ea580c; }
 .ocard.s-ready::before { background:#16a34a; }
 .ocard.s-sent::before  { background:#94a3b8; }
+/* กรอบสีตามลูกค้า — สีเดียวกับป้ายชื่อ (--cc) · แถบซ้ายยังบอกสถานะแต่ง/ส่งเหมือนเดิม */
+.ocard[style*="--cc"], .ccard[style*="--cc"] { border:2px solid var(--cc); }
 .ocard .top { display:flex; align-items:flex-start; gap:11px; }
 .ocard .ava { width:42px; height:42px; border-radius:12px; display:flex; align-items:center;
   justify-content:center; color:#fff; font-weight:800; font-size:17px; flex:0 0 auto; }
 .ocard .who { flex:1; min-width:0; }
-.ocard .nm { font-weight:800; font-size:16px; line-height:1.15; }
+.ocard .nm { font-weight:800; font-size:16px; line-height:1.15; display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.ocard .nmpill { font-size:15.5px; padding:6px 13px; }
 .ocard .no { display:flex; align-items:center; gap:5px; flex-wrap:wrap; font-size:11.5px; color:#64748b; margin-top:3px; }
 .ocard .no .code { background:#f1f5f9; border-radius:5px; padding:1px 7px; font-weight:600; }
 .ocard .amt { text-align:right; flex:0 0 auto; }
@@ -833,6 +912,9 @@ body.modal-open #bottom-nav {
 .ccard .ava { width:46px; height:46px; border-radius:14px; flex:0 0 auto; color:#fff;
   display:flex; align-items:center; justify-content:center; font-weight:800; font-size:19px; }
 .ccard .who { flex:1; min-width:0; }
+/* ชื่อลูกค้าเป็นป้ายสี (สีจาก ocAvaColor — คนเดิมได้สีเดิมทุกหน้า) ใช้ทั้งหน้าลูกค้า/ประวัติออเดอร์/ออเดอร์ล่าสุด */
+.nmpill { display:inline-block; color:#fff; border-radius:11px; padding:7px 14px; max-width:100%;
+  font-weight:800; font-size:16.5px; line-height:1.2; overflow-wrap:anywhere; }
 .ccard .nm { font-weight:800; font-size:16.5px; line-height:1.15;
   display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
 .ctag { font-size:10.5px; font-weight:700; color:#b45309; background:#fef3c7;
@@ -871,6 +953,9 @@ body.modal-open #bottom-nav {
   display:flex; align-items:center; justify-content:center; font-size:20px; }
 .pcard .who { flex:1; min-width:0; }
 .pcard .nm { font-weight:800; font-size:16.5px; line-height:1.2; }
+/* ชื่อสินค้าเป็นป้ายสีใหญ่ (สีเดิมของไอคอน โลง=ส้มทอง / อุปกรณ์เสริม) แทนไอคอน */
+.pcard .pnm { display:inline-block; color:#fff; border-radius:12px; padding:7px 16px; max-width:100%;
+  font-weight:800; font-size:20px; line-height:1.2; overflow-wrap:anywhere; text-shadow:0 1px 2px rgba(0,0,0,.18); }
 .pcard .meta { font-size:11.5px; color:#64748b; margin-top:4px; }
 .pcard .prices { margin-top:12px; border-top:1px dashed #e9eef4; padding-top:11px; }
 .pcard .plbl { font-size:11px; color:#64748b; font-weight:700; margin-bottom:8px; }
@@ -896,6 +981,13 @@ body.modal-open #bottom-nav {
   font-size:11.5px; font-weight:700; color:#64748b; }
 .phead .hint { margin-left:auto; font-size:11.5px; font-weight:600; color:#64748b; }
 @media (min-width: 900px) { .phead { grid-column:1 / -1; } }
+/* หัวกลุ่มแบบแถบสีใหญ่: โลง = ส้มทอง · อุปกรณ์เสริม = ฟ้า */
+.phead.big { color:#fff; font-size:20px; padding:12px 16px; border-radius:14px; margin:4px 0 12px;
+  box-shadow:0 4px 12px rgba(15,23,42,.12); }
+.phead.big.cof { background:linear-gradient(135deg,#f59e0b,#b45309); }
+.phead.big.acc { background:linear-gradient(135deg,#38bdf8,#0369a1); margin-top:22px; }
+.phead.big .n { background:rgba(255,255,255,.28); color:#fff; font-size:14px; padding:2px 11px; }
+.phead.big .hint { color:#fff; opacity:.92; font-size:13px; font-weight:700; }
 .pcard .acts { display:flex; gap:9px; margin-top:13px; }
 .pcard .aa { flex:1; min-height:44px; border-radius:12px; border:1px solid #e6ebf1; background:#fff;
   display:flex; align-items:center; justify-content:center; gap:7px;
@@ -1041,7 +1133,7 @@ body.modal-open #bottom-nav {
   .orders-history-table td:nth-child(1) { font-size:12.5px; white-space:nowrap; }
   /* รายการรอส่ง — ขนาดตัวหนังสือใหญ่ขึ้น + ไม่จำกัดความสูง (ไม่ scroll ภายใน) */
   .pend-row { font-size: 16px !important; padding: 4px 8px !important; line-height:1.5; }
-  .pend-row span:first-child { font-size: 16px; }
+  .pend-row span:nth-child(2) { font-size: 16px; }
   .cust-today-card { max-height: none !important; overflow-y: visible !important; }
 }
 
@@ -1127,6 +1219,14 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
   vertical-align: middle; user-select: none;
 }
 .dash-recent .cust-nm { font-weight: 800; color: #111827; letter-spacing: -.2px; }
+/* บนคอม (ตาราง): แถบสีลูกค้าด้านซ้ายของแถว */
+@media (min-width: 768px) {
+  .dash-recent tr[style*="--cc"] > td:first-child { box-shadow: inset 5px 0 0 var(--cc); }
+  /* ปุ่มแก้ไขบนคอม: ไอคอนสีลูกค้า กรอบสีลูกค้า */
+  .dash-recent td.c-act .btn { color: var(--cc); border: 1.5px solid var(--cc); background: #fff; }
+  .dash-recent td.c-act .btn:hover { color: #fff; background: var(--cc); }
+}
+.dash-recent .nmpill { font-size: 14px; padding: 4px 11px; border-radius: 9px; vertical-align: middle; }
 .dash-recent .new-dot {
   display: inline-block; background: #ef4444; color: #fff; font-size: 11px; font-weight: 700;
   border-radius: 20px; padding: 2px 8px; margin-left: 7px; vertical-align: middle; letter-spacing: .2px;
@@ -1151,13 +1251,15 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
     align-items: start;
   }
   .dash-recent tr.is-new { border-left-color: #ef4444; background: #fffdfd; }
+  /* กรอบสีตามลูกค้า (ทั้งการ์ด รวมแถบซ้าย) */
+  .dash-recent tr[style*="--cc"], .dash-recent tr.is-new[style*="--cc"] { border: 2px solid var(--cc); border-left-width: 5px; }
   .dash-recent td.c-cust {
     display: flex !important; align-items: center; min-width: 0;
     font-size: 17px; font-weight: 800; line-height: 1.25;
   }
   /* ชื่อยาวให้ตัด ... ส่วนวงกลมกับป้ายห้ามหด */
-  .dash-recent .cust-nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .dash-recent td.c-cust > span:not(.cust-nm) { flex: none; }
+  .dash-recent .nmpill { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; }
+  .dash-recent td.c-cust > span:not(.nmpill) { flex: none; }
   .dash-recent td.c-total {
     align-self: start; font-size: 18px; font-weight: 800; color: #0f766e; padding-top: 4px !important;
   }
@@ -1175,11 +1277,16 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
   .dash-recent td.c-act {
     margin-top: 8px !important; padding-top: 0 !important; border-top: 0 !important;
   }
+  /* ปุ่มแก้ไข: ปุ่มเต็มสีลูกค้า ตัวหนังสือขาว — เดิมโดน .btn-icon บีบกว้าง 32px ตัวหนังสือเลยล้น */
   .dash-recent td.c-act .btn {
-    flex: none; max-width: none; border-radius: 9px; padding: 5px 14px;
-    font-size: 13px; font-weight: 600; color: #64748b; border-color: #dbe2ea;
+    flex: none; max-width: none; width: auto !important; height: auto; min-height: 40px;
+    border-radius: 11px; padding: 8px 20px; gap: 7px;
+    font-size: 14px; font-weight: 700; color: #fff; background: var(--cc, #2563eb); border: none;
+    box-shadow: 0 3px 10px rgba(15,23,42,.14);
   }
-  .dash-recent .act-lbl { display: inline; margin-left: 6px; }
+  .dash-recent td.c-act .btn:hover, .dash-recent td.c-act .btn:active { color: #fff; background: var(--cc, #2563eb); filter: brightness(.93); }
+  .dash-recent td.c-act .btn i { font-size: 13px; }
+  .dash-recent .act-lbl { display: inline; margin-left: 0; }
 }
 
 /* ── ตารางทั่วไป → การ์ด บนมือถือ (ใบเสร็จ / ลูกค้า / สินค้า) ── */
@@ -1327,6 +1434,34 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 .oc-step.active .oc-step-no { width:23px; height:23px; background:#2563eb; color:#fff; font-size:13px; }
 
 /* ช่องเลือกในขั้นตอน — ใหญ่แบบหน้าช่างแต่ง กดง่าย */
+/* ── ตัวเลือกลูกค้าแบบปุ่ม แบ่งกลุ่มตามสายส่ง (แทน dropdown ที่แยกกลุ่มไม่ชัด) ── */
+.ocp-search { width:100%; border:2px solid #d1d5db; border-radius:10px; padding:9px 12px; font-size:15px; margin-bottom:10px; }
+.ocp-search:focus { outline:none; border-color:#2563eb; }
+.ocp-g { border-radius:12px; border:1.5px solid #e5e7eb; border-left:6px solid var(--rc); margin-bottom:10px; overflow:hidden; background:#fff; }
+.ocp-h { display:flex; align-items:center; gap:8px; padding:8px 12px; font-weight:800; font-size:15px; color:#0f172a;
+  background:color-mix(in srgb, var(--rc) 16%, #fff); }
+.ocp-h .d { width:11px; height:11px; border-radius:50%; background:var(--rc); }
+.ocp-h .n { margin-left:auto; font-size:12.5px; font-weight:700; color:#64748b; }
+.ocp-list { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:7px; padding:9px; }
+.ocp-c { border:1.5px solid #e2e8f0; background:#fff; border-radius:10px; padding:10px 12px; text-align:left;
+  font-size:15.5px; font-weight:700; color:#0f172a; cursor:pointer; line-height:1.25; overflow-wrap:anywhere; }
+.ocp-c:hover { border-color:var(--rc); background:color-mix(in srgb, var(--rc) 8%, #fff); }
+.ocp-c:active { transform:scale(.97); }
+.ocp-none { color:#64748b; font-size:14px; padding:6px 2px; }
+/* แบบ dropdown: ปุ่มหน้าตาเหมือนช่องเลือก กดแล้วกางรายการแบ่งสายลงมาข้างใต้ */
+.ocdd-btn { display:flex; align-items:center; justify-content:space-between; gap:8px; text-align:left; background:#fff; cursor:pointer; }
+.ocdd-btn i { transition:transform .15s; color:#64748b; }
+.ocdd.open .ocdd-btn { border-color:#2563eb; }
+.ocdd.open .ocdd-btn i { transform:rotate(180deg); }
+.ocdd-panel { margin-top:6px; border:1.5px solid #cbd5e1; border-radius:12px; background:#f8fafc; padding:8px;
+  max-height:min(58vh,460px); overflow-y:auto; box-shadow:0 10px 24px rgba(15,23,42,.14); }
+.ocdd-panel .ocp-search { position:sticky; top:-8px; z-index:1; margin:-8px -8px 8px; width:calc(100% + 16px);
+  border-radius:12px 12px 0 0; border-width:0 0 1.5px; }
+.ocdd-panel .ocp-g { margin-bottom:8px; }
+.ocdd-panel .ocp-g:last-child { margin-bottom:0; }
+.ocdd-panel .ocp-list { grid-template-columns:1fr; gap:0; padding:0; }
+.ocdd-panel .ocp-c { border:none; border-top:1px solid #f1f5f9; border-radius:0; padding:11px 14px; font-size:16px; }
+.ocdd-panel .ocp-list .ocp-c:first-child { border-top:none; }
 .oc-sel { width:100%; border:2px solid #d1d5db; border-radius:9px; padding:10px 11px;
   font-size:16px; font-weight:600; font-family:'Sarabun',sans-serif; background:#fff;
   color:#1a2332; cursor:pointer; }
@@ -1507,12 +1642,18 @@ const CFG = {
   businessName: 'ร้านขายส่งโลงศพ',
   sellerName: '',
   businessAddress: '', businessPhone: '', businessTaxId: '', promptpayId: '',
+  // บัญชีรับเงินที่พิมพ์บนใบเสร็จ — แก้ได้ที่ ตั้งค่า → บัญชีรับเงิน
+  // ค่าตั้งต้นคือของเดิมที่เคยเขียนตายไว้ในโค้ด (ยังไม่แก้ = ใบเสร็จเหมือนเดิมทุกอย่าง)
+  bankName: 'ธนาคารออมสิน', bankAccount: '020-134537-727', bankAccountName: 'พัชรี ก๋าใจ',
+  bankLogo: '',   // '' = ใช้โลโก้ตั้งต้น (BANK_LOGO_DEFAULT)
+  routeColors: {}, // สีประจำสายส่ง { 'เชียงราย': '#fbbf24', ... } — แอพเลือกให้เอง แก้ได้ที่ ตั้งค่า → สายส่ง
 };
 
 // ═══════════════════════════════════════
 //  DATABASE (Firebase Firestore)
 // ═══════════════════════════════════════
-const FIREBASE_CONFIG = {
+// ── ฐานข้อมูลจริง ──
+const FIREBASE_CONFIG_PROD = {
   apiKey: "AIzaSyAC85V_FLtSDR0BR3tJEvDDpv1hSIx2Zug",
   authDomain: "kailoong-e63ed.firebaseapp.com",
   projectId: "kailoong-e63ed",
@@ -1521,6 +1662,19 @@ const FIREBASE_CONFIG = {
   appId: "1:388629310479:web:9eb9565ac22ad5914b477a",
   measurementId: "G-FZ92CYLVT2"
 };
+// ── ฐานข้อมูลทดสอบ (โปรเจกต์ Firebase แยก ชื่อ kailoong-test) ──
+// ค่านี้ไม่ใช่ความลับ (Firebase ออกแบบให้ฝังในหน้าเว็บ) · ⚠️ ต้องตรงกับใน craft.html
+// ยังไม่ได้ใส่ = null → เว็บทดสอบจะไม่ยอมต่อที่ไหนเลย (ห้ามตกไปใช้ฐานข้อมูลจริง)
+const FIREBASE_CONFIG_TEST = {
+  apiKey: "AIzaSyDmDHYILIPeZO0IplMxYO4c9mq-zBQShZk",
+  authDomain: "kailoong-test.firebaseapp.com",
+  projectId: "kailoong-test",
+  storageBucket: "kailoong-test.firebasestorage.app",
+  messagingSenderId: "142486923524",
+  appId: "1:142486923524:web:5079302d0a348641688851"
+};
+// เลือกตามโดเมน (KL_IS_TEST มาจากสคริปต์ก้อนแรกสุด) — ถ้าหาค่าไม่เจอ ถือว่าทดสอบไว้ก่อน (ปลอดภัยกว่า)
+const FIREBASE_CONFIG = (window.KL_IS_TEST === false) ? FIREBASE_CONFIG_PROD : FIREBASE_CONFIG_TEST;
 
 const COFFIN_SPEC = {
   'ธรรมดา':           {colors:['ขาว','แดง'], lines:['ทอง','เงิน','ซีด','ขาว']},
@@ -1742,6 +1896,8 @@ function muteLabel(until) {
 // ส่งแจ้งเตือน LINE — ทุกที่ในแอปต้องเรียกผ่านตัวนี้ตัวเดียว
 // จะได้มีจุดเช็คสวิตช์จุดเดียว ไม่มีทางหลุด
 async function sendLineNotify(payload) {
+  // เว็บทดสอบห้ามส่งเข้ากลุ่ม LINE จริง (ค่าไม่ชัด = ถือว่าทดสอบ = ไม่ส่ง)
+  if (window.KL_IS_TEST !== false) { console.log('🧪 เว็บทดสอบ — ไม่ส่ง LINE:', payload && payload.type); return; }
   try {
     const until = await getMuteUntil();
     if (Date.now() < until) {
@@ -1820,6 +1976,10 @@ const DB = {
   _CACHE_TTL: 900000,  // 15 นาที
 
   async init() {
+    if (!FIREBASE_CONFIG) {   // เว็บทดสอบที่ยังไม่ได้ใส่ค่าฐานข้อมูลทดสอบ
+      const err = new Error('เว็บทดสอบยังไม่ได้ต่อฐานข้อมูลทดสอบ (FIREBASE_CONFIG_TEST ยังว่าง)');
+      err.code = 'kl-no-test-db'; throw err;
+    }
     if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
     this._fs = firebase.firestore();
     await this._enableOffline();
@@ -1850,6 +2010,34 @@ const DB = {
   },
 
   // ── Generic CRUD ──
+  // ── อ่านจาก Firestore แบบ "ไม่ค้างตลอดกาล" ──
+  // ต้นเหตุหน้าค้าง skeleton: get() ของ Firestore บางทีไม่ตอบและไม่ error เลย (เจอบ่อยตอนเพิ่งเปิดแอพบนมือถือ
+  // เน็ตยังตื่นไม่เต็มที่ ท่อเชื่อมต่อแรกค้าง) เดิมไม่มีเพดานเวลา → หน้ารอไปเรื่อย ๆ
+  // ตอนนี้: รอ 9 วิ → ตัดท่อแล้วต่อใหม่ → ลองอีก (12 วิ, 15 วิ) → ยังไม่ได้ค่อยแจ้ง error ให้กดลองใหม่
+  _READ_WAITS: [9000, 12000, 15000],
+  async _read(fn, label) {
+    for (let i = 0; ; i++) {
+      try {
+        const r = await withTimeout(fn(), this._READ_WAITS[i], 'หมดเวลารอข้อมูล (' + label + ')');
+        if (i) klNoteData({ fixed: (label + ' ได้หลังลองรอบ ' + (i + 1)) });
+        return r;
+      } catch (e) {
+        klNoteData({ err: (label + ' · ' + (e && (e.code || '') + ' ' + (e.message || e))).slice(0, 140),
+                     online: navigator.onLine });
+        if (i >= this._READ_WAITS.length - 1) throw e;
+        await this._resetNet();
+        window.dispatchEvent(new CustomEvent('kl-net-retry', { detail: { label, n: i + 2 } }));
+      }
+    }
+  },
+  // ตัดการเชื่อมต่อแล้วต่อใหม่ (ทุกตัวที่กำลังรอใช้รอบเดียวกัน ไม่ตัดซ้ำ ๆ)
+  _resetNet() {
+    if (!this._resetting) {
+      this._resetting = withTimeout(this._fs.disableNetwork().then(() => this._fs.enableNetwork()), 6000, 'reset')
+        .catch(() => {}).finally(() => { setTimeout(() => { this._resetting = null; }, 1500); });
+    }
+    return this._resetting;
+  },
   async _all(col) {
     // ออเดอร์: ถ้า OrdersFeed ต่ออยู่แล้ว ใช้ข้อมูลจากมันเลย
     // มันสดกว่า cache 90 วิ และไม่เสียโควตาอ่านเพิ่มสักครั้ง
@@ -1857,7 +2045,7 @@ const DB = {
     const now = Date.now();
     const c = this._cache[col];
     if (c && now - c.ts < this._CACHE_TTL) return c.data;
-    const snap = await this._fs.collection(col).get();
+    const snap = await this._read(() => this._fs.collection(col).get(), col);
     const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     this._cache[col] = { ts: now, data };
     return data;
@@ -1867,7 +2055,7 @@ const DB = {
     // ดึงจาก cache ก่อน ไม่ต้องยิง Firestore แยก
     const c = this._cache[col];
     if (c) { const found = c.data.find(r => String(r.id) === String(id)); if (found) return found; }
-    const snap = await this._fs.collection(col).doc(String(id)).get();
+    const snap = await this._read(() => this._fs.collection(col).doc(String(id)).get(), col + '/' + id);
     return snap.exists ? { id: snap.id, ...snap.data() } : null;
   },
   async _add(col, d) {
@@ -1944,7 +2132,7 @@ const DB = {
 
   // ── Settings ──
   async getSetting(key) {
-    const snap = await this._fs.collection('settings').doc(key).get();
+    const snap = await this._read(() => this._fs.collection('settings').doc(key).get(), 'settings/' + key);
     return snap.exists ? snap.data().value : null;
   },
   async setSetting(key, value) {
@@ -1952,9 +2140,10 @@ const DB = {
   },
   async loadSettings() {
     // ดึงทั้ง collection ครั้งเดียว แทน 4 queries แยก
-    const snap = await this._fs.collection('settings').get();
+    const snap = await this._read(() => this._fs.collection('settings').get(), 'settings');
     const map = {}; snap.docs.forEach(d => { map[d.id] = d.data().value; });
-    for (const k of ['businessName','sellerName','businessAddress','businessPhone','businessTaxId','promptpayId']) {
+    for (const k of ['businessName','sellerName','businessAddress','businessPhone','businessTaxId','promptpayId',
+                     'bankName','bankAccount','bankAccountName','bankLogo','routeColors']) {
       if (map[k] !== undefined) CFG[k] = map[k];
     }
   },
@@ -2205,7 +2394,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v90';
+const APP_VERSION = 'v94';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2215,6 +2404,18 @@ const SKELETON_CARDS = `
     <div class="col-xl-4"><div style="height:220px;background:#e5e7eb;border-radius:14px;opacity:.4;"></div></div>
     <div class="col-xl-8"><div style="height:220px;background:#e5e7eb;border-radius:14px;opacity:.4;"></div></div>
   </div>`
+// ระหว่างต่อฐานข้อมูลใหม่ (เน็ตช้า/ท่อค้าง) บอกให้รู้ว่าแอพยังทำงานอยู่ ไม่ได้ค้าง
+window.addEventListener('kl-net-retry', e => {
+  const el = document.getElementById('page-content'); if (!el) return;
+  let tip = document.getElementById('klRetryTip');
+  if (!tip) {
+    tip = document.createElement('div'); tip.id = 'klRetryTip';
+    tip.style.cssText = 'margin:0 0 12px;padding:10px 14px;border-radius:12px;background:#eff6ff;color:#1e40af;font-size:13.5px;font-weight:600;';
+    el.prepend(tip);
+  }
+  tip.innerHTML = '<i class="fa-solid fa-rotate fa-spin me-2"></i>เน็ตช้า กำลังต่อฐานข้อมูลใหม่… (รอบ ' + (e.detail && e.detail.n || 2) + ')';
+});
+
 // ── iOS PWA detection ──
 if (window.navigator.standalone === true) {
   document.documentElement.classList.add('pwa-ios');
@@ -2257,7 +2458,22 @@ function navigate(page, opt) {
   // Dashboard แสดง skeleton ทันที, หน้าอื่นแสดง spinner
   el.innerHTML = page==='dashboard' ? SKELETON_CARDS
     : '<div class="empty-state"><i class="fa-solid fa-spinner fa-spin"></i><p>กำลังโหลด...</p></div>';
-  ({dashboard:renderDashboard,orders:renderOrders,invoices:renderInvoices,customers:renderCustomers,products:renderProducts,craftsmen:renderCraftsmen,reports:renderReports,expenses:renderExpenses,settings:renderSettings,trash:renderTrash}[page]||((el)=>{el.innerHTML='<div class="empty-state"><p>ไม่พบหน้านี้</p></div>';}))(el);
+  const render = {dashboard:renderDashboard,orders:renderOrders,invoices:renderInvoices,customers:renderCustomers,products:renderProducts,craftsmen:renderCraftsmen,reports:renderReports,expenses:renderExpenses,settings:renderSettings,trash:renderTrash}[page]||((el)=>{el.innerHTML='<div class="empty-state"><p>ไม่พบหน้านี้</p></div>';});
+  Promise.resolve().then(() => render(el)).then(() => {
+    // หน้าแรกที่เปิด ข้อมูลมาครบตอนไหน (จดครั้งเดียวต่อการเปิดแอพ)
+    if (!window._klDataNoted) { window._klDataNoted = true; klNoteData({ data: Math.round(performance.now()) }); }
+  }).catch(e => {
+    console.error('render ' + page, e);
+    klNoteData({ err: ('หน้า ' + page + ' · ' + (e && e.message || e)).slice(0, 140) });
+    if (!el.isConnected) return;   // ผู้ใช้เปลี่ยนหน้าไปแล้ว
+    el.innerHTML = `<div class="empty-state" style="padding:40px 16px;">
+        <div style="font-size:38px;">📶</div>
+        <p style="font-weight:700;font-size:16px;margin:6px 0;">โหลดข้อมูลไม่สำเร็จ</p>
+        <p style="font-size:13px;color:#64748b;">เน็ตอาจช้าหรือหลุด — ลองกดอีกครั้ง</p>
+        <button class="btn btn-primary mt-2" style="min-width:180px;" onclick="window._currentPage=null;navigate('${page}',{fromPop:true})">
+          <i class="fa-solid fa-rotate-right me-1"></i>ลองใหม่</button>
+        <div style="font-size:11px;color:#94a3b8;margin-top:10px;">${U.esc(String(e && e.message || e)).slice(0, 120)}</div></div>`;
+  });
 }
 
 // ═══════════════════════════════════════
@@ -2328,7 +2544,8 @@ function _confirmYes() {
 const BACKUP_WARN_DAYS = 7;
 async function backupWarningHtml() {
   let last = null;
-  try { last = await DB.getSetting('lastBackup'); } catch(e) { return ''; }  // อ่านไม่ได้ก็ไม่ต้องเตือน
+  // แค่แถบเตือน — รอไม่เกิน 4 วิ อ่านไม่ได้/ช้าก็ข้ามไป ห้ามทำให้ทั้งหน้าหลักค้าง
+  try { last = await withTimeout(DB.getSetting('lastBackup'), 4000); } catch(e) { return ''; }
   const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
   if (days !== null && days < BACKUP_WARN_DAYS) return '';
 
@@ -2381,6 +2598,7 @@ async function renderDashboard(el) {
   // ดึงเฉพาะที่ต้องการ: orders วันนี้ + invoices เดือนนี้ + customers (เล็ก)
   // orders/invoices ทั้งหมดยังต้องการสำหรับ "count" cards — ใช้ cache ทำให้ไม่ช้า
   const [orders, invoices, customers, products] = await Promise.all([DB.getOrders(), DB.getInvoices(), DB.getCustomers(), DB.getProducts()]);
+  setCustRoutes(customers);
   const todayOrders  = orders.filter(o=>o.createdAt >= todayTs);
   const monthIncome  = invoices.filter(i=>i.createdAt>=monthStart).reduce((a,i)=>a+U.invTotal(i).total,0);
 
@@ -2513,14 +2731,12 @@ async function renderDashboard(el) {
 // ใช้ทั้งตอน render ครั้งแรกและตอน onSnapshot อัปเดต จะได้ไม่หลุดกัน
 function dashRecentRow(o) {
   const name = o.customerName || '-';
-  const hue  = U.avatarHue(name);
   const isNew = (Date.now() - o.createdAt) < 7200000;   // ใหม่ภายใน 2 ชม.
   return `
-  <tr${isNew ? ' class="is-new"' : ''}>
+  <tr${isNew ? ' class="is-new"' : ''} style="--cc:${ocAvaColor(name)}">
     <td class="c-date">${U.dateCompact(o.createdAt)}</td>
     <td class="c-cust">
-      <span class="cust-av" style="--h:${hue}">${U.initial(name)}</span>
-      <span class="cust-nm">${U.esc(name)}</span>
+      <span class="nmpill" style="background:${ocAvaColor(name)}">${U.esc(name)}</span>
       ${isNew ? '<span class="new-dot">ใหม่</span>' : ''}${craftTakenBadge(o)}
     </td>
     <td class="c-items">
@@ -2647,11 +2863,10 @@ function orderCardHtml(o) {
     </div>`;
   }).join('') || '<div class="it" style="color:#94a3b8;">ไม่มีรายการ</div>';
 
-  return `<div class="ocard s-${ci.state}">
+  return `<div class="ocard s-${ci.state}" style="--cc:${ocAvaColor(name)}">
     <div class="top">
-      <div class="ava" style="background:${ocAvaColor(name)}">${U.esc(U.initial(name))}</div>
       <div class="who">
-        <div class="nm">${U.esc(name)}${(Date.now()-o.createdAt)<7200000?' <span style="background:#ef4444;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 7px;vertical-align:middle;">ใหม่</span>':''}</div>
+        <div class="nm"><span class="nmpill" style="background:${ocAvaColor(name)}">${U.esc(name)}</span>${(Date.now()-o.createdAt)<7200000?' <span style="background:#ef4444;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 7px;vertical-align:middle;">ใหม่</span>':''}</div>
         <div class="no"><span class="code">${U.esc(o.orderNo||'-')}</span>${U.date(o.createdAt)}${craftTakenBadge(o)}</div>
       </div>
       <div class="amt"><div class="n">${U.baht(U.orderTotal(o))}</div><div class="u">บาท</div></div>
@@ -3014,6 +3229,7 @@ async function showCreateOrderModal(editId) {
 
   window._orderProds  = products;
   window._orderCusts  = customers;   // ใช้สร้างช่องเลือกลูกค้าในขั้นที่ 1
+  setCustRoutes(customers);         // สีสายส่งพร้อมใช้ (เปิดหน้ารับออเดอร์ก่อนหน้าหลักก็ได้สีถูก)
   // isAccessory() อ่านจาก cache นี้ — เติมให้ด้วย เผื่อยังไม่เคยเข้าหน้า Dashboard
   window._allProductsCache = Object.fromEntries(products.map(p => [p.name, p]));
   window._orderCustId = edit?.customerId || null;
@@ -3282,6 +3498,62 @@ function ocStep(n, label, required, inner) {
   </div>`;
 }
 
+// ── ตัวเลือกลูกค้า แบ่งหัวข้อตามสายส่ง (🚚 เชียงราย / 🚚 แม่สาย / อื่น ๆ) ──
+// ยังไม่มีใครตั้งสาย = รายชื่อเรียงเหมือนเดิม · ในแต่ละสายคงลำดับเดิมของรายชื่อ
+function custOptionsByRoute(list) {
+  const opt = c => `<option value="${U.esc(String(c.id))}">${U.esc(c.name)}</option>`;
+  if (!list.some(c => normRoute(c.route))) return list.map(opt).join('');
+  const groups = new Map();
+  list.forEach(c => { const r = normRoute(c.route); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(c); });
+  const names = [...groups.keys()].filter(Boolean).sort((a,b)=>a.localeCompare(b,'th'));
+  if (groups.has('')) names.push('');
+  return names.map(r => `<optgroup label="${r ? '🚚 ' + U.esc(r) : 'อื่น ๆ'}">${groups.get(r).map(opt).join('')}</optgroup>`).join('');
+}
+
+// ── ปุ่มเลือกลูกค้า แบ่งเป็นก้อนตามสายส่ง (แถบสีสายด้านซ้าย + หัวข้อชื่อสาย) ──
+// ลูกค้าเยอะ (>8) มีช่องค้นหาด้านบน · ยังไม่มีใครตั้งสาย = ก้อนเดียวไม่มีหัวข้อ
+function custPickerHtml(list) {
+  const btn = c => `<button type="button" class="ocp-c" data-id="${U.esc(String(c.id))}" data-q="${U.esc((c.name||'').toLowerCase())}" onclick="ocPickCust(this.dataset.id)">${U.esc(c.name)}</button>`;
+  const anyRoute = list.some(c => normRoute(c.route));
+  const groups = new Map();
+  list.forEach(c => { const r = anyRoute ? normRoute(c.route) : ''; if (!groups.has(r)) groups.set(r, []); groups.get(r).push(c); });
+  const names = [...groups.keys()].filter(Boolean).sort((a,b)=>a.localeCompare(b,'th'));
+  if (groups.has('')) names.push('');
+  const body = names.map(r => `<div class="ocp-g" style="--rc:${anyRoute ? routeColor(r) : '#2563eb'};">
+      ${anyRoute ? `<div class="ocp-h"><span class="d"></span>${r ? '🚚 ' + U.esc(r) : 'อื่น ๆ (ยังไม่ได้ตั้งสาย)'}<span class="n">${groups.get(r).length} ราย</span></div>` : ''}
+      <div class="ocp-list">${groups.get(r).map(btn).join('')}</div></div>`).join('');
+  const search = list.length > 8
+    ? `<input type="search" class="ocp-search" id="ocpSearch" placeholder="🔍 ค้นหาชื่อลูกค้า" oninput="ocFilterCust(this.value)" autocomplete="off">` : '';
+  // หน้าตาเป็นช่องเลือก (dropdown) — กดแล้วรายการแบ่งสายกางลงมา
+  return `<div class="ocdd" id="ocdd">
+    <button type="button" class="oc-sel ocdd-btn" onclick="ocToggleCustDD()"><span>— เลือกลูกค้า —</span><i class="fa-solid fa-chevron-down"></i></button>
+    <div class="ocdd-panel" id="ocddPanel" hidden>${search}<div id="ocpBody">${body || '<div class="ocp-none">ยังไม่มีลูกค้า</div>'}</div></div>
+  </div>`;
+}
+function ocToggleCustDD(force) {
+  const dd = document.getElementById('ocdd'), pn = document.getElementById('ocddPanel');
+  if (!dd || !pn) return;
+  const open = force !== undefined ? force : pn.hidden;
+  pn.hidden = !open; dd.classList.toggle('open', open);
+  if (open) {
+    const q = document.getElementById('ocpSearch');
+    if (q && window.matchMedia('(hover: hover)').matches) q.focus();   // คอม: พิมพ์ค้นได้เลย · มือถือ: ไม่เด้งคีย์บอร์ดบังรายการ
+    // แตะนอกกล่อง = ปิด
+    setTimeout(() => document.addEventListener('pointerdown', function off(e) {
+      if (!document.getElementById('ocdd')?.contains(e.target)) { ocToggleCustDD(false); document.removeEventListener('pointerdown', off); }
+      else if (document.getElementById('ocddPanel')?.hidden) document.removeEventListener('pointerdown', off);
+    }), 0);
+  }
+}
+function ocFilterCust(q) {
+  q = (q || '').trim().toLowerCase();
+  document.querySelectorAll('#ocpBody .ocp-g').forEach(g => {
+    let n = 0;
+    g.querySelectorAll('.ocp-c').forEach(b => { const ok = !q || b.dataset.q.includes(q); b.style.display = ok ? '' : 'none'; if (ok) n++; });
+    g.style.display = n ? '' : 'none';
+  });
+}
+
 function renderOcSteps() {
   const cur  = window._ordCur || {};
   const prods = window._orderProds || [];
@@ -3295,11 +3567,7 @@ function renderOcSteps() {
     html += ocDone('ลูกค้า', U.esc(custName), "ocPickCust('')");
   } else {
     return html + ocStep(n, 'เลือกลูกค้า', true,
-      `<select class="oc-sel" onchange="ocPickCust(this.value)">
-         <option value="">— เลือกลูกค้า —</option>
-         ${(window._orderCusts||[]).map(c =>
-           `<option value="${U.esc(String(c.id))}">${U.esc(c.name)}</option>`).join('')}
-       </select>`);
+      custPickerHtml(window._orderCusts||[]));
   }
   n++;
 
@@ -3783,6 +4051,40 @@ async function filterPendingByDate(dateStr) {
 
 // ── พิมพ์รายการออเดอร์วันนี้ ──
 // ── helper: group pending orders by customer → HTML ──
+// ── สายส่ง (เช่น เชียงราย / แม่สาย) — ช่อง route ในข้อมูลลูกค้า ──
+// เก็บเป็น map ไว้ในหน่วยความจำ เพราะ buildPendingHtml ถูกเรียกแบบ sync ตอนข้อมูลเปลี่ยน real-time
+const ROUTE_NONE = 'อื่น ๆ (ยังไม่ได้ตั้งสายส่ง)';
+function normRoute(r) { return String(r || '').replace(/\s+/g, ' ').trim(); }
+function setCustRoutes(customers) {
+  const m = {};
+  (customers || []).forEach(c => { const r = normRoute(c.route); if (r) m[String(c.id)] = r; });
+  window._custRouteMap = m;
+  ensureRouteColors(new Set(Object.values(m)));
+}
+function routeOfCust(custId) { return (window._custRouteMap || {})[String(custId)] || ''; }
+// สีสาย: เข้ากับพื้นน้ำเงิน/เขียวเข้มของการ์ด · 3 สีแรกตามแบบ (ทอง ชมพู ม่วงอ่อน)
+const ROUTE_PALETTE = ['#fbbf24','#fb7185','#c4b5fd','#34d399','#60a5fa','#fb923c','#22d3ee','#a3e635'];
+const ROUTE_NONE_COLOR = '#94a3b8';
+function routeColor(r) { return r ? ((CFG.routeColors || {})[r] || ROUTE_PALETTE[0]) : ROUTE_NONE_COLOR; }
+// สายใหม่ที่ยังไม่มีสี → ให้สีที่ยังไม่มีใครใช้ แล้วจำไว้ (สายเดิมได้สีเดิมตลอด ไม่สลับไปมา)
+function ensureRouteColors(routes) {
+  const cur = {...(CFG.routeColors || {})}; let changed = false;
+  for (const r of [...routes].sort((a,b)=>a.localeCompare(b,'th'))) {
+    if (cur[r]) continue;
+    const used = new Set(Object.values(cur));
+    cur[r] = ROUTE_PALETTE.find(c => !used.has(c)) || ROUTE_PALETTE[Object.keys(cur).length % ROUTE_PALETTE.length];
+    changed = true;
+  }
+  if (changed) { CFG.routeColors = cur; try { DB.setSetting('routeColors', cur).catch(() => {}); } catch (e) {} }
+}
+// พับ/กางสาย · ดูแยกรายลูกค้า — จำไว้ในหน่วยความจำ (วาดใหม่ real-time แล้วไม่เด้งกลับ)
+function _rtState() { return (window._rtUi ||= { fold: { d: {}, p: {} }, byCust: {}, open: {} }); }
+function toggleRouteFold(side, r) {
+  const f = _rtState().fold[side]; f[r] = !f[r];
+  if (side === 'd') filterDashCust(null); else _pendRerender();
+}
+function toggleRouteByCust(r) { const b = _rtState().byCust; b[r] = !b[r]; filterDashCust(null); }
+
 function buildPendingHtml(orders) {
   if (!orders.length) return '<div style="opacity:.6;font-size:13px;text-align:center;padding:20px 0;"><i class="fa-solid fa-circle-check me-2"></i>ส่งของครบแล้ว ไม่มีรายการค้างส่ง</div>';
   // group by customerId (fallback customerName)
@@ -3798,7 +4100,7 @@ function buildPendingHtml(orders) {
   // ล้าง selection ของลูกค้าที่ไม่อยู่ในรายการแล้ว (ส่งครบ/ถูกลบ)
   for (const k of Object.keys(window._pendSel)) { if (!map.has(k)) delete window._pendSel[k]; }
 
-  return [...map.entries()].map(([gkey, g]) => {
+  const blocks = [...map.entries()].map(([gkey, g]) => {
     // ผูก selection กับ customerId ไม่ใช่ลำดับ — กันที่ติ๊กไว้เด้งไปผิดลูกค้าเวลา real-time อัปเดต
     const gid = String(gkey);
     const allDone   = g.orders.every(o => isOrderFullyDelivered(o));
@@ -3886,13 +4188,14 @@ function buildPendingHtml(orders) {
       const canPick = !allDone;
       const stepper = (picked > 0 && qty > 1)
         ? `<span style="display:inline-flex;align-items:center;gap:5px;margin-left:7px;background:rgba(0,0,0,.28);border-radius:7px;padding:1px 4px;vertical-align:middle;">
-             <button onclick="pendBump(this,${idx},-1)" style="width:20px;height:20px;padding:0;border-radius:5px;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:700;cursor:pointer;line-height:1;">−</button>
+             <button onclick="event.stopPropagation();pendBump(this,${idx},-1)" style="width:20px;height:20px;padding:0;border-radius:5px;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:700;cursor:pointer;line-height:1;">−</button>
              <span style="font-size:12px;font-weight:700;min-width:28px;text-align:center;">${picked}/${qty}</span>
-             <button onclick="pendBump(this,${idx},1)" style="width:20px;height:20px;padding:0;border-radius:5px;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:700;cursor:pointer;line-height:1;">+</button>
+             <button onclick="event.stopPropagation();pendBump(this,${idx},1)" style="width:20px;height:20px;padding:0;border-radius:5px;border:none;background:rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:700;cursor:pointer;line-height:1;">+</button>
            </span>`
         : '';
-      return `<div class="pend-row" style="display:flex;gap:8px;align-items:center;${canPick?'':'opacity:.45;'}">
-        <input type="checkbox" ${picked>0?'checked':''} ${canPick?'':'disabled'} onchange="pendToggle(this,${idx})" style="width:17px;height:17px;flex-shrink:0;accent-color:#22c55e;cursor:${canPick?'pointer':'not-allowed'};">
+      // ไม่มีช่องติ๊กแล้ว — แตะตรงไหนของแถวก็เลือก/เอาออก · แถวที่เลือกเป็นพื้นเขียว มี ✓ นำหน้า
+      return `<div class="pend-row${canPick?' tap':''}${picked>0?' on':''}" ${canPick?`onclick="pendToggle(this,${idx})" role="button" aria-pressed="${picked>0}"`:''} style="display:flex;gap:8px;align-items:center;${canPick?'':'opacity:.45;'}">
+        <span class="pk">${picked>0?'<i class="fa-solid fa-check"></i>':''}</span>
         <span style="flex:1;min-width:0;">${U.esc(key)}${badge}${delTag}${billTag}${stepper}</span>
         <span style="font-weight:700;flex-shrink:0;">${qty}</span>
       </div>`;
@@ -3910,7 +4213,7 @@ function buildPendingHtml(orders) {
         </div>
       </div>`;
 
-    return `<div data-gid="${U.esc(gid)}" style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;${allDone?'opacity:.5;':''}">
+    const html = `<div data-gid="${U.esc(gid)}" style="border-bottom:1px solid rgba(255,255,255,.12);padding:10px 0;${allDone?'opacity:.5;':''}">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:5px;">
         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:4px;">
           <span style="font-size:15px;font-weight:700;">${U.esc(g.customerName||'-')}</span>${ordNos}
@@ -3919,6 +4222,34 @@ function buildPendingHtml(orders) {
         </div>
         <div style="display:flex;gap:5px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">${pickBtn}${pickAllBtn}</div>
       </div>${itemsHtml}${actionBar}</div>`;
+    const coffinRemain = merged.filter(m => !isAccessory(m.sources?.[0]?.productName)).reduce((a,m)=>a+m.qty,0);
+    return { route: routeOfCust(g.custId), pcs: allDone ? 0 : coffinRemain, html, gid, name: g.customerName||'-',
+             merged, allDone, ready: !allDone && allCrafted, hasSel };
+  });
+
+  // ── จัดกลุ่มตามสายส่ง ──
+  // ยังไม่มีลูกค้าคนไหนตั้งสาย = หน้าตาเหมือนเดิมทุกอย่าง
+  if (!blocks.some(b => b.route)) return blocks.map(b => b.html).join('');
+  const groups = new Map();
+  for (const b of blocks) {
+    const r = b.route || '';
+    if (!groups.has(r)) groups.set(r, []);
+    groups.get(r).push(b);
+  }
+  // เรียงชื่อสาย ก-ฮ · ยังไม่ได้ตั้งสายไว้ท้ายสุด · ในสายเรียงตามเดิม (ออเดอร์เก่าก่อน)
+  const names = [...groups.keys()].filter(Boolean).sort((a, b) => a.localeCompare(b, 'th'));
+  if (groups.has('')) names.push('');
+  const st = _rtState();
+  return names.map(r => {
+    const list = groups.get(r), fold = !!st.fold.p[r];
+    const pcs = list.reduce((a, b) => a + b.pcs, 0);
+    // ในแต่ละสายใช้การ์ดลูกค้าแบบเดิมเต็ม ๆ (ช่องติ๊ก สถานะแต่ง ปุ่มจัดส่ง/ออกบิล โชว์ตลอด)
+    const body = fold ? '' : `<div class="rtopen">${list.map(b => b.html).join('')}</div>`;
+    return `<div class="rtg" style="--rc:${routeColor(r)};">
+      <div class="rth" data-route="${U.esc(r)}" onclick="toggleRouteFold('p', this.dataset.route)">
+        <span class="rtd"></span><span class="rtn">${r ? U.esc(r) : 'อื่น ๆ'}</span>
+        <span class="rtc">${pcs} ใบ</span><i class="fa-solid fa-chevron-${fold ? 'down' : 'up'} rtv"></i></div>${body}
+    </div>`;
   }).join('');
 }
 
@@ -3987,7 +4318,7 @@ function buildDashCustContent(pendingOrders) {
 
   for (const o of pendingOrders) {
     const k = o.customerId || o.customerName;
-    if (!custMap.has(k)) custMap.set(k, {name: o.customerName, key: k, qty: 0});
+    if (!custMap.has(k)) custMap.set(k, {name: o.customerName, key: k, qty: 0, route: routeOfCust(o.customerId)});
     // นับเฉพาะโลง ไม่นับ accessory + หักที่ส่งแล้ว
     (o.items||[]).forEach(i => { if (!_isAcc(i.productName)) custMap.get(k).qty += Math.max(0, _remainOf(o, i)); });
   }
@@ -3997,13 +4328,37 @@ function buildDashCustContent(pendingOrders) {
   if (!window._dashCustSet) window._dashCustSet = new Set();
   for (const k of [...window._dashCustSet]) { if (!custMap.has(k)) window._dashCustSet.delete(k); }
   const sel = window._dashCustSet;
+  const routeMode = custList.some(c => c.route);
+  if (routeMode) sel.clear();   // โหมดสายส่งไม่มีชิปกรองแล้ว → ดูทั้งหมดเสมอ (แตะหัวสายพับ/กางแทน)
   const showAll = sel.size === 0;
   // นับรวมเฉพาะโลง
   const totalQty = pendingOrders.reduce((a,o) => (o.items||[]).filter(i=>!_isAcc(i.productName)).reduce((b,i)=>b+Math.max(0,_remainOf(o,i)),0)+a, 0);
 
+  // ── ตัวกรองชนิดหีบ (ใช้ชื่อหีบอย่างเดียว ไม่แยกสี/เส้น เช่น "บ่าง แดง ทอง" นับเป็น บ่าง) ──
+  // ตัวเลข = ใบที่ยังค้างส่งของหีบแบบนั้น (นับเฉพาะโลง ไม่นับอุปกรณ์เสริม)
+  const typeCnt = {};
+  for (const o of pendingOrders) for (const i of (o.items||[])) {
+    if (_isAcc(i.productName)) continue;
+    const r = Math.max(0, _remainOf(o, i)); if (!r) continue;
+    const t = i.productName || '?';
+    typeCnt[t] = (typeCnt[t] || 0) + r;
+  }
+  if (!window._dashTypeSel) window._dashTypeSel = new Set();
+  const tSel = window._dashTypeSel;
+  for (const t of [...tSel]) if (!(t in typeCnt)) tSel.delete(t);
+  const typeNames = Object.keys(typeCnt).sort((a,b) => typeCnt[b] - typeCnt[a] || a.localeCompare(b,'th'));
+  const typeChipsHtml = typeNames.length > 1 ? `<div style="flex-basis:100%;display:flex;flex-wrap:wrap;gap:5px;align-items:center;">
+      <span style="font-size:12.5px;opacity:.8;font-weight:700;margin-right:2px;">ชนิดหีบ:</span>
+      <button class="cust-chip${tSel.size?'':' active'}" onclick="pickDashType('')">ทั้งหมด <span style="opacity:.65;font-size:12.5px;">${totalQty}</span></button>`
+    + typeNames.map(t => `<button class="cust-chip${tSel.has(t)?' active':''}" style="${tSel.has(t)?'background:#fef08a;color:#713f12;':''}" data-t="${U.esc(t)}" onclick="pickDashType(this.dataset.t)">${U.esc(t)} <span style="opacity:.75;font-size:12.5px;font-weight:800;">${typeCnt[t]}</span></button>`).join('')
+    + `</div>` : '';
+  // เลือกชนิดไว้ = เอาเฉพาะหีบชนิดนั้น (ไม่โชว์อุปกรณ์เสริม)
+  const typeOk = i => !tSel.size || (tSel.has(i.productName || '?') && !_isAcc(i.productName));
+
   // Chips HTML — "ทั้งหมด" active when nothing selected
-  const chipsHtml = `<button class="cust-chip${showAll?' active':''}" onclick="filterDashCust('')">ทั้งหมด <span style="opacity:.65;font-size:12.5px;">${totalQty}</span></button>`
-    + custList.map(c => `<button class="cust-chip${sel.has(c.key)?' active':''}" data-ckey="${U.esc(c.key)}" onclick="filterDashCust(this.dataset.ckey)">${U.esc(c.name)} <span style="opacity:.65;font-size:12.5px;">${c.qty}</span></button>`).join('');
+  const chipsHtml = typeChipsHtml + (routeMode ? '' :
+    `<button class="cust-chip${showAll?' active':''}" onclick="filterDashCust('')">ทั้งหมด <span style="opacity:.65;font-size:12.5px;">${totalQty}</span></button>`
+    + custList.map(c => `<button class="cust-chip${sel.has(c.key)?' active':''}" data-ckey="${U.esc(c.key)}" onclick="filterDashCust(this.dataset.ckey)">${U.esc(c.name)} <span style="opacity:.65;font-size:12.5px;">${c.qty}</span></button>`).join(''));
 
   // Filter orders by selected set (empty set = show all)
   const filtered = showAll ? pendingOrders : pendingOrders.filter(o => sel.has(o.customerId||o.customerName));
@@ -4021,6 +4376,7 @@ function buildDashCustContent(pendingOrders) {
   for (const o of filtered) {
     const ds = o.deliveryStatus || {};
     for (const i of (o.items||[])) {
+      if (!typeOk(i)) continue;
       // หักจำนวนที่จัดส่งไปแล้วออก
       const remain = i.qty - getDeliveredQty(ds[deliverKey(i)], i.qty, o.isDelivered);
       if (remain <= 0) continue;
@@ -4042,6 +4398,58 @@ function buildDashCustContent(pendingOrders) {
   const totalCoffins  = coffinEntries.reduce((a,[,v]) => a+v, 0);
   const hasAny = coffinEntries.length || accEntries.length;
 
+  // ── โหมดสายส่ง: ก้อนละสาย (ของรวมทั้งสาย ×จำนวน) · แตะหัวสาย = พับ/กาง · "ดูแยกรายลูกค้า" ──
+  if (hasAny && routeMode) {
+    const st = _rtState();
+    const byRoute = new Map();   // สาย → { coffin, acc, cust: Map(ชื่อ → {coffin, acc}) }
+    for (const o of filtered) {
+      const r = routeOfCust(o.customerId) || '';
+      if (!byRoute.has(r)) byRoute.set(r, { coffin: {}, acc: {}, cust: new Map() });
+      const g = byRoute.get(r), ds = o.deliveryStatus || {};
+      const cn = o.customerName || '-';
+      if (!g.cust.has(cn)) g.cust.set(cn, { coffin: {}, acc: {} });
+      const gc = g.cust.get(cn);
+      for (const i of (o.items||[])) {
+        if (!typeOk(i)) continue;
+        const remain = i.qty - getDeliveredQty(ds[deliverKey(i)], i.qty, o.isDelivered);
+        if (remain <= 0) continue;
+        const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
+        const label = i.productName
+          + (i.color&&i.color!=='-'?' ('+i.color+')':'')
+          + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
+          + (i.extra?' '+i.extra:'');
+        const k = isAccessory(i.productName) ? 'acc' : 'coffin';
+        g[k][label] = (g[k][label]||0) + remain;
+        gc[k][label] = (gc[k][label]||0) + remain;
+      }
+    }
+    const order = [...byRoute.keys()].filter(Boolean).sort((a,b)=>a.localeCompare(b,'th'));
+    if (byRoute.has('')) order.push('');
+    const rowsOf = (m, dim, sub) => Object.entries(m).map(([n,q]) => `<div class="rtr${sub?' rtsub':''}${dim?' dim':''}"><span class="rtp">${U.esc(n)}</span><span class="rtq">${q}</span></div>`).join('');
+    const sections = order.map(r => {
+      const g = byRoute.get(r);
+      const sub = Object.values(g.coffin).reduce((a,v) => a+v, 0);
+      if (!sub && !Object.keys(g.acc).length) return '';
+      const fold = !!st.fold.d[r], byCust = !!st.byCust[r];
+      let body = '';
+      if (!fold) {
+        body = byCust
+          ? [...g.cust.entries()].map(([cn, c]) =>
+              `<div class="rtr rtcust"><span class="rtw">${U.esc(cn)}</span></div>` + rowsOf(c.coffin, false, true) + rowsOf(c.acc, true, true)
+            ).join('')
+          : rowsOf(g.coffin, false) + rowsOf(g.acc, true);
+        body += `<button class="rtlink" data-route="${U.esc(r)}" onclick="toggleRouteByCust(this.dataset.route)">${byCust ? 'รวมทั้งสาย' : 'ดูแยกรายลูกค้า'} ›</button>`;
+      }
+      return `<div class="rtg" style="--rc:${routeColor(r)};">
+        <div class="rth" data-route="${U.esc(r)}" onclick="toggleRouteFold('d', this.dataset.route)">
+          <span class="rtd"></span><span class="rtn">${r ? U.esc(r) : 'อื่น ๆ'}</span>
+          <span class="rtc">${sub} ใบ</span><i class="fa-solid fa-chevron-${fold ? 'down' : 'up'} rtv"></i></div>${body}
+      </div>`;
+    }).join('');
+    const itemsHtml = sections + `<div class="rttot"><span>รวม</span><b>${totalCoffins}</b><span>ใบ</span></div>`;
+    return {chipsHtml, itemsHtml};
+  }
+
   const itemsHtml = hasAny
     ? coffinEntries.map(([name,qty]) => `<div class="today-item"><span>${U.esc(name)}</span><strong>${qty} ชิ้น</strong></div>`).join('')
       + (coffinEntries.length ? `<div style="border-top:1px solid rgba(255,255,255,.2);margin-top:10px;padding-top:10px;"><span style="font-size:13px;opacity:.75;">รวมโลง</span><span style="font-size:32px;font-weight:700;margin:0 6px;">${totalCoffins}</span><span style="font-size:13px;opacity:.75;">ชิ้น</span></div>` : '')
@@ -4052,9 +4460,18 @@ function buildDashCustContent(pendingOrders) {
   return {chipsHtml, itemsHtml};
 }
 
+function pickDashType(t) {
+  if (!window._dashTypeSel) window._dashTypeSel = new Set();
+  const s = window._dashTypeSel;
+  if (!t) s.clear(); else if (s.has(t)) s.delete(t); else s.add(t);
+  filterDashCust(null);
+}
+
 function filterDashCust(custKey) {
   if (!window._dashCustSet) window._dashCustSet = new Set();
-  if (custKey === '') {
+  if (custKey === null) {
+    // วาดใหม่เฉย ๆ (พับ/กางสาย)
+  } else if (custKey === '') {
     // "ทั้งหมด" → clear all
     window._dashCustSet.clear();
   } else {
@@ -4155,7 +4572,7 @@ async function pendBill(el) {
   }
 
   const items = [];
-  const plan  = []; // {orderId, dKey, qty} สำหรับเขียน billedStatus กลับหลังบันทึกบิล
+  const plan  = []; // {orderId, dKey, qty=จำนวนที่บิลนี้ออก} → planBilling() คิดยอดสะสมใหม่ตอนบันทึก
   for (const [idxStr, want] of picks) {
     const m = grp.merged[Number(idxStr)]; if (!m) continue;
     const s0 = m.sources[0];
@@ -4167,7 +4584,7 @@ async function pendBill(el) {
       const room = s.remainQty - (s.billedOpen || 0);
       const take = Math.min(left, room);
       if (take <= 0) continue;
-      plan.push({orderId: s.orderId, dKey: s.dKey, qty: (s.billed || 0) + take});
+      plan.push({orderId: s.orderId, dKey: s.dKey, qty: take});
       left -= take;
     }
   }
@@ -4871,11 +5288,10 @@ function custCardHtml(c) {
   const lastTxt = s.last ? U.date(s.last) : '—';
   const lastDays = s.last ? Math.floor((Date.now() - s.last) / 86400000) : null;
 
-  return `<div class="ccard">
+  return `<div class="ccard" style="--cc:${ocAvaColor(c.name||'')}">
     <div class="top">
-      <div class="ava" style="background:${ocAvaColor(c.name||'')}">${U.esc(U.initial(c.name||'?'))}</div>
       <div class="who">
-        <div class="nm">${U.esc(c.name||'-')}${nPrice
+        <div class="nm"><span class="nmpill" style="background:${ocAvaColor(c.name||'')}">${U.esc(c.name||'-')}</span>${nPrice
           ? `<span class="ctag"><i class="fa-solid fa-tag"></i>ราคาพิเศษ ${nPrice}</span>` : ''}</div>
         ${phone ? `<div class="ph"><i class="fa-solid fa-phone me-1" style="opacity:.6;"></i>${U.esc(phone)}</div>` : ''}
       </div>
@@ -4993,10 +5409,22 @@ async function showCustomerHistory(custId) {
 }
 
 async function showCustomerModal(id) {
-  const c=id?await DB.getCustomer(id):null;
+  const [c, allCust] = await Promise.all([id ? DB.getCustomer(id) : null, DB.getCustomers()]);
+  // สายที่เคยตั้งไว้แล้ว (ไว้เลือก) + จำนวนลูกค้าในแต่ละสาย
+  const routeCount = {};
+  allCust.forEach(x => { const r = normRoute(x.route); if (r) routeCount[r] = (routeCount[r]||0) + 1; });
+  const routes = Object.keys(routeCount).sort((a,b)=>a.localeCompare(b,'th'));
   const body=`<form class="row g-3" id="custForm">
     <div class="col-12"><label class="form-label">ชื่อลูกค้า / ร้านค้า <span class="text-danger">*</span></label>
       <input type="text" class="form-control" id="cf_name" required value="${U.esc(c?.name||'')}" placeholder="ชื่อร้านหรือชื่อลูกค้า"></div>
+    <div class="col-12"><label class="form-label"><i class="fa-solid fa-truck me-1 text-warning"></i>สายส่ง
+        <span style="font-size:12.5px;color:#6b7280;font-weight:400;">(ส่งรวมกันกับใคร เช่น เชียงราย, แม่สาย — ไม่ใส่ก็ได้)</span></label>
+      <input type="text" class="form-control" id="cf_route" list="cf_routes" autocomplete="off" value="${U.esc(normRoute(c?.route))}" placeholder="พิมพ์ชื่อสายใหม่ หรือเลือกจากที่มี">
+      <datalist id="cf_routes">${routes.map(r=>`<option value="${U.esc(r)}">${routeCount[r]} ราย</option>`).join('')}</datalist>
+      ${routes.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">${routes.map(r =>
+        `<button type="button" class="btn btn-sm btn-outline-secondary" style="border-radius:14px;padding:1px 10px;font-size:12.5px;" data-route="${U.esc(r)}" onclick="document.getElementById('cf_route').value=this.dataset.route">${U.esc(r)} <span style="opacity:.6;">${routeCount[r]}</span></button>`).join('')}
+        <button type="button" class="btn btn-sm btn-link" style="font-size:12.5px;padding:1px 4px;" onclick="document.getElementById('cf_route').value=''">ไม่มีสาย</button></div>` : ''}
+    </div>
     <div class="col-sm-6"><label class="form-label">เบอร์โทรศัพท์</label>
       <input type="tel" class="form-control" id="cf_phone" value="${U.esc(c?.phone||'')}" placeholder="08x-xxx-xxxx"></div>
     <div class="col-sm-6"><label class="form-label">เลขผู้เสียภาษี</label>
@@ -5021,9 +5449,10 @@ async function saveCustomer() {
     const name=document.getElementById('cf_name')?.value.trim();
     if (!name){U.toast('กรุณากรอกชื่อ','error');return;}
     const id=document.getElementById('cf_id')?.value||'';
-    const data={name,phone:document.getElementById('cf_phone')?.value.trim()||'',taxId:document.getElementById('cf_taxId')?.value.trim()||'',address:document.getElementById('cf_address')?.value.trim()||'',notes:document.getElementById('cf_notes')?.value.trim()||''};
+    const data={name,route:normRoute(document.getElementById('cf_route')?.value),phone:document.getElementById('cf_phone')?.value.trim()||'',taxId:document.getElementById('cf_taxId')?.value.trim()||'',address:document.getElementById('cf_address')?.value.trim()||'',notes:document.getElementById('cf_notes')?.value.trim()||''};
     if (id){const old=await DB.getCustomer(id);await DB.putCustomer({...old,...data});U.toast('แก้ไขข้อมูลลูกค้าแล้ว ✓');}
     else{await DB.addCustomer(data);U.toast('เพิ่มลูกค้าแล้ว ✓');}
+    setCustRoutes(await DB.getCustomers());   // หน้าหลักจัดกลุ่มตามสายใหม่ทันที
     closeModal('custModal');navigate('customers');
   } catch(e) {
     U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
@@ -5274,10 +5703,9 @@ function prodCardHtml(p) {
 
   return `<div class="pcard">
     <div class="top">
-      <div class="pic" style="background:${st.bg};"><i class="fa-solid ${st.icon}"></i></div>
       <div class="who">
-        <div class="nm">${U.esc(p.name)}</div>
-        <div class="meta">หน่วย: ${U.esc(p.unit||'-')}${p.code?' · '+U.esc(p.code):''}${p.category?' · '+U.esc(p.category):''}</div>
+        <div class="nm"><span class="pnm" style="background:${st.bg};">${U.esc(p.name)}</span></div>
+        <div class="meta">หน่วย: ${U.esc(p.unit||'-')}</div>
         <div style="margin-top:6px;">${prodIsAcc(p)
           ? `<span class="pbadge acc"><i class="fa-solid fa-truck-fast"></i>ไม่ต้องแต่ง · ส่งได้เลย</span>`
           : `<span class="pbadge cof"><i class="fa-solid fa-hammer"></i>ต้องแต่งก่อนส่ง</span>`}</div>
@@ -5341,11 +5769,11 @@ function filterProdTable() {
       // ดูทั้งหมด → คั่นเป็น 2 กลุ่มให้เห็นชัดว่าอันไหนต้องแต่ง อันไหนส่งได้เลย
       const cof = data.filter(p => !prodIsAcc(p));
       const acc = data.filter(p =>  prodIsAcc(p));
-      const head = (icon, name, n, hint) =>
-        `<div class="phead">${icon}${name}<span class="n">${n}</span><span class="hint">${hint}</span></div>`;
+      const head = (cls, icon, name, n, hint) =>
+        `<div class="phead big ${cls}">${icon}${name}<span class="n">${n}</span><span class="hint">${hint}</span></div>`;
       box.innerHTML =
-        (cof.length ? head('⚰️ ', 'โลง', cof.length, 'ต้องแต่งก่อนส่ง') + cof.map(prodCardHtml).join('') : '')
-      + (acc.length ? head('🔧 ', 'อุปกรณ์เสริม', acc.length, 'ไม่ต้องแต่ง') + acc.map(prodCardHtml).join('') : '');
+        (cof.length ? head('cof', '⚰️ ', 'โลง', cof.length, 'ต้องแต่งก่อนส่ง') + cof.map(prodCardHtml).join('') : '')
+      + (acc.length ? head('acc', '🔧 ', 'อุปกรณ์เสริม', acc.length, 'ไม่ต้องแต่ง') + acc.map(prodCardHtml).join('') : '');
     }
   }
   const cnt = document.getElementById('prodCount');
@@ -5451,16 +5879,11 @@ async function showProductModal(id) {
   const nameOpts=specNames.map(n=>`<option value="${n}">`).join('');
   const initPriceFields=buildPriceFields(p?.name||'',p?.priceMap||{},p?.lines,p?.colors);
   const body=`<form class="row g-3">
-    <div class="col-sm-4"><label class="form-label">รหัสสินค้า</label>
-      <input type="text" class="form-control" id="pf_code" placeholder="เช่น L001" value="${U.esc(p?.code||'')}"></div>
-    <div class="col-sm-8"><label class="form-label">ชื่อสินค้า <span class="text-danger">*</span></label>
+    <div class="col-sm-9"><label class="form-label">ชื่อสินค้า <span class="text-danger">*</span></label>
       <input type="text" class="form-control" id="pf_name" required value="${U.esc(p?.name||'')}" placeholder="ชื่อโลง / รุ่น" list="specNameList" oninput="refreshPriceFields(this.value)" onchange="refreshPriceFields(this.value)">
       <datalist id="specNameList">${nameOpts}</datalist></div>
-    <div class="col-sm-6"><label class="form-label">ประเภท</label>
-      <input type="text" class="form-control" id="pf_cat" value="${U.esc(p?.category||'')}" placeholder="เช่น ไม้สัก, MDF"></div>
     <div class="col-sm-3"><label class="form-label">หน่วย</label>
       <input type="text" class="form-control" id="pf_unit" value="${U.esc(p?.unit||'โลง')}"></div>
-    <div class="col-sm-3"></div>
     <div class="col-12" id="pf_price_wrap">${initPriceFields}</div>
     <input type="hidden" id="pf_id" value="${p?.id||''}">
   </form>`;
@@ -5499,8 +5922,8 @@ async function saveProduct() {
       if(c && !colors.includes(c)) colors.push(c);
     });
     const defaultPrice=parseFloat(document.getElementById('pf_price')?.value||0)||0;
-    const data={code:document.getElementById('pf_code')?.value.trim()||'',name,
-      category:document.getElementById('pf_cat')?.value.trim()||'',
+    // รหัสสินค้า/ประเภท เอาออกจากฟอร์มแล้ว (ไม่ได้ใช้) — แก้ของเดิมจะคงค่าเดิมไว้ผ่าน {...old,...data}
+    const data={name,
       unit:document.getElementById('pf_unit')?.value.trim()||'โลง',
       price:defaultPrice, priceMap, lines, colors};
     if (id){const old=await DB.getProduct(id);await DB.putProduct({...old,...data});U.toast('แก้ไขสินค้าแล้ว ✓');}
@@ -5548,6 +5971,7 @@ async function renderInvoices(el) {
     </select>
   </div>
 
+  <div id="invBatchBar"></div>
   <div class="ivsum" id="invSum"></div>
 
   <div class="osearch">
@@ -5570,6 +5994,7 @@ async function renderInvoices(el) {
 
   paintInvChips();
   applyInvFilter(true);
+  paintBatchBar(invoices);
 }
 
 function renderInvRows(list) {
@@ -5959,10 +6384,207 @@ function calcRcTotal() {
   s('rcs_sub',sub);s('rcs_disc',disc);s('rcs_tax',tax);s('rcs_total',base+tax);
 }
 
+// ══════════════════════════════════════════════════════════
+//  ยอด "ออกบิลแล้ว" ในออเดอร์ (billedStatus) — ทุกทางที่ออก/ลบ/กู้บิลใช้ชุดนี้ชุดเดียว
+// ══════════════════════════════════════════════════════════
+// billedStatus[dKey].billedQty = ยอดสะสมที่ออกบิลแล้วของ key นั้นในออเดอร์ (รวมทุกบิล)
+// บิลที่ออกหลังจากนี้เก็บ billed:[{orderId,dKey,add}] = "บิลใบนี้บวกเข้าไปเท่าไร"
+//   → ลบบิล = หัก add ออก (ของกลับไปรอออกบิล) · กู้บิลจากถังขยะ = บวก add กลับ
+// ของที่ส่งไปแล้วถือว่าพ้นจากรอออกบิล (เหมือนหน้ารอออกบิล) → ฐาน = max(ออกบิลแล้ว, ส่งแล้ว)
+//   ไม่งั้นส่งก่อนแล้วออกบิลทีหลัง ยอดสะสมจะต่ำกว่าจริง แล้วออกบิลซ้ำได้อีก
+function _needByKey(o) {
+  const need = {};
+  (o.items||[]).forEach(i => { const k = deliverKey(i); need[k] = (need[k]||0) + (Number(i.qty)||0); });
+  return need;
+}
+// ของที่ยังออกบิลได้ ต่อ key (ยังไม่ส่ง และยังไม่ได้ออกบิล)
+function billableByKey(o) {
+  const need = _needByKey(o), bs = o.billedStatus || {}, ds = o.deliveryStatus || {}, out = {};
+  for (const [k, q] of Object.entries(need)) {
+    const done = Math.max(getBilledQty(bs[k], q), getDeliveredQty(ds[k], q, o.isDelivered));
+    out[k] = Math.max(0, q - done);
+  }
+  return out;
+}
+// picks = [{orderId,dKey,qty}] (qty = จำนวนที่บิลนี้ออก) · orders = {id: ออเดอร์ล่าสุด}
+// คิดอย่างเดียว ไม่เขียน → { adds:[{orderId,dKey,add}], next:{orderId:{dKey:ยอดสะสมใหม่}} }
+function planBilling(picks, orders) {
+  const sum = {};
+  for (const p of (picks || [])) {
+    const q = Number(p.qty) || 0; if (q <= 0) continue;
+    const o = (sum[p.orderId] ||= {}); o[p.dKey] = (o[p.dKey] || 0) + q;   // key ซ้ำในออเดอร์เดียว = รวมกัน ไม่ทับกัน
+  }
+  const adds = [], next = {};
+  for (const [oid, keys] of Object.entries(sum)) {
+    const o = orders[oid]; if (!o) continue;
+    const need = _needByKey(o), bs = o.billedStatus || {}, ds = o.deliveryStatus || {};
+    for (const [k, q] of Object.entries(keys)) {
+      const n = need[k] || 0; if (!n) continue;
+      const cur  = getBilledQty(bs[k], n);
+      const base = Math.max(cur, getDeliveredQty(ds[k], n, o.isDelivered));
+      const nv   = Math.min(n, base + q);
+      if (nv > cur) { adds.push({orderId: oid, dKey: k, add: nv - cur}); (next[oid] ||= {})[k] = nv; }
+    }
+  }
+  return { adds, next };
+}
+async function _loadOrders(ids) {
+  const m = {};
+  await Promise.all([...new Set(ids.map(String))].map(async id => { const o = await DB.getOrder(id); if (o && !o.isDeleted) m[id] = o; }));
+  return m;
+}
+async function writeBilling(invoiceId, next) {
+  const billedAt = Date.now();
+  await Promise.all(Object.entries(next || {}).map(async ([oid, keys]) => {
+    const o = await DB.getOrder(oid); if (!o) return;
+    const bs = {...(o.billedStatus || {})};
+    for (const [k, nv] of Object.entries(keys)) bs[k] = {billedQty: nv, invoiceId, billedAt};
+    await DB.putOrder({...o, billedStatus: bs});
+  }));
+}
+// sign -1 = ลบบิล (คืนของไปรอออกบิล) · +1 = กู้บิล (ใส่กลับ)
+// คืน short = จำนวนที่ใส่กลับไม่ได้เพราะออกบิลใบอื่นไปแล้ว (ระวังยอดซ้ำ)
+// บิลเก่าก่อนมีระบบนี้ไม่มี billed → ไม่แตะออเดอร์ (เหมือนเดิม)
+async function adjustBilling(inv, sign) {
+  const list = (inv && Array.isArray(inv.billed)) ? inv.billed : [];
+  let short = 0;
+  if (!list.length) return { short };
+  const byOrder = {};
+  list.forEach(b => (byOrder[b.orderId] ||= []).push(b));
+  await Promise.all(Object.entries(byOrder).map(async ([oid, arr]) => {
+    const o = await DB.getOrder(oid); if (!o) return;
+    const need = _needByKey(o), bs = {...(o.billedStatus || {})};
+    let changed = false;
+    for (const b of arr) {
+      const cur = Number(bs[b.dKey]?.billedQty) || 0;
+      let nv;
+      if (sign < 0) nv = Math.max(0, cur - b.add);
+      else { nv = Math.min(need[b.dKey] || 0, cur + b.add); short += (cur + b.add) - nv; }
+      if (nv === cur) continue;
+      changed = true;
+      if (nv > 0) bs[b.dKey] = {...(bs[b.dKey] || {}), billedQty: nv, ...(sign > 0 ? {invoiceId: inv.id} : {})};
+      else delete bs[b.dKey];
+    }
+    if (changed) await DB.putOrder({...o, billedStatus: bs});
+  }));
+  return { short };
+}
+
+// ══════════════════════════════════════════════════════════
+//  ตัวอย่างบิลก่อนบันทึก — ยังไม่บันทึกอะไร จนกว่าจะกดยืนยัน
+// ══════════════════════════════════════════════════════════
+// กดยกเลิกหน้าพิมพ์แล้วแอพไม่มีทางรู้ (เบราว์เซอร์ไม่บอก) จึงให้ตรวจก่อนแล้วค่อยบันทึก
+function _receiptPreviewDoc(invs) {
+  const payloads = invs.map(inv => _promptpayPayload(CFG.promptpayId || '', U.invTotal(inv).total));
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Sarabun',sans-serif;color:#000;background:#e5e7eb;font-size:13px;padding:10px;}
+.rc-sheet{background:#fff;padding:10mm 12mm;margin:0 auto 12px;max-width:560px;box-shadow:0 1px 4px rgba(0,0,0,.15);border-radius:4px;}
+${RECEIPT_CSS}</style></head><body>
+${invs.map((inv, i) => `<div class="rc-sheet">${receiptPageHtml(inv, 'pv_qr_' + i)}</div>`).join('\n')}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<script>window.addEventListener('load',function(){var P=${JSON.stringify(payloads)};
+for(var i=0;i<P.length;i++){var d=document.getElementById('pv_qr_'+i);
+if(d&&typeof QRCode!=='undefined'&&P[i]&&P[i]!=='null'){new QRCode(d,{text:P[i],width:120,height:120,correctLevel:QRCode.CorrectLevel.M});}}});<\/script>
+</body></html>`;
+}
+function showReceiptPreview(invs, mode, andPrint = true) {
+  const total = invs.reduce((a, i) => a + U.invTotal(i).total, 0);
+  const list = mode === 'bulk' ? `
+    <div style="max-height:24vh;overflow:auto;margin-bottom:10px;border:1px solid #e5e7eb;border-radius:8px;">
+      <table style="width:100%;font-size:13px;border-collapse:collapse;">${invs.map(i => `
+        <tr style="border-bottom:1px solid #f1f5f9;">
+          <td style="padding:6px 10px;font-weight:600;">${U.esc(i.customerName)}</td>
+          <td style="padding:6px 10px;text-align:right;color:#64748b;white-space:nowrap;">${(i.items||[]).reduce((a, x) => a + (Number(x.qty)||0), 0)} ชิ้น</td>
+          <td style="padding:6px 10px;text-align:right;font-weight:700;white-space:nowrap;">฿${U.money(U.invTotal(i).total)}</td>
+        </tr>`).join('')}
+      </table></div>` : '';
+  const body = `
+    <div style="background:#fef3c7;border-left:4px solid #f59e0b;border-radius:8px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#78350f;">
+      <b>ยังไม่ได้บันทึก</b> — ตรวจบิลให้ถูกก่อน แล้วค่อยกดยืนยัน · เลขที่บิลจะออกตอนกดยืนยัน</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+      <span style="font-size:13px;color:#475569;">${invs.length} ใบ</span>
+      <span style="font-size:17px;font-weight:800;">รวม ฿${U.money(total)}</span></div>
+    ${list}
+    <iframe id="rcPvFrame" title="ตัวอย่างใบเสร็จ" style="width:100%;height:${mode === 'bulk' ? '44vh' : '60vh'};border:1px solid #e5e7eb;border-radius:8px;background:#e5e7eb;"></iframe>`;
+  const footer = mode === 'bulk'
+    ? `<button class="btn btn-secondary" data-bs-dismiss="modal">กลับ</button>
+       <button class="btn ${andPrint ? 'btn-outline-primary' : 'btn-primary'}" onclick="confirmBulkInvoices(false)"><i class="fa-solid fa-floppy-disk me-1"></i>ยืนยันออกบิล</button>
+       <button class="btn ${andPrint ? 'btn-primary' : 'btn-outline-primary'}" onclick="confirmBulkInvoices(true)"><i class="fa-solid fa-print me-1"></i>ยืนยันออกบิล + พิมพ์</button>`
+    : `<button class="btn btn-secondary" data-bs-dismiss="modal">กลับไปแก้</button>
+       <button class="btn btn-primary" onclick="confirmRcPreview()"><i class="fa-solid fa-print me-1"></i>ยืนยันออกบิล + พิมพ์</button>`;
+  showModal('rcPreviewModal', mode === 'bulk' ? 'ตรวจบิลก่อนออก' : 'ตรวจใบเสร็จก่อนออก', body, footer, 'modal-lg');
+  const f = document.getElementById('rcPvFrame');
+  if (f) f.srcdoc = _receiptPreviewDoc(invs.map(i => ({...i, invoiceNo: i.invoiceNo || 'ออกเลขตอนยืนยัน'})));
+}
+// เปิดหน้าพิมพ์ทันทีตอนกดยืนยัน (ยังเป็นจังหวะที่ผู้ใช้กดอยู่) — ถ้ารอบันทึกเสร็จก่อนค่อยเปิด
+// มือถือ/ซาฟารีจะมองว่าเป็นป๊อปอัปแล้วบล็อก บิลบันทึกแต่หน้าพิมพ์ไม่ขึ้น
+function _openPrintWin() {
+  let w = null;
+  try { w = window.open('', '_blank', 'width=620,height=900'); } catch (e) {}
+  if (w) { try { w.document.write('<meta charset="utf-8"><p style="font-family:sans-serif;padding:40px;color:#475569;font-size:16px;">กำลังออกบิล…</p>'); w.document.close(); } catch (e) {} }
+  return w;
+}
+function _closePrintWin(w) { try { if (w && !w.closed) w.close(); } catch (e) {} }
+function confirmRcPreview() {
+  window._rcPrintWin = _openPrintWin();
+  closeModal('rcPreviewModal');
+  window._rcPreviewOk = true;      // ผ่านหน้าตัวอย่างแล้ว
+  window._rcConfirmedDup = true;   // ผ่านเช็คบิลซ้ำมาแล้วตั้งแต่ก่อนขึ้นตัวอย่าง ไม่ต้องถามอีก
+  saveReceipt(true);
+}
+
+// ══════════════════════════════════════════════════════════
+//  บิลชุดที่เพิ่งออก — กด "ยกเลิกบิลชุดนี้" ได้ (พิมพ์ไม่ได้ / กดผิด)
+// ══════════════════════════════════════════════════════════
+function rememberBatch(ids) { if (ids && ids.length) window._lastBatch = { ids: ids.map(String), at: Date.now() }; }
+function paintBatchBar(invoices) {
+  const el = document.getElementById('invBatchBar'); if (!el) return;
+  const b = window._lastBatch;
+  if (!b || Date.now() - b.at > 12 * 3600e3) { el.innerHTML = ''; return; }
+  const list = (invoices || []).filter(i => b.ids.includes(String(i.id)));
+  if (!list.length) { window._lastBatch = null; el.innerHTML = ''; return; }
+  const total = list.reduce((a, i) => a + U.invTotal(i).total, 0);
+  el.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:12px;padding:10px 12px;margin-bottom:10px;">
+      <div style="flex:1;min-width:180px;font-size:13.5px;color:#1e3a8a;">
+        <b>เพิ่งออกบิล ${list.length} ใบ</b> · รวม ฿${U.money(total)}
+        <div style="font-size:12px;color:#64748b;">${list.map(i => U.esc(i.invoiceNo)).join(' · ')} — พิมพ์ไม่ได้หรือกดผิด ยกเลิกทั้งชุดได้</div></div>
+      <button class="btn btn-sm btn-outline-danger" onclick="undoLastBatch()"><i class="fa-solid fa-rotate-left me-1"></i>ยกเลิกบิลชุดนี้</button>
+      <button class="btn btn-sm btn-light" title="ซ่อน" onclick="window._lastBatch=null;paintBatchBar([]);"><i class="fa-solid fa-xmark"></i></button>
+    </div>`;
+}
+function undoLastBatch() {
+  const b = window._lastBatch; if (!b) return;
+  U_confirm(`ยกเลิกบิล ${b.ids.length} ใบที่เพิ่งออกใช่ไหม?<br><span style="font-size:13px;color:#64748b;">ยอดจะหายจากยอดรวม · ของในออเดอร์กลับไปรอออกบิล · บิลไปอยู่ในถังขยะ กู้คืนได้</span>`, async () => {
+    let n = 0;
+    for (const id of b.ids) {
+      const inv = await DB.getInvoice(id);
+      if (!inv || inv.isDeleted) continue;
+      await DB.delInvoice(id, 'ยกเลิกบิลชุดที่เพิ่งออก');
+      await adjustBilling(inv, -1).catch(e => console.error('คืนยอดออกบิลไม่สำเร็จ:', e));
+      n++;
+    }
+    window._lastBatch = null;
+    U.toast(`ยกเลิกบิลแล้ว ${n} ใบ`);
+    navigate('invoices');
+  }, { title: 'ยกเลิกบิลชุดนี้', yesLabel: 'ยกเลิกบิลชุดนี้' });
+}
+
 async function saveReceipt(andPrint=false) {
   if (window._saving){return;} window._saving=true;
+  try { await _saveReceipt(andPrint); }
+  finally {
+    // คืนสถานะทุกทาง — เดิมบางทาง (ไม่มีรายการ / ขึ้นเตือนบิลซ้ำ) ลืมคืน ปุ่มบันทึกเลยเงียบจนรีเฟรช
+    window._saving = false;
+    window._rcPreviewOk = false;
+    if (window._rcPrintWin) { _closePrintWin(window._rcPrintWin); window._rcPrintWin = null; }  // ไม่ได้ใช้ (ยกเลิก/ผิดพลาด) → ปิดทิ้ง
+  }
+}
+async function _saveReceipt(andPrint) {
   const custId=document.getElementById('rc_cust')?.value||'';
-  if (!custId){window._saving=false;U.toast('กรุณาเลือกลูกค้า','error');return;}
+  if (!custId){U.toast('กรุณาเลือกลูกค้า','error');return;}
   const cust=(window._rcCustList||[]).find(c=>c.id===custId)||{};
 
   const items=[];
@@ -6015,22 +6637,29 @@ async function saveReceipt(andPrint=false) {
   window._rcConfirmedDup=false;
   // ─────────────────────────────────────────────────────────────────────────
 
+  // ── บันทึก & พิมพ์ → ขึ้นตัวอย่างก่อน ยังไม่บันทึก (กดยืนยันในหน้าตัวอย่างค่อยกลับมาที่นี่อีกรอบ) ──
+  if (andPrint && !window._rcPreviewOk) {
+    const old = editId ? await DB.getInvoice(editId) : null;
+    showReceiptPreview([{...(old||{}), ...data, invoiceNo: old?.invoiceNo || '', createdAt: old?.createdAt || Date.now()}], 'single');
+    return;
+  }
+
   try {
     let savedId;
+    // ── ออกบิลจากหน้ารอออกบิล → จดยอด "ออกบิลแล้ว" กลับไปที่ออเดอร์ (กันออกบิลซ้ำ) ──
+    const plan = editId ? null : window._pendBillPlan;
+    let bill = { adds: [], next: {} };
+    if (plan && plan.length) bill = planBilling(plan, await _loadOrders(plan.map(p => p.orderId)));
     if (editId){const old=await DB.getInvoice(editId);await DB.putInvoice({...old,...data});savedId=editId;U.toast('แก้ไขใบเสร็จแล้ว ✓');}
-    else{data.invoiceNo=await DB.nextReceiptNo();savedId=await DB.addInvoice(data);U.toast('ออกใบเสร็จแล้ว ✓');}
-    // ── บันทึก billedStatus กลับไปยังออเดอร์ต้นทาง (กันออกบิลซ้ำ) ──
-    const plan = window._pendBillPlan; window._pendBillPlan = null;
-    if (plan && plan.length && !editId) {
-      const byOrder = {};
-      for (const p of plan) { (byOrder[p.orderId] ||= {})[p.dKey] = p.qty; }
-      const billedAt = Date.now();
-      await Promise.all(Object.entries(byOrder).map(async ([oid, keyMap]) => {
-        const o = await DB.getOrder(oid); if (!o) return;
-        const bsNew = {...(o.billedStatus||{})};
-        for (const [k, q] of Object.entries(keyMap)) bsNew[k] = {billedQty:q, invoiceId:savedId, billedAt};
-        await DB.putOrder({...o, billedStatus: bsNew});
-      })).catch(e => console.error('billedStatus write error:', e));
+    else{
+      data.invoiceNo=await DB.nextReceiptNo();
+      if (bill.adds.length) data.billed = bill.adds;   // จำไว้ในบิล ลบบิลเมื่อไหร่ของจะกลับไปรอออกบิล
+      savedId=await DB.addInvoice(data);U.toast('ออกใบเสร็จแล้ว ✓');
+      rememberBatch([savedId]);
+    }
+    if (plan && plan.length) {
+      window._pendBillPlan = null;
+      await writeBilling(savedId, bill.next).catch(e => console.error('billedStatus write error:', e));
       // ล้างที่ติ๊กไว้ของลูกค้ารายนี้
       if (window._pendBillGid && window._pendSel) delete window._pendSel[window._pendBillGid];
       window._pendBillGid = null;
@@ -6038,13 +6667,13 @@ async function saveReceipt(andPrint=false) {
     closeModal('rcModal');
     if (andPrint){
       const inv=await DB.getInvoice(savedId);
-      setTimeout(()=>printReceiptData(inv), 400);
+      const w = window._rcPrintWin; window._rcPrintWin = null;
+      if (w && !w.closed) printReceiptData(inv, w);
+      else setTimeout(()=>printReceiptData(inv), 400);
     }
     navigate('invoices');
   } catch(e) {
     U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
-  } finally {
-    window._saving=false;
   }
 }
 
@@ -6075,15 +6704,18 @@ async function showBulkInvoiceModal() {
   );
 
   const rows = [...custMap.values()].map(c => {
-    const totalQty = c.orders.reduce((s,o)=>(o.items||[]).reduce((ss,i)=>ss+i.qty,0)+s, 0);
+    // นับเฉพาะของที่ยังออกบิลได้ (ยังไม่ส่ง ยังไม่ออกบิล) — ตรงกับที่จะออกบิลจริง
+    const totalQty = c.orders.reduce((s,o)=>s+Object.values(billableByKey(o)).reduce((a,b)=>a+b,0), 0);
     const ordCount = c.orders.length;
     const alreadyBilled = billedTodaySet.has(c.id);
-    const warnBadge = alreadyBilled
+    const warnBadge = totalQty <= 0
+      ? `<span style="font-size:12.5px;background:#dcfce7;color:#166534;border-radius:4px;padding:1px 6px;margin-left:6px;">ออกบิลครบแล้ว</span>`
+      : alreadyBilled
       ? `<span style="font-size:12.5px;background:#fef3c7;color:#92400e;border-radius:4px;padding:1px 6px;margin-left:6px;">มีบิลวันนี้แล้ว</span>` : '';
-    return `<tr>
+    return `<tr${totalQty<=0?' style="opacity:.55;"':''}>
       <td style="width:36px;text-align:center;">
         <input type="checkbox" class="bulk-inv-chk" value="${U.esc(c.id||c.name)}"
-          data-cname="${U.esc(c.name)}" ${alreadyBilled?'':'checked'}>
+          data-cname="${U.esc(c.name)}" ${totalQty<=0?'disabled':(alreadyBilled?'':'checked')}>
       </td>
       <td style="padding:8px 6px;font-weight:600;">${U.esc(c.name)}${warnBadge}</td>
       <td style="padding:8px 6px;text-align:center;color:#6b7280;font-size:13px;">${ordCount} ออเดอร์</td>
@@ -6093,7 +6725,7 @@ async function showBulkInvoiceModal() {
 
   const body = `
     <div style="margin-bottom:10px;font-size:13px;color:#6b7280;">
-      เลือกลูกค้าที่ต้องการออกบิล ระบบจะรวมออเดอร์ค้างส่งทั้งหมดของแต่ละคนเป็น 1 บิล
+      เลือกลูกค้าที่ต้องการออกบิล ระบบจะรวมของที่ยังไม่ได้ส่งและยังไม่ได้ออกบิลของแต่ละคนเป็น 1 บิล
     </div>
     <div style="margin-bottom:8px;display:flex;gap:8px;">
       <button class="btn btn-sm btn-outline-secondary" onclick="document.querySelectorAll('.bulk-inv-chk').forEach(c=>c.checked=true)">เลือกทั้งหมด</button>
@@ -6113,174 +6745,142 @@ async function showBulkInvoiceModal() {
     <input type="hidden" id="bulkInvOrdersJson" value="${U.esc(JSON.stringify([...custMap.values()]))}">`;
 
   showModal('bulkInvModal', '<i class="fa-solid fa-bolt me-2 text-warning"></i>ออกบิลทีเดียว', body,
-    `<button class="btn btn-primary" onclick="bulkCreateInvoices(false)"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึกบิลทั้งหมด</button>
-     <button class="btn btn-outline-primary" onclick="bulkCreateInvoices(true)"><i class="fa-solid fa-print me-1"></i>บันทึก & พิมพ์ทั้งหมด</button>
+    `<button class="btn btn-primary" onclick="bulkCreateInvoices(false)"><i class="fa-solid fa-eye me-1"></i>ตรวจบิลก่อนบันทึก</button>
+     <button class="btn btn-outline-primary" onclick="bulkCreateInvoices(true)"><i class="fa-solid fa-print me-1"></i>ตรวจแล้วพิมพ์</button>
      <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,
     'modal-lg');
 }
 
-async function bulkCreateInvoices(andPrint = false) {
-  const checked = [...document.querySelectorAll('.bulk-inv-chk:checked')].map(c => c.value);
-  if (!checked.length) { U.toast('กรุณาเลือกลูกค้าอย่างน้อย 1 คน', 'error'); return; }
-
-  const raw = document.getElementById('bulkInvOrdersJson')?.value;
-  if (!raw) return;
-  const custList = JSON.parse(raw);
-  const selectedList = custList.filter(c => checked.includes(c.id || c.name));
-
-  closeModal('bulkInvModal');
-  U.toast(`กำลังสร้าง ${selectedList.length} ใบเสร็จ...`);
-
-  const createdInvs = [];
-  for (const c of selectedList) {
-    // รวมรายการ (เหมือน pullOrdersToReceipt)
-    const merged = {};
-    for (const o of c.orders) {
+// เตรียมบิลของลูกค้าที่เลือก จากออเดอร์ล่าสุด — ไม่บันทึกอะไร
+// เอาเฉพาะของที่ยังไม่ส่งและยังไม่ออกบิล (เดิมเอาทั้งออเดอร์ + ไม่จดว่าออกบิลแล้ว → ออกซ้ำได้)
+async function _buildBulkDrafts(selected) {
+  const [custs, orders] = await Promise.all([
+    DB.getCustomers(),
+    _loadOrders(selected.flatMap(c => (c.orders||[]).map(o => o.id))),
+  ]);
+  const drafts = [];
+  for (const c of selected) {
+    const cust = custs.find(x => String(x.id) === String(c.id)) || {};
+    const merged = {}, picks = [];
+    for (const o0 of (c.orders||[])) {
+      const o = orders[String(o0.id)]; if (!o) continue;
+      const need = _needByKey(o), billable = billableByKey(o), skip = {};
+      for (const k in need) skip[k] = need[k] - (billable[k] || 0);   // ส่วนที่ส่ง/ออกบิลไปแล้ว นับจากบรรทัดแรก ๆ
       for (const i of (o.items || [])) {
+        const k = deliverKey(i); let q = Number(i.qty) || 0;
+        const sk = Math.min(q, skip[k] || 0); skip[k] = (skip[k] || 0) - sk; q -= sk;
+        if (q <= 0) continue;
         const key = i.productName+'|'+i.price+'|'+(i.color||'')+'|'+(i.trimColor||'')+'|'+(i.style||'')+'|'+(i.specialNote||'');
-        if (merged[key]) merged[key].qty += i.qty;
-        else merged[key] = { name: itemLabel(i), qty: i.qty, price: i.price };
+        if (merged[key]) merged[key].qty += q;
+        else merged[key] = { name: itemLabel(i), qty: q, price: i.price };
+        picks.push({ orderId: String(o.id), dKey: k, qty: q });
       }
     }
     const items = Object.values(merged);
     if (!items.length) continue;
-
-    const data = {
+    drafts.push({ picks, data: {
       type: 'receipt',
-      customerId: c.id,
-      customerName: c.name,
-      customerAddress: '',
-      customerPhone: '',
-      customerTaxId: '',
-      items,
-      discount: 0,
-      taxRate: 0,
-      notes: '',
-      invoiceNo: await DB.nextReceiptNo(),
-    };
-    const savedId = await DB.addInvoice(data);
-    const saved = await DB.getInvoice(savedId);
-    if (saved) createdInvs.push(saved);
+      customerId: c.id, customerName: c.name,
+      // ที่อยู่/เบอร์/เลขภาษี ดึงจากข้อมูลลูกค้า เหมือนออกทีละใบ
+      customerAddress: cust.address || '', customerPhone: cust.phone || '', customerTaxId: cust.taxId || '',
+      items, discount: 0, taxRate: 0, notes: '',
+    }});
   }
+  return { drafts, orders };
+}
 
-  U.toast(`✓ ออกบิลแล้ว ${createdInvs.length} ใบ`);
-  navigate('invoices');
+async function bulkCreateInvoices(andPrint = false) {
+  if (window._bulkBusy) return;
+  const checked = [...document.querySelectorAll('.bulk-inv-chk:checked')].map(c => c.value);
+  if (!checked.length) { U.toast('กรุณาเลือกลูกค้าอย่างน้อย 1 คน', 'error'); return; }
+  const raw = document.getElementById('bulkInvOrdersJson')?.value;
+  if (!raw) return;
+  const selectedList = JSON.parse(raw).filter(c => checked.includes(c.id || c.name));
+  window._bulkBusy = true;
+  try {
+    const { drafts } = await _buildBulkDrafts(selectedList);
+    if (!drafts.length) { U.toast('ลูกค้าที่เลือกไม่มีของที่ยังไม่ได้ออกบิล', 'info'); return; }
+    window._bulkSel = selectedList;
+    // ขึ้นตัวอย่างก่อน — ยังไม่บันทึกจนกว่าจะกดยืนยัน
+    showReceiptPreview(drafts.map(d => ({...d.data, invoiceNo: '', createdAt: Date.now()})), 'bulk', andPrint);
+  } catch (e) {
+    U.toast('เตรียมบิลไม่สำเร็จ: ' + e.message, 'error');
+  } finally { window._bulkBusy = false; }
+}
 
-  if (andPrint && createdInvs.length) {
-    setTimeout(() => printMultipleReceipts(createdInvs), 600);
+async function confirmBulkInvoices(andPrint) {
+  if (window._bulkBusy) return;
+  window._bulkBusy = true;
+  const w = andPrint ? _openPrintWin() : null;   // เปิดตอนกด กันโดนบล็อกป๊อปอัป
+  closeModal('rcPreviewModal'); closeModal('bulkInvModal');
+  const created = [];
+  try {
+    // คิดใหม่จากข้อมูลล่าสุดอีกรอบ เผื่อระหว่างดูตัวอย่างมีคนส่งของ/ออกบิลไปแล้ว
+    const { drafts, orders } = await _buildBulkDrafts(window._bulkSel || []);
+    if (!drafts.length) { _closePrintWin(w); U.toast('ไม่มีของที่ยังไม่ได้ออกบิลแล้ว', 'info'); return; }
+    U.toast(`กำลังสร้าง ${drafts.length} ใบเสร็จ...`);
+    for (const d of drafts) {
+      const bill = planBilling(d.picks, orders);
+      const data = {...d.data, invoiceNo: await DB.nextReceiptNo()};
+      if (bill.adds.length) data.billed = bill.adds;
+      const id = await DB.addInvoice(data);
+      await writeBilling(id, bill.next).catch(e => console.error('billedStatus write error:', e));
+      const saved = await DB.getInvoice(id);
+      if (saved) created.push(saved);
+    }
+    U.toast(`✓ ออกบิลแล้ว ${created.length} ใบ`);
+    if (andPrint && created.length) printMultipleReceipts(created, w);
+    else _closePrintWin(w);
+  } catch (e) {
+    _closePrintWin(w);
+    U.toast(`ออกบิลไม่ครบ (สำเร็จ ${created.length} ใบ): ` + e.message, 'error');
+  } finally {
+    rememberBatch(created.map(i => i.id));   // ออกได้กี่ใบ ก็ยกเลิกทั้งชุดได้
+    window._bulkBusy = false; window._bulkSel = null;
+    navigate('invoices');
   }
 }
 
-function printMultipleReceipts(invList) {
-  function buildInvHtml(inv) {
-    const t = U.invTotal(inv);
-    const rows = (inv.items || []).map((item, idx) => `
-      <tr>
-        <td style="text-align:center;">${idx+1}</td>
-        <td>${U.esc(item.name)}</td>
-        <td style="text-align:center;">${item.qty}</td>
-        <td style="text-align:right;">${U.money(item.price)}</td>
-        <td style="text-align:right;">${U.money(item.qty * item.price)}</td>
-      </tr>`).join('');
-    const discRow = t.disc ? `<tr><td>ส่วนลด</td><td style="text-align:right;">-${U.money(t.disc)}</td></tr>` : '';
-    const taxRow  = t.tax  ? `<tr><td>VAT ${inv.taxRate}%</td><td style="text-align:right;">${U.money(t.tax)}</td></tr>` : '';
-
-    return `<div class="inv-page">
-      <div class="inv-header">
-        <div class="inv-company">
-          <h1>${U.esc(CFG.businessName)}</h1>
-          ${CFG.sellerName ? `<p>ผู้ขาย: ${U.esc(CFG.sellerName)}</p>` : ''}
-          ${CFG.businessAddress ? `<p>${U.esc(CFG.businessAddress)}</p>` : ''}
-          ${CFG.businessPhone ? `<p>โทร: ${U.esc(CFG.businessPhone)}</p>` : ''}
-        </div>
-        <div class="inv-doc-info">
-          <div class="doc-type">ใบเสร็จรับเงิน</div>
-          <table>
-            <tr><td>เลขที่</td><td>${U.esc(inv.invoiceNo)}</td></tr>
-            <tr><td>วันที่</td><td>${U.date(inv.createdAt)}</td></tr>
-          </table>
-        </div>
-      </div>
-      <div class="inv-parties">
-        <div class="inv-party">
-          <h3>ลูกค้า / ผู้ซื้อ</h3>
-          <p><strong>${U.esc(inv.customerName || '-')}</strong></p>
-          ${inv.customerAddress ? `<p style="font-size:12px;">${U.esc(inv.customerAddress)}</p>` : ''}
-        </div>
-        <div class="inv-party">
-          <h3>ผู้ขาย</h3>
-          <p><strong>${U.esc(CFG.sellerName || CFG.businessName)}</strong></p>
-          ${CFG.businessPhone ? `<p>โทร: ${U.esc(CFG.businessPhone)}</p>` : ''}
-        </div>
-      </div>
-      <div class="inv-items">
-        <table>
-          <thead><tr>
-            <th style="width:5%;text-align:center;">#</th>
-            <th>รายการสินค้า</th>
-            <th style="width:10%;text-align:center;">จำนวน</th>
-            <th style="width:15%;text-align:right;">ราคา/หน่วย</th>
-            <th style="width:15%;text-align:right;">จำนวนเงิน</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      <div class="inv-totals">
-        <table>
-          <tr><td>รวมก่อนส่วนลด</td><td style="text-align:right;">${U.money(t.sub)}</td></tr>
-          ${discRow}${taxRow}
-          <tr class="grand-row"><td><strong>รวมทั้งสิ้น</strong></td><td style="text-align:right;"><strong>${U.money(t.total)}</strong></td></tr>
-        </table>
-      </div>
-    </div>`;
-  }
-
-  const win = window.open('', '_blank', 'width=620,height=900');
+function printMultipleReceipts(invList, preWin) {
+  // ใช้แม่แบบเดียวกับพิมพ์ทีละใบ — 1 ใบต่อ 1 หน้า A5 · QR ของแต่ละใบคิดตามยอดของใบนั้น
+  const payloads = invList.map(inv => _promptpayPayload(CFG.promptpayId || '', U.invTotal(inv).total));
+  const win = (preWin && !preWin.closed) ? preWin : window.open('', '_blank', 'width=620,height=900');
   win.document.write(`<!DOCTYPE html><html><head>
 <meta charset="utf-8">
 <title>ใบเสร็จรับเงิน (${invList.length} ใบ)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;}
-@page{size:A5 portrait;margin:8mm 10mm;}
-@media print{
-  .page-break{page-break-after:always;break-after:page;}
-  .page-break:last-child{page-break-after:avoid;break-after:avoid;}
-  .no-print{display:none!important;}
-  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
-}
-.inv-page{padding:10mm 12mm;max-width:148mm;margin:0 auto;}
-.inv-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:2px solid #000;margin-bottom:10px;}
-.inv-company h1{font-size:19px;font-weight:800;margin:0 0 2px;}
-.inv-company p{font-size:12px;color:#333;margin:1px 0;}
-.inv-doc-info{text-align:right;}
-.inv-doc-info .doc-type{font-size:20px;font-weight:800;margin-bottom:3px;}
-.inv-doc-info table{margin-left:auto;font-size:12px;}
-.inv-doc-info td{padding:1px 4px;color:#000;}
-.inv-doc-info td:first-child{color:#555;padding-right:6px;}
-.inv-doc-info td:last-child{font-weight:700;}
-.inv-parties{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;}
-.inv-party{border:1px solid #ccc;border-radius:4px;padding:6px 10px;}
-.inv-party h3{font-size:10px;text-transform:uppercase;color:#555;margin:0 0 3px;letter-spacing:1px;border-bottom:1px solid #ddd;padding-bottom:2px;}
-.inv-party p{font-size:13px;margin:1px 0;}
-.inv-items table{width:100%;border-collapse:collapse;margin-bottom:10px;}
-.inv-items th{font-size:13px;font-weight:700;padding:6px 10px;border-top:2px solid #000;border-bottom:1px solid #000;}
-.inv-items td{padding:6px 10px;border-bottom:1px solid #ddd;font-size:14px;}
-.inv-totals{display:flex;justify-content:flex-end;margin-bottom:10px;}
-.inv-totals table{font-size:14px;min-width:220px;border-top:1px solid #ccc;}
-.inv-totals td{padding:2px 6px;}
-.grand-row td{font-size:17px;font-weight:800;border-top:2px solid #000;padding-top:5px;}
-.page-break{border-top:2px dashed #ccc;margin:0;}
-.no-print{padding:12px;text-align:center;background:#f1f5f9;}
+body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;font-size:13px;}
+.rc-sheet{padding:10mm 12mm;}
+.rc-sheet + .rc-sheet{border-top:2px dashed #ccc;}
+@media print{@page{size:A5 portrait;margin:8mm 10mm;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}.no-print{display:none!important;}
+  .rc-sheet{padding:0;border-top:0!important;break-after:page;page-break-after:always;}
+  .rc-sheet:last-child{break-after:auto;page-break-after:auto;}}
+${RECEIPT_CSS}
+.rc-bar{margin:0;padding:12px;text-align:center;background:#f1f5f9;}
 </style></head><body>
-<div class="no-print">
-  <button onclick="window.print()" style="padding:10px 26px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ พิมพ์ทั้ง ${invList.length} ใบ</button>
-  <span style="margin-left:12px;font-size:13px;color:#6b7280;">${invList.map(i=>i.invoiceNo).join(' · ')}</span>
+<div class="no-print rc-bar">
+  <button onclick="window.print()" style="padding:10px 26px;background:#1e3a8a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ พิมพ์ทั้ง ${invList.length} ใบ</button>
+  <span style="margin-left:12px;font-size:13px;color:#6b7280;">${invList.map(i=>U.esc(i.invoiceNo)).join(' · ')}</span>
 </div>
-${invList.map((inv, idx) =>
-  `<div class="page-break">${buildInvHtml(inv)}</div>`
-).join('')}
+${invList.map((inv, i) => `<div class="rc-sheet">${receiptPageHtml(inv, 'qr_' + i)}</div>`).join('\n')}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+<script>
+window.addEventListener('load',function(){
+  var P=${JSON.stringify(payloads)};
+  for(var i=0;i<P.length;i++){
+    var d=document.getElementById('qr_'+i);
+    if(d&&typeof QRCode!=='undefined'&&P[i]&&P[i]!=='null'){
+      new QRCode(d,{text:P[i],width:120,height:120,correctLevel:QRCode.CorrectLevel.M});
+    }
+  }
+  // ย่อแต่ละใบให้พอดี A5 หน้าเดียว — เกณฑ์เดียวกับพิมพ์ทีละใบ (สูงเกิน 734px ค่อยย่อ)
+  var pages=document.querySelectorAll('.inv-page');
+  for(var j=0;j<pages.length;j++){ var h=pages[j].scrollHeight; if(h>734) pages[j].style.zoom=734/h; }
+});
+<\/script>
 </body></html>`);
   win.document.close();
 }
@@ -6306,34 +6906,15 @@ function _promptpayPayload(rawId, amount) {
 
 async function printReceiptById(id) { const inv=await DB.getInvoice(id); if(inv)printReceiptData(inv); }
 
-function printReceiptData(inv) {
-  const t=U.invTotal(inv);
-  const rows=(inv.items||[]).map((item,idx)=>`
-    <tr>
-      <td style="text-align:center;">${idx+1}</td>
-      <td>${U.esc(item.name)}</td>
-      <td style="text-align:center;">${item.qty}</td>
-      <td style="text-align:right;">${U.money(item.price)}</td>
-      <td style="text-align:right;">${U.money(item.qty*item.price)}</td>
-    </tr>`).join('');
+// ═══════════════════════════════════════
+//  แม่แบบใบเสร็จ — ใช้ร่วมกันทั้ง "พิมพ์ทีละใบ" และ "พิมพ์รวดเดียว"
+//  ⚠️ ห้ามแยกกลับเป็น 2 ชุด — เดิมเคยแยก แล้วแบบรวดเดียวไม่ได้อัปเดตตาม
+//     พิมพ์ออกมาขาดบัญชีธนาคาร / QR สแกนจ่าย / ช่องเซ็นชื่อ / หมายเหตุ / เลขภาษี (แก้ 27 ก.ย. 69)
+// ═══════════════════════════════════════
+// โลโก้ธนาคารออมสิน (ของเดิม) — ใช้เมื่อยังไม่ได้อัปโหลดโลโก้เอง
+const BANK_LOGO_DEFAULT = 'data:image/jpeg;base64,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';
 
-  const discRow = t.disc ? `<tr><td>ส่วนลด</td><td style="text-align:right;">-${U.money(t.disc)}</td></tr>` : '';
-  const taxRow  = t.tax  ? `<tr><td>ภาษีมูลค่าเพิ่ม ${inv.taxRate}%</td><td style="text-align:right;">${U.money(t.tax)}</td></tr>` : '';
-  const notesBlock = inv.notes ? `<div class="inv-notes"><strong>หมายเหตุ:</strong> ${U.esc(inv.notes)}</div>` : '';
-  const sellerExtra = CFG.sellerName && CFG.businessName !== CFG.sellerName
-    ? `<p style="font-size:12.5px;color:#6b7280;">${U.esc(CFG.businessName)}</p>` : '';
-
-  const win = window.open('','_blank','width=600,height=850');
-  win.document.write(`<!DOCTYPE html><html><head>
-<meta charset="utf-8">
-<title>ใบเสร็จรับเงิน ${U.esc(inv.invoiceNo)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12mm;font-size:13px;}
-@media print{@page{size:A5 portrait;margin:8mm 10mm;}body{padding:0;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}.no-print{display:none!important;}}
-.inv-page{font-family:'Sarabun',sans-serif;color:#000;background:#fff;max-width:100%;}
+const RECEIPT_CSS = `.inv-page{font-family:'Sarabun',sans-serif;color:#000;background:#fff;max-width:100%;}
 .inv-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:8px;border-bottom:2px solid #000;margin-bottom:10px;}
 .inv-company h1{font-size:19px;font-weight:800;color:#000;margin:0 0 2px;}
 .inv-company p{font-size:12px;color:#333;margin:1px 0;}
@@ -6370,8 +6951,28 @@ body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12
 .inv-bank-label{color:#555;min-width:78px;}
 .inv-bank-val{color:#000;font-weight:600;}
 .inv-bank-acct{font-size:15px;font-weight:800;color:#e91e8c;letter-spacing:.5px;}
-</style></head><body>
-<div class="inv-page">
+`;
+
+// ตัวใบเสร็จ 1 ใบ — qrId ต้องไม่ซ้ำกันในหน้าเดียว (พิมพ์รวดเดียวมีหลายใบ แต่ละใบมี QR ของยอดตัวเอง)
+function receiptPageHtml(inv, qrId) {
+  const t=U.invTotal(inv);
+  const hasBank = !!(CFG.bankName || CFG.bankAccount || CFG.bankAccountName);
+  const rows=(inv.items||[]).map((item,idx)=>`
+    <tr>
+      <td style="text-align:center;">${idx+1}</td>
+      <td>${U.esc(item.name)}</td>
+      <td style="text-align:center;">${item.qty}</td>
+      <td style="text-align:right;">${U.money(item.price)}</td>
+      <td style="text-align:right;">${U.money(item.qty*item.price)}</td>
+    </tr>`).join('');
+
+  const discRow = t.disc ? `<tr><td>ส่วนลด</td><td style="text-align:right;">-${U.money(t.disc)}</td></tr>` : '';
+  const taxRow  = t.tax  ? `<tr><td>ภาษีมูลค่าเพิ่ม ${inv.taxRate}%</td><td style="text-align:right;">${U.money(t.tax)}</td></tr>` : '';
+  const notesBlock = inv.notes ? `<div class="inv-notes"><strong>หมายเหตุ:</strong> ${U.esc(inv.notes)}</div>` : '';
+  const sellerExtra = CFG.sellerName && CFG.businessName !== CFG.sellerName
+    ? `<p style="font-size:12.5px;color:#6b7280;">${U.esc(CFG.businessName)}</p>` : '';
+
+  return `<div class="inv-page">
   <div class="inv-header">
     <div class="inv-company">
       <h1>${U.esc(CFG.businessName)}</h1>
@@ -6424,21 +7025,37 @@ body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12
     </table>
   </div>
   ${notesBlock}
-  <div class="inv-bank">
-    <div class="inv-bank-logo"><img src="data:image/jpeg;base64,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" style="width:48px;height:auto;display:block;border-radius:4px;"></div>
+  ${(hasBank || CFG.promptpayId) ? `<div class="inv-bank">
+    ${hasBank ? `<div class="inv-bank-logo"><img src="${CFG.bankLogo || BANK_LOGO_DEFAULT}" style="width:48px;height:auto;display:block;border-radius:4px;"></div>
     <div class="inv-bank-info">
       <div class="inv-bank-title">ช่องทางการชำระเงิน</div>
-      <div class="inv-bank-row"><span class="inv-bank-label">ธนาคาร</span><span class="inv-bank-val">ธนาคารออมสิน</span></div>
-      <div class="inv-bank-row"><span class="inv-bank-label">เลขบัญชี</span><span class="inv-bank-val inv-bank-acct">020-134537-727</span></div>
-      <div class="inv-bank-row"><span class="inv-bank-label">ชื่อบัญชี</span><span class="inv-bank-val">พัชรี ก๋าใจ</span></div>
-    </div>
-    ${CFG.promptpayId?'<div class="inv-bank-qr"><div id="qr_canvas"></div><div class="inv-qr-label">สแกนจ่าย</div></div>':''}
-  </div>
+      ${CFG.bankName?`<div class="inv-bank-row"><span class="inv-bank-label">ธนาคาร</span><span class="inv-bank-val">${U.esc(CFG.bankName)}</span></div>`:''}
+      ${CFG.bankAccount?`<div class="inv-bank-row"><span class="inv-bank-label">เลขบัญชี</span><span class="inv-bank-val inv-bank-acct">${U.esc(CFG.bankAccount)}</span></div>`:''}
+      ${CFG.bankAccountName?`<div class="inv-bank-row"><span class="inv-bank-label">ชื่อบัญชี</span><span class="inv-bank-val">${U.esc(CFG.bankAccountName)}</span></div>`:''}
+    </div>` : ''}
+    ${CFG.promptpayId?'<div class="inv-bank-qr"><div id="'+qrId+'"></div><div class="inv-qr-label">สแกนจ่าย</div></div>':''}
+  </div>` : ''}
   <div class="inv-sig">
     <div class="inv-sig-box"><div class="sig-line">ผู้รับสินค้า / ลูกค้า</div></div>
     <div class="inv-sig-box"><div class="sig-line">ผู้ส่งสินค้า / ผู้ขาย</div></div>
   </div>
-</div>
+</div>`;
+}
+
+function printReceiptData(inv, preWin) {
+  const t=U.invTotal(inv);
+  const win = (preWin && !preWin.closed) ? preWin : window.open('','_blank','width=600,height=850');
+  win.document.write(`<!DOCTYPE html><html><head>
+<meta charset="utf-8">
+<title>ใบเสร็จรับเงิน ${U.esc(inv.invoiceNo)}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12mm;font-size:13px;}
+@media print{@page{size:A5 portrait;margin:8mm 10mm;}body{padding:0;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}.no-print{display:none!important;}}
+${RECEIPT_CSS}</style></head><body>
+${receiptPageHtml(inv,'qr_canvas')}
 <div class="no-print">
   <button onclick="window.print()" style="padding:9px 24px;background:#1e3a8a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ พิมพ์</button>
 </div>
@@ -6467,7 +7084,10 @@ window.addEventListener('load',function(){
 
 function deleteInvoice(id) {
   U_confirm('ต้องการลบใบเสร็จนี้ใช่ไหม?', async(reason)=>{
-    await DB.delInvoice(id, reason);U.toast('ลบใบเสร็จแล้ว');navigate('invoices');
+    const inv = await DB.getInvoice(id);
+    await DB.delInvoice(id, reason);
+    await adjustBilling(inv, -1).catch(e => console.error('คืนยอดออกบิลไม่สำเร็จ:', e));   // ของกลับไปรอออกบิล
+    U.toast('ลบใบเสร็จแล้ว');navigate('invoices');
   }, {askReason:true});
 }
 
@@ -6546,7 +7166,7 @@ async function renderReports(el) {
 
   // ไม่ดึง customers แล้ว — การ์ด "ลูกค้าทั้งหมด" ย้ายไปอยู่หน้าตั้งค่า/หน้าลูกค้า
   // ดึงน้อยลง 1 คอลเลกชัน = ประหยัดโควต้าอ่านของ Firestore
-  const [orders,invoices,expenses]=await Promise.all([DB.getOrders(),DB.getInvoices(),DB.getExpenses()]);
+  const [orders,invoices,expenses,products]=await Promise.all([DB.getOrders(),DB.getInvoices(),DB.getExpenses(),DB.getProducts()]);
 
   // ── วันนี้ (fixed — ไม่เปลี่ยนตาม filter) ──
   const todayOrders=orders.filter(o=>U.isToday(o.createdAt));
@@ -6574,7 +7194,10 @@ async function renderReports(el) {
 
   // ── สินค้าขายดี (ตามช่วงที่เลือก) ──
   const prodCount={};
-  rangeOrders.forEach(o=>(o.items||[]).forEach(i=>{prodCount[i.productName]=(prodCount[i.productName]||0)+i.qty;}));
+  // เอาเฉพาะโลง (หน่วย = โลง) ไม่นับอุปกรณ์เสริม · ชื่อที่ไม่มีในรายการสินค้าแล้วใช้ตัวเดาจากชื่อ (isAccessory)
+  const prodByName = Object.fromEntries(products.map(p => [p.name, p]));
+  const isCoffin = name => prodByName[name] ? !prodIsAcc(prodByName[name]) : !isAccessory(name);
+  rangeOrders.forEach(o=>(o.items||[]).forEach(i=>{ if (!isCoffin(i.productName)) return; prodCount[i.productName]=(prodCount[i.productName]||0)+i.qty;}));
   const topProds=Object.entries(prodCount).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
   const avgOrder=rangeOrders.length?rangeOrders.reduce((a,o)=>a+U.orderTotal(o),0)/rangeOrders.length:0;
@@ -6698,7 +7321,7 @@ async function renderReports(el) {
 
   <!-- ── สินค้าขายดี ── -->
   <div class="rpanel">
-    <div class="ph"><div class="t">สินค้าขายดี</div><div class="s">${rangeLabels[rng]} (ชิ้น)</div></div>
+    <div class="ph"><div class="t">สินค้าขายดี (เฉพาะโลง)</div><div class="s">${rangeLabels[rng]} (ชิ้น)</div></div>
     ${topProds.length ? `<div class="rrank">
       ${topProds.map(([name,qty])=>`
         <div class="rrow">
@@ -7034,10 +7657,29 @@ async function renderSettings(el) {
           <span class="ss">${U.esc(CFG.promptpayId || 'ยังไม่ได้ตั้ง — ใบเสร็จจะไม่มี QR')}</span></span>
         <span class="val"><i class="fa-solid fa-chevron-right"></i></span>
       </button>
+      <button type="button" class="strow" onclick="showBankModal()">
+        <span class="si" style="background:#e91e8c;"><i class="fa-solid fa-building-columns"></i></span>
+        <span class="tx"><span class="st">บัญชีรับเงิน (พิมพ์บนใบเสร็จ)</span>
+          <span class="ss">${U.esc([CFG.bankName, CFG.bankAccount, CFG.bankAccountName].filter(Boolean).join(' · ') || 'ยังไม่ได้ตั้ง — ใบเสร็จจะไม่มีช่องบัญชี')}</span></span>
+        <span class="val"><i class="fa-solid fa-chevron-right"></i></span>
+      </button>
       <button type="button" class="strow" onclick="showShopModal()">
         <span class="si" style="background:#94a3b8;"><i class="fa-solid fa-file-invoice"></i></span>
         <span class="tx"><span class="st">ชื่อคนขาย / เลขผู้เสียภาษี</span>
           <span class="ss">${U.esc([CFG.sellerName, CFG.businessTaxId].filter(Boolean).join(' · ') || 'ยังไม่ได้ตั้ง')}</span></span>
+        <span class="val"><i class="fa-solid fa-chevron-right"></i></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── การส่งของ ── -->
+  <div class="stgrp">
+    <div class="gh">การส่งของ</div>
+    <div class="strows">
+      <button type="button" class="strow" onclick="showRouteModal()">
+        <span class="si" style="background:#ca8a04;"><i class="fa-solid fa-truck"></i></span>
+        <span class="tx"><span class="st">สายส่ง (ชื่อ / สี)</span>
+          <span class="ss">${U.esc([...new Set(Object.values(window._custRouteMap||{}))].sort((a,b)=>a.localeCompare(b,'th')).join(' · ') || 'ยังไม่มีสาย — ตั้งได้ในหน้าแก้ไขลูกค้า')}</span></span>
         <span class="val"><i class="fa-solid fa-chevron-right"></i></span>
       </button>
     </div>
@@ -7329,7 +7971,9 @@ function showLoadLogModal() {
       <div style="font-size:14px;margin-bottom:4px;">จอขาว <b style="color:${bad(white) ? '#dc2626' : '#16a34a'};">${sec(white)}</b>
         · พร้อมใช้ <b>${sec(x.ready)}</b>
         ${x.s !== 'ok' ? `· <span style="color:#b45309;font-weight:700;">${U.esc(x.s)}</span>` : ''}</div>
-      <div>${tag('ปลุกระบบ', x.sw)}${tag('รอเน็ต', x.wait)}${tag('ไบต์แรก', x.first)}${tag('โหลดไฟล์', x.dl)}</div>
+      <div>${tag('ปลุกระบบ', x.sw)}${tag('รอเน็ต', x.wait)}${tag('ไบต์แรก', x.first)}${tag('โหลดไฟล์', x.dl)}${x.data != null ? tag('รอข้อมูล', Math.max(0, x.data - (x.ready || 0))) : (x.s === 'ok' && x.sid ? '<span style="display:inline-block;margin:2px 0;padding:2px 8px;border-radius:6px;font-size:11.5px;background:#fef2f2;color:#b91c1c;font-weight:700;">ข้อมูลไม่ขึ้น (ค้าง)</span>' : '')}</div>
+      ${(x.errs || []).map(m => `<div style="font-size:11.5px;color:#b91c1c;margin-top:3px;">⚠️ ${U.esc(m)}${x.online === false ? ' · เครื่องออฟไลน์' : ''}</div>`).join('')}
+      ${(x.fixeds || []).map(m => `<div style="font-size:11.5px;color:#15803d;margin-top:2px;">✓ ${U.esc(m)}</div>`).join('')}
     </div>`;
   }).join('');
 
@@ -7338,13 +7982,73 @@ function showLoadLogModal() {
       ช่องที่ขึ้น<b style="color:#b91c1c;">สีแดง</b> = ช้าเกิน 3 วินาที<br>
       • <b>ปลุกระบบ</b>/<b>ไบต์แรก</b> แดง → ติดที่เครื่อง/เน็ต ก่อนหน้าเว็บจะมาถึง<br>
       • <b>ไบต์แรก</b> ปกติ แต่ <b>จอขาว</b> แดง → ติดที่เครื่องประมวลผลช้า<br>
-      • <b>จอขาว</b> ปกติ แต่ <b>พร้อมใช้</b> นาน → ติดที่ต่อฐานข้อมูล (ตอนนั้นเห็นหน้าต้อนรับแล้ว)
+      • <b>จอขาว</b> ปกติ แต่ <b>พร้อมใช้</b> นาน → ติดที่ต่อฐานข้อมูล (ตอนนั้นเห็นหน้าต้อนรับแล้ว)<br>
+      • <b>รอข้อมูล</b> แดง / ขึ้น "ข้อมูลไม่ขึ้น" / มีบรรทัด ⚠️ → หน้าขึ้นแล้วแต่รอข้อมูลจากฐานข้อมูลนาน (อาการค้างกล่องเทา)
     </div>
     ${a.length ? rows : '<div class="empty-state" style="padding:26px"><p>ยังไม่มีข้อมูล — ลองปิดแล้วเปิดแอพใหม่สักครั้ง</p></div>'}`;
   const footer = `
     <button class="btn btn-outline-danger" onclick="localStorage.removeItem('kl_loadlog');closeModal('loadLogModal');U.toast('ล้างประวัติแล้ว');">ล้างประวัติ</button>
     <button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>`;
   showModal('loadLogModal', 'ประวัติการเปิดแอพ (' + a.length + ' ครั้งล่าสุด)', body, footer);
+}
+
+// ── สายส่ง: เปลี่ยนสี / เปลี่ยนชื่อสาย (เปลี่ยนชื่อ = ย้ายลูกค้าทั้งสายไปชื่อใหม่ · ตั้งชื่อซ้ำกับอีกสาย = รวมสาย) ──
+async function showRouteModal() {
+  const custs = await DB.getCustomers();
+  setCustRoutes(custs);
+  const count = {};
+  custs.forEach(c => { const r = normRoute(c.route); if (r) count[r] = (count[r]||0) + 1; });
+  const routes = Object.keys(count).sort((a,b)=>a.localeCompare(b,'th'));
+  const body = routes.length ? routes.map((r, i) => `
+    <div class="rt-edit" data-old="${U.esc(r)}" style="border:1px solid #e5e7eb;border-left:8px solid ${routeColor(r)};border-radius:10px;padding:10px 12px;margin-bottom:10px;">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+        <input type="text" class="form-control form-control-sm rt-name" value="${U.esc(r)}" style="font-weight:700;max-width:240px;">
+        <span style="font-size:12.5px;color:#6b7280;white-space:nowrap;">${count[r]} ราย</span>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+        ${ROUTE_PALETTE.map(c => `<button type="button" class="rt-sw" data-c="${c}" onclick="pickRouteColor(this)" title="${c}"
+            style="width:28px;height:28px;border-radius:8px;border:${c===routeColor(r)?'3px solid #0f172a':'1px solid #cbd5e1'};background:${c};cursor:pointer;"></button>`).join('')}
+        <input type="color" class="rt-color" value="${routeColor(r)}" oninput="pickRouteColor(this)" title="เลือกสีอื่น" style="width:36px;height:30px;padding:0;border:none;background:none;cursor:pointer;">
+      </div>
+    </div>`).join('')
+    : `<div style="color:#6b7280;font-size:14px;">ยังไม่มีสายส่ง — ไปที่หน้าลูกค้า → แก้ไขลูกค้า → ช่อง "สายส่ง"</div>`;
+  const footer = `<button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`
+    + (routes.length ? `<button class="btn btn-primary" id="rt_save" onclick="saveRoutes()"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึก</button>` : '');
+  showModal('routeModal', 'สายส่ง', `<div style="font-size:12.5px;color:#6b7280;margin-bottom:10px;">เปลี่ยนชื่อสาย = ลูกค้าทั้งสายย้ายไปชื่อใหม่ · ตั้งชื่อให้ซ้ำกับอีกสาย = รวมเป็นสายเดียว</div>` + body, footer);
+}
+function pickRouteColor(el) {
+  const box = el.closest('.rt-edit'); if (!box) return;
+  const c = el.dataset.c || el.value;
+  box.querySelector('.rt-color').value = c;
+  box.style.borderLeftColor = c;
+  box.querySelectorAll('.rt-sw').forEach(b => b.style.border = b.dataset.c === c ? '3px solid #0f172a' : '1px solid #cbd5e1');
+}
+async function saveRoutes() {
+  const btn = document.getElementById('rt_save'); if (btn) btn.disabled = true;
+  try {
+    const edits = [...document.querySelectorAll('#routeModal .rt-edit')].map(b => ({
+      old: b.dataset.old, name: normRoute(b.querySelector('.rt-name').value), color: b.querySelector('.rt-color').value }));
+    if (edits.some(e => !e.name)) { U.toast('ชื่อสายว่างไม่ได้', 'error'); if (btn) btn.disabled = false; return; }
+    const colors = {...(CFG.routeColors || {})};
+    edits.forEach(e => { if (e.old !== e.name) delete colors[e.old]; });
+    edits.forEach(e => { colors[e.name] = e.color; });
+    const renames = edits.filter(e => e.old !== e.name);
+    if (renames.length) {
+      const custs = await DB.getCustomers();
+      for (const c of custs) {
+        const e = renames.find(x => x.old === normRoute(c.route));
+        if (e) await DB.putCustomer({...c, route: e.name});
+      }
+    }
+    await DB.setSetting('routeColors', colors);
+    CFG.routeColors = colors;
+    setCustRoutes(await DB.getCustomers());
+    U.toast('บันทึกสายส่งแล้ว ✓');
+    closeModal('routeModal');
+    navigate('settings');
+  } catch (e) {
+    U.toast('บันทึกไม่สำเร็จ: ' + e.message, 'error'); if (btn) btn.disabled = false;
+  }
 }
 
 // ── แก้ไขข้อมูลร้าน ──
@@ -7383,6 +8087,133 @@ async function saveShopInfo() {
   await saveSettings();
   closeModal('shopModal');
   navigate('settings');   // วาดหน้าใหม่ให้แถบร้านด้านบนอัปเดตตาม
+}
+
+// ── บัญชีรับเงิน (กล่องชมพูบนใบเสร็จ) ──
+// เก็บใน settings: bankName / bankAccount / bankAccountName / bankLogo
+// bankLogo = รูป data:image/jpeg ที่ย่อแล้ว (~96px, ไม่กี่ KB) · '' = ใช้โลโก้ออมสินเดิม
+const TH_BANKS = ['ธนาคารออมสิน','ธนาคารกสิกรไทย','ธนาคารกรุงไทย','ธนาคารกรุงเทพ','ธนาคารไทยพาณิชย์',
+  'ธนาคารกรุงศรีอยุธยา','ธนาคารทหารไทยธนชาต (ttb)','ธนาคารเพื่อการเกษตรและสหกรณ์การเกษตร (ธ.ก.ส.)',
+  'ธนาคารอาคารสงเคราะห์ (ธอส.)','ธนาคารยูโอบี','ธนาคารซีไอเอ็มบี ไทย','ธนาคารเกียรตินาคินภัทร','ธนาคารแลนด์ แอนด์ เฮ้าส์'];
+let _bankLogoDraft = null;   // null = ยังไม่แตะรูป · '' = กลับไปใช้รูปเดิม · 'data:...' = รูปใหม่
+
+function showBankModal() {
+  _bankLogoDraft = null;
+  const body = `
+    <div id="bk_preview" style="margin-bottom:14px;"></div>
+    <div class="row g-3">
+      <div class="col-12"><label class="form-label">ธนาคาร</label>
+        <input type="text" class="form-control" id="bk_name" list="bk_banks" value="${U.esc(CFG.bankName)}"
+          placeholder="เลือกหรือพิมพ์ชื่อธนาคาร" oninput="bankPreview()">
+        <datalist id="bk_banks">${TH_BANKS.map(b => `<option value="${U.esc(b)}">`).join('')}</datalist></div>
+      <div class="col-sm-6"><label class="form-label">เลขบัญชี</label>
+        <input type="text" inputmode="numeric" class="form-control" id="bk_acct" value="${U.esc(CFG.bankAccount)}"
+          placeholder="เช่น 020-134537-727" oninput="bankPreview()"></div>
+      <div class="col-sm-6"><label class="form-label">ชื่อบัญชี</label>
+        <input type="text" class="form-control" id="bk_holder" value="${U.esc(CFG.bankAccountName)}"
+          placeholder="ชื่อเจ้าของบัญชี" oninput="bankPreview()"></div>
+      <div class="col-12"><label class="form-label">โลโก้ธนาคาร</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <label class="btn btn-outline-primary btn-sm mb-0"><i class="fa-solid fa-upload me-1"></i>อัปโหลดรูปโลโก้
+            <input type="file" accept="image/*" id="bk_file" style="display:none;" onchange="bankPickLogo(this)"></label>
+          <button type="button" class="btn btn-outline-secondary btn-sm" onclick="bankResetLogo()">
+            <i class="fa-solid fa-rotate-left me-1"></i>ใช้โลโก้ออมสินเดิม</button>
+        </div>
+        <div id="bk_hint" style="font-size:12.5px;color:#b45309;margin-top:6px;"></div>
+        <div style="font-size:12px;color:#6b7280;margin-top:4px;">รูปจะถูกย่อให้เล็กเองอัตโนมัติ · ช่องไหนเว้นว่าง จะไม่พิมพ์แถวนั้น</div>
+      </div>
+    </div>`;
+  const footer = `
+    <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+    <button class="btn btn-primary" id="bk_save" onclick="saveBankInfo()"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึก</button>`;
+  showModal('bankModal', 'บัญชีรับเงิน (พิมพ์บนใบเสร็จ)', body, footer);
+  bankPreview();
+}
+
+function _bankLogoNow() {
+  const v = _bankLogoDraft === null ? CFG.bankLogo : _bankLogoDraft;
+  return v || BANK_LOGO_DEFAULT;
+}
+
+// หน้าตาเหมือนกล่องชมพูบนใบเสร็จ (สีเดียวกับ RECEIPT_CSS)
+function bankPreview() {
+  const box = document.getElementById('bk_preview'); if (!box) return;
+  const name = document.getElementById('bk_name').value.trim();
+  const acct = document.getElementById('bk_acct').value.trim();
+  const holder = document.getElementById('bk_holder').value.trim();
+  const row = (lb, v, big) => v ? `<div style="display:flex;gap:6px;margin:2px 0;font-size:13px;"><span style="color:#555;min-width:70px;">${lb}</span>`
+    + `<span style="font-weight:${big?800:600};color:${big?'#e91e8c':'#000'};${big?'font-size:15px;letter-spacing:.5px;':''}">${U.esc(v)}</span></div>` : '';
+  box.innerHTML = (name || acct || holder) ? `
+    <div style="font-size:12px;color:#6b7280;margin-bottom:4px;">ตัวอย่างบนใบเสร็จ</div>
+    <div style="display:flex;align-items:center;gap:12px;border:2px solid #e91e8c;border-radius:8px;padding:8px 12px;background:#fff0f7;">
+      <img src="${_bankLogoNow()}" style="width:48px;height:auto;display:block;border-radius:4px;flex-shrink:0;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:11px;font-weight:700;color:#c2185b;letter-spacing:.8px;margin-bottom:4px;border-bottom:1px solid #f8bbd0;padding-bottom:2px;">ช่องทางการชำระเงิน</div>
+        ${row('ธนาคาร', name)}${row('เลขบัญชี', acct, true)}${row('ชื่อบัญชี', holder)}
+      </div>
+    </div>`
+    : `<div style="font-size:13px;color:#6b7280;padding:10px;border:1px dashed #cbd5e1;border-radius:8px;">ว่างทุกช่อง — ใบเสร็จจะไม่มีช่องบัญชีธนาคาร</div>`;
+  // เตือน: เปลี่ยนธนาคารแล้วแต่โลโก้ยังเป็นออมสิน
+  const hint = document.getElementById('bk_hint');
+  const usingDefault = _bankLogoNow() === BANK_LOGO_DEFAULT;
+  hint.textContent = (usingDefault && name && !name.includes('ออมสิน'))
+    ? '⚠️ โลโก้ยังเป็นของออมสิน — กด "อัปโหลดรูปโลโก้" เพื่อเปลี่ยนให้ตรงธนาคาร' : '';
+}
+
+// ย่อรูปให้ด้านยาวไม่เกิน 96px (คงสัดส่วนเดิม) พื้นขาว แล้วเก็บเป็น JPEG (ไม่กี่ KB พอใส่ในฐานข้อมูลได้)
+function bankShrinkImage(file, max = 96) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const w = Math.max(1, Math.round(img.naturalWidth * scale)), h = Math.max(1, Math.round(img.naturalHeight * scale));
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        const g = c.getContext('2d');
+        g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);   // รูป PNG โปร่งใส → พื้นขาว ไม่กลายเป็นดำ
+        g.imageSmoothingQuality = 'high';
+        g.drawImage(img, 0, 0, w, h);
+        resolve(c.toDataURL('image/jpeg', 0.9));
+      } catch (e) { reject(e); } finally { URL.revokeObjectURL(url); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('เปิดรูปไม่ได้')); };
+    img.src = url;
+  });
+}
+
+async function bankPickLogo(input) {
+  const f = input.files && input.files[0]; input.value = '';
+  if (!f) return;
+  if (!/^image\//.test(f.type)) { U.toast('กรุณาเลือกไฟล์รูปภาพ', 'error'); return; }
+  try {
+    _bankLogoDraft = await bankShrinkImage(f);
+    bankPreview();
+  } catch (e) { U.toast('ใช้รูปนี้ไม่ได้ ลองรูปอื่น (jpg/png)', 'error'); }
+}
+
+function bankResetLogo() { _bankLogoDraft = ''; bankPreview(); }
+
+async function saveBankInfo() {
+  const btn = document.getElementById('bk_save'); if (btn) btn.disabled = true;
+  const vals = {
+    bankName: document.getElementById('bk_name').value.trim(),
+    bankAccount: document.getElementById('bk_acct').value.trim(),
+    bankAccountName: document.getElementById('bk_holder').value.trim(),
+  };
+  if (_bankLogoDraft !== null) vals.bankLogo = _bankLogoDraft;
+  try {
+    for (const k of Object.keys(vals)) {
+      if (vals[k] !== CFG[k]) await DB.setSetting(k, vals[k]);
+      CFG[k] = vals[k];
+    }
+    U.toast('บันทึกบัญชีรับเงินแล้ว', 'success');
+    closeModal('bankModal');
+    navigate('settings');
+  } catch (e) {
+    console.error(e); U.toast('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', 'error');
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function showCraftsmanModal(id) {
@@ -7731,7 +8562,13 @@ async function restoreTrashItem(btn) {
   btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
   try {
     await DB._undel(col, id);
-    U.toast(`กู้คืน${THAI_COL[col]}แล้ว ✓`);
+    let short = 0;
+    if (col === 'invoices') {   // กู้บิล → ใส่ยอดออกบิลกลับเข้าออเดอร์
+      const inv = await DB.getInvoice(id);
+      short = (await adjustBilling(inv, +1).catch(e => { console.error(e); return {short:0}; })).short;
+    }
+    if (short > 0) U.toast(`กู้คืนบิลแล้ว — แต่มี ${short} ชิ้นที่ออกบิลใบอื่นไปแล้ว ระวังยอดซ้ำ`, 'error');
+    else U.toast(`กู้คืน${THAI_COL[col]}แล้ว ✓`);
     navigate('trash');
   } catch(e) {
     U.toast('กู้คืนไม่สำเร็จ: ' + e.message, 'error');
@@ -7984,6 +8821,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     // พังเพราะไม่มี firebase = ไฟล์ไลบรารีในเครื่องอาจเสีย → ไม่นับว่าสำเร็จ ให้ระบบซ่อมตัวเองทำงาน
     // พังเพราะอย่างอื่น (เช่น เน็ตหลุด) = ไฟล์ปกติดี ล้างแคชไปก็ไม่ช่วย
     if (typeof firebase !== 'undefined') klBootDone();
+    if (e && e.code === 'kl-no-test-db') {
+      document.getElementById('page-content').innerHTML =
+        `<div class="empty-state"><div style="font-size:40px;">🧪</div>
+          <p style="font-weight:700;color:#c2410c;">เว็บทดสอบยังไม่ได้ต่อฐานข้อมูลทดสอบ</p>
+          <p style="font-size:13px;color:#64748b;">ต้องใส่ค่า FIREBASE_CONFIG_TEST ในโค้ดก่อน<br>(ตั้งใจไม่ให้เว็บทดสอบไปแตะข้อมูลจริง)</p></div>`;
+      return;
+    }
     document.getElementById('page-content').innerHTML =
       `<div class="empty-state"><i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i>
         <p>โหลดข้อมูลไม่ได้ กรุณารีเฟรช</p>
