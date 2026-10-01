@@ -1284,8 +1284,7 @@ async function init() {
   // Load craftsmen with timeout + retry
   let snap;
   try {
-    const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 10000));
-    snap = await Promise.race([db.collection('craftsmen').get(), timeout]);
+    snap = await klRead(() => db.collection('craftsmen').get(), 'craftsmen');
   } catch (err) {
     console.error('init error:', err);
     contentEl.innerHTML = `<div class="empty-craft">
@@ -1381,30 +1380,138 @@ function startCraftSettingListener() {
   }, err => console.warn('craftOrderEnabled listener:', err));
 }
 
+// ══════════════════════════════════════
+//  เก็บออเดอร์ไว้ในเครื่อง + ดึงเฉพาะที่เปลี่ยน (เหมือนหน้าแอดมิน และใช้ที่เก็บชุดเดียวกัน)
+// ══════════════════════════════════════
+// เดิม: เปิดหน้าช่างทีไร อ่านออเดอร์ทุกใบตั้งแต่วันแรก (ทั้งช้าและกินโควตา)
+// ใหม่: ใช้ชุดในเครื่อง แล้วฟังเฉพาะออเดอร์ที่ updatedAt ใหม่กว่าที่มี · ดึงทั้งหมดใหม่ทุก 6 ชม.
+// ⚠️ รูปแบบข้อมูลที่เก็บต้องตรงกับ DB._persist ใน index.html (สองหน้าใช้ที่เก็บเดียวกัน)
+const KLStore = {
+  _p: null,
+  _open() {
+    if (!this._p) {
+      this._p = new Promise(res => {
+        try {
+          const r = indexedDB.open('kl-data', 1);
+          r.onupgradeneeded = () => { try { r.result.createObjectStore('cols'); } catch (e) {} };
+          r.onsuccess = () => res(r.result);
+          r.onerror = () => res(null);
+          r.onblocked = () => res(null);
+        } catch (e) { res(null); }
+      });
+    }
+    return withTimeout(this._p, 3000).catch(() => null);
+  },
+  _key(col) { return ((FIREBASE_CONFIG && FIREBASE_CONFIG.projectId) || 'x') + ':' + col; },
+  async get(col) {
+    const db = await this._open(); if (!db) return null;
+    return withTimeout(new Promise(res => {
+      try { const q = db.transaction('cols').objectStore('cols').get(this._key(col)); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }
+      catch (e) { res(null); }
+    }), 3000).catch(() => null);
+  },
+  async put(col, v) {
+    const db = await this._open(); if (!db) return;
+    try { db.transaction('cols', 'readwrite').objectStore('cols').put(v, this._key(col)); } catch (e) {}
+  },
+  async clear() {
+    const db = await this._open(); if (!db) return;
+    try { db.transaction('cols', 'readwrite').objectStore('cols').clear(); } catch (e) {}
+  },
+};
+const ORD_FULL_EVERY = 6 * 3600 * 1000;
+let _ordP = null;   // { rows: Map, maxTs, fullAt }
+function _ordRow(d) {
+  const x = { id: d.id, ...d.data() };
+  if (x.updatedAt && typeof x.updatedAt.toMillis === 'function') x.updatedAt = x.updatedAt.toMillis();
+  return x;
+}
+function _ordMerge(d) {
+  const x = _ordRow(d);
+  if (typeof x.updatedAt === 'number' && !d.metadata.hasPendingWrites && x.updatedAt > _ordP.maxTs) _ordP.maxTs = x.updatedAt;
+  const old = _ordP.rows.get(String(x.id));
+  _ordP.rows.set(String(x.id), x);
+  return !old || JSON.stringify(old) !== JSON.stringify(x);
+}
+let _ordSaveT = null;
+function _ordSave() {
+  clearTimeout(_ordSaveT);
+  _ordSaveT = setTimeout(() => { if (_ordP) KLStore.put('orders', { rows: [..._ordP.rows.values()], maxTs: _ordP.maxTs, fullAt: _ordP.fullAt, v: 1 }); }, 400);
+}
+// อ่านแบบไม่ค้างตลอดกาล: ไม่ตอบ 9 วิ → ตัดท่อต่อใหม่ → ลองอีก 2 รอบ
+async function klRead(fn, label) {
+  const waits = [9000, 12000, 15000];
+  for (let i = 0; ; i++) {
+    try { return await withTimeout(fn(), waits[i], 'หมดเวลารอข้อมูล (' + label + ')'); }
+    catch (e) {
+      if (i >= waits.length - 1) throw e;
+      try { await withTimeout(db.disableNetwork().then(() => db.enableNetwork()), 6000); } catch (_) {}
+      const el = document.getElementById('craft-content');
+      if (el && !document.getElementById('klRetryTip')) {
+        const tip = document.createElement('div'); tip.id = 'klRetryTip';
+        tip.style.cssText = 'margin:0 0 12px;padding:10px 14px;border-radius:12px;background:#eff6ff;color:#1e40af;font-size:13.5px;font-weight:600;';
+        tip.textContent = '⟳ เน็ตช้า กำลังต่อใหม่…';
+        el.prepend(tip);
+      }
+    }
+  }
+}
+function _ordEmit() {
+  _orders = [..._ordP.rows.values()]
+    // ออเดอร์ที่เจ้าของลบไปแล้ว ช่างต้องไม่เห็น (ของเก่าไม่มีช่องนี้ = undefined จึงผ่านตัวกรองปกติ)
+    .filter(o => o.isDeleted !== true)
+    .filter(o => !isOrderFullyDelivered(o))
+    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  if (_craftsman) renderCraftOrders();
+}
+
 // ── Real-time orders listener ──
 function startOrdersListener() {
   if (_unsubOrders) _unsubOrders(); // cleanup previous
-  _unsubOrders = db.collection('orders').onSnapshot(snap => {
-    _orders = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      // ออเดอร์ที่เจ้าของลบไปแล้ว ช่างต้องไม่เห็น
-      // (ของเก่าไม่มีช่องนี้ = undefined จึงผ่านตัวกรองปกติ)
-      .filter(o => o.isDeleted !== true)
-      .filter(o => !isOrderFullyDelivered(o))
-      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    if (_craftsman) renderCraftOrders();
-  }, err => {
-    console.error('onSnapshot error:', err);
-    toast('⚠️ เชื่อมต่อ Firestore ไม่ได้ กรุณารีเฟรช');
-  });
+  let stopped = false;
+  _unsubOrders = () => { stopped = true; };
+  (async () => {
+    try {
+      const v = await KLStore.get('orders');
+      _ordP = (v && Array.isArray(v.rows))
+        ? { rows: new Map(v.rows.map(r => [String(r.id), r])), maxTs: v.maxTs || 0, fullAt: v.fullAt || 0 } : null;
+      if (_ordP) _ordEmit();   // โชว์ของในเครื่องก่อนเลย ไม่ต้องรอเน็ต
+      if (!_ordP || Date.now() - _ordP.fullAt > ORD_FULL_EVERY) {
+        const snap = await klRead(() => db.collection('orders').get(), 'orders');
+        _ordP = { rows: new Map(), maxTs: 0, fullAt: Date.now() };
+        snap.docs.forEach(d => _ordMerge(d));
+        _ordSave(); _ordEmit();
+      }
+      if (stopped) return;
+      const since = firebase.firestore.Timestamp.fromMillis(Math.max(1, _ordP.maxTs));
+      const unsub = db.collection('orders').where('updatedAt', '>', since).onSnapshot(snap => {
+        let ch = false; snap.docs.forEach(d => { if (_ordMerge(d)) ch = true; });
+        if (ch) { _ordSave(); _ordEmit(); }
+      }, err => { console.error('orders delta error:', err); toast('⚠️ เชื่อมต่อ Firestore ไม่ได้ กรุณารีเฟรช'); });
+      if (stopped) { unsub(); return; }
+      _unsubOrders = unsub;
+    } catch (e) {
+      // แบบใหม่ใช้ไม่ได้ → ฟังทั้งหมดแบบเดิม
+      console.warn('orders cache path failed, fallback:', e);
+      if (stopped) return;
+      _unsubOrders = db.collection('orders').onSnapshot(snap => {
+        _ordP = { rows: new Map(), maxTs: 0, fullAt: Date.now() };
+        snap.docs.forEach(d => _ordMerge(d));
+        _ordEmit();
+      }, err => {
+        console.error('onSnapshot error:', err);
+        toast('⚠️ เชื่อมต่อ Firestore ไม่ได้ กรุณารีเฟรช');
+      });
+    }
+  })();
 }
 
 // โหลดลูกค้า + สินค้า (ใช้ตอนรับออเดอร์) — โหลดครั้งเดียวพอ
 async function loadOrderRefData() {
   try {
     const [cs, ps] = await Promise.all([
-      db.collection('customers').get(),
-      db.collection('products').get()
+      klRead(() => db.collection('customers').get(), 'customers'),
+      klRead(() => db.collection('products').get(), 'products')
     ]);
     _customers = cs.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
     _products  = ps.docs.map(d => ({id:d.id, ...d.data()}));
@@ -2974,7 +3081,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v95</span>
+      <span style="opacity:.6;margin-left:6px;">· v96</span>
     </div>
   </div>
   <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">
