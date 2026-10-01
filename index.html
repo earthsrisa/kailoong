@@ -2552,7 +2552,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v96';
+const APP_VERSION = 'v97';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -9038,23 +9038,52 @@ function klReloadOnce() {
   location.reload();
 }
 
+// ── ป้าย "มีเวอร์ชันใหม่" ──
+// ปัญหาเดิมบน iPhone: กดอัปเดตแล้วโหลดหน้าใหม่ไวไป (1.5 วิ) ก่อนตัวใหม่ทำงานจริง
+// → กลับมาเจอตัวเก่า ป้ายเด้งซ้ำไม่จบ
+// ใหม่: (1) กดแล้วรอจนตัวใหม่ "ทำงานแล้วจริง" ค่อยโหลดใหม่ (มีเพดาน 8 วิ)
+//       (2) กดไปแล้วรอบนึง ไม่เด้งซ้ำอีกใน 10 นาที
+//       (3) ไม่กดก็ได้ — ปัดแอพออก/สลับแอพเมื่อไหร่ อัปเดตเงียบ ๆ ให้เอง
+let _klPendingWorker = null;
+function klApplyUpdate(worker) {
+  try { sessionStorage.setItem('kl_updAt', String(Date.now())); } catch (e) {}
+  try { worker.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+  const go = () => klReloadOnce();
+  if (worker.state === 'activated') return go();
+  worker.addEventListener('statechange', () => { if (worker.state === 'activated') go(); });
+  setTimeout(go, 8000);            // เผื่อไม่มีสัญญาณอะไรเลย
+}
 function klShowUpdateBar(worker) {
+  _klPendingWorker = worker;
   if (document.getElementById('klUpdateBar')) return;
+  let recent = 0;
+  try { recent = Date.now() - (+sessionStorage.getItem('kl_updAt') || 0); } catch (e) {}
+  if (recent < 10 * 60 * 1000) return;   // เพิ่งกดอัปเดตไป → ไม่เด้งซ้ำ รออัปเดตเงียบตอนสลับแอพ
   const d = document.createElement('div');
   d.id = 'klUpdateBar';
-  d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:3000;background:#1a2332;color:#fff;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 24px rgba(0,0,0,.3);font-size:15px;';
+  d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:5000;background:#1a2332;color:#fff;border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 6px 24px rgba(0,0,0,.3);font-size:15px;';
   d.innerHTML = `<i class="fa-solid fa-arrows-rotate" style="color:#60a5fa"></i>
     <span style="flex:1">มีเวอร์ชันใหม่พร้อมใช้</span>
     <button id="klUpdNow" style="border:0;background:#3b82f6;color:#fff;border-radius:8px;padding:8px 14px;font-weight:600;font-size:15px;">อัปเดต</button>
     <button id="klUpdLater" style="border:0;background:transparent;color:#9aa8bd;font-size:15px;padding:8px;">ภายหลัง</button>`;
   document.body.appendChild(d);
   d.querySelector('#klUpdNow').onclick = () => {
-    d.remove();
-    worker.postMessage({ type: 'SKIP_WAITING' });   // เสร็จแล้ว controllerchange จะรีโหลดเอง
-    setTimeout(klReloadOnce, 1500);                 // เผื่อ controllerchange ไม่ยิง
+    const b = d.querySelector('#klUpdNow');
+    b.disabled = true; b.textContent = 'กำลังอัปเดต…';
+    d.querySelector('#klUpdLater').style.display = 'none';
+    klApplyUpdate(worker);
   };
-  d.querySelector('#klUpdLater').onclick = () => d.remove();
+  d.querySelector('#klUpdLater').onclick = () => {
+    d.remove();
+    try { sessionStorage.setItem('kl_updAt', String(Date.now())); } catch (e) {}   // กดภายหลัง = ไม่ถามซ้ำในรอบนี้
+  };
 }
+// สลับไปแอพอื่น/ปัดแอพลง → อัปเดตเงียบ ๆ (กลับมาเปิดก็เป็นตัวใหม่แล้ว ไม่ต้องกดอะไร)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && _klPendingWorker && _klPendingWorker.state === 'installed') {
+    try { _klPendingWorker.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+  }
+});
 
 // ── ป้ายบอกว่าออฟไลน์ ──
 function klOfflineBadge(show) {
