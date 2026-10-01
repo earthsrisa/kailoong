@@ -1587,7 +1587,7 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
   <div id="topbar">
     <h1 id="pageTitle">Dashboard</h1>
     <div style="display:flex;align-items:center;gap:8px;">
-      <button id="refreshBtn" onclick="DB._cache={};if(window._currentPage)navigate(window._currentPage)" title="รีเฟรช" style="background:none;border:1.5px solid #d1d5db;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7280;font-size:15px;transition:all .15s;" onmouseover="this.style.borderColor='#2563eb';this.style.color='#2563eb'" onmouseout="this.style.borderColor='#d1d5db';this.style.color='#6b7280'"><i class="fa-solid fa-rotate-right"></i></button>
+      <button id="refreshBtn" onclick="DB.forceFull();OrdersFeed.restart();if(window._currentPage)navigate(window._currentPage)" title="รีเฟรช" style="background:none;border:1.5px solid #d1d5db;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7280;font-size:15px;transition:all .15s;" onmouseover="this.style.borderColor='#2563eb';this.style.color='#2563eb'" onmouseout="this.style.borderColor='#d1d5db';this.style.color='#6b7280'"><i class="fa-solid fa-rotate-right"></i></button>
       <div id="topbarActions"></div>
     </div>
   </div>
@@ -1922,6 +1922,46 @@ function withTimeout(promise, ms, msg) {
 }
 
 // ═══════════════════════════════════════
+//  KLStore — เก็บข้อมูลชุดล่าสุดไว้ในเครื่อง (IndexedDB)
+// ═══════════════════════════════════════
+// เปิดแอพครั้งถัดไป ไม่ต้องดึงออเดอร์/บิลทั้งหมดใหม่ ดึงแค่ "ที่เปลี่ยนตั้งแต่ครั้งก่อน"
+// → เปิดเร็วขึ้นมาก และประหยัดโควตาอ่านของ Firebase
+// ทุกอย่างในนี้ "พังได้โดยไม่กระทบแอพ" — เปิดฐานในเครื่องไม่ได้ก็กลับไปดึงจากเซิร์ฟเวอร์แบบเดิม
+const KLStore = {
+  _p: null,
+  _open() {
+    if (!this._p) {
+      this._p = new Promise(res => {
+        try {
+          const r = indexedDB.open('kl-data', 1);
+          r.onupgradeneeded = () => { try { r.result.createObjectStore('cols'); } catch (e) {} };
+          r.onsuccess = () => res(r.result);
+          r.onerror = () => res(null);
+          r.onblocked = () => res(null);
+        } catch (e) { res(null); }
+      });
+    }
+    return withTimeout(this._p, 3000).catch(() => null);
+  },
+  _key(col) { return ((FIREBASE_CONFIG && FIREBASE_CONFIG.projectId) || 'x') + ':' + col; },
+  async get(col) {
+    const db = await this._open(); if (!db) return null;
+    return withTimeout(new Promise(res => {
+      try { const q = db.transaction('cols').objectStore('cols').get(this._key(col)); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }
+      catch (e) { res(null); }
+    }), 3000).catch(() => null);
+  },
+  async put(col, v) {
+    const db = await this._open(); if (!db) return;
+    try { db.transaction('cols', 'readwrite').objectStore('cols').put(v, this._key(col)); } catch (e) {}
+  },
+  async clear() {
+    const db = await this._open(); if (!db) return;
+    try { db.transaction('cols', 'readwrite').objectStore('cols').clear(); } catch (e) {}
+  },
+};
+
+// ═══════════════════════════════════════
 //  OrdersFeed — ตัวดักฟังออเดอร์ตัวเดียวของทั้งแอพ
 // ═══════════════════════════════════════
 // เดิม: หน้า Dashboard กับหน้าประวัติออเดอร์ ต่างคนต่างเปิด onSnapshot
@@ -1951,15 +1991,47 @@ const OrdersFeed = {
     this._start();
     return () => { this._subs.delete(fn); };   // "ยกเลิก" = แค่เลิกฟัง ไม่ปิดตัวจริง
   },
+  _emit(raw) {
+    this._last = raw;                     // ดิบ — ใช้เป็นแหล่งของ _all/ถังขยะ
+    const live = raw.filter(o => o.isDeleted !== true);   // ที่ส่งให้หน้าจอ
+    window._allOrdersCache = live;
+    this._subs.forEach(fn => { try { fn(live); } catch (e) { console.error('OrdersFeed sub:', e); } });
+  },
+  // ── แบบใหม่: ข้อมูลในเครื่อง + ฟังเฉพาะออเดอร์ที่ "เปลี่ยนหลังจากนั้น" (updatedAt) ──
+  // เดิมฟังทั้ง collection = ทุกครั้งที่เปิดแอพ อ่านออเดอร์ทุกใบตั้งแต่วันแรก
   _start() {
     if (this._unsub) return;
+    this._unsub = () => { this._stop = true; };   // กันเรียกซ้ำระหว่างกำลังเริ่ม
+    this._stop = false;
+    (async () => {
+      let base = null;
+      try { base = await DB._all('orders', { forFeed: true }); } catch (e) { console.warn('feed base:', e); }
+      if (this._stop) return;
+      const p = DB._persist.orders;
+      if (!base || !p) { this._listenFull(); return; }   // ใช้แบบใหม่ไม่ได้ → ฟังทั้งหมดแบบเดิม
+      this._emit(base);
+      const since = firebase.firestore.Timestamp.fromMillis(Math.max(1, p.maxTs));
+      const unsub = DB._fs.collection('orders').where('updatedAt', '>', since).onSnapshot(snap => {
+        if (snap.empty && snap.metadata.fromCache) return;
+        let changed = false;
+        snap.docs.forEach(d => { if (DB._merge('orders', d)) changed = true; });
+        if (changed) { DB._save('orders'); DB._syncMem('orders'); this._emit([...DB._persist.orders.rows.values()]); }
+      }, err => { console.error('OrdersFeed delta error:', err); });
+      if (this._stop) { unsub(); return; }
+      this._unsub = unsub;
+    })();
+  },
+  _listenFull() {
+    if (this._stop) return;
     this._unsub = DB._fs.collection('orders').onSnapshot(snap => {
-      const raw = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      this._last = raw;                     // ดิบ — ใช้เป็นแหล่งของ _all/ถังขยะ
-      const live = raw.filter(o => o.isDeleted !== true);   // ที่ส่งให้หน้าจอ
-      window._allOrdersCache = live;
-      this._subs.forEach(fn => { try { fn(live); } catch (e) { console.error('OrdersFeed sub:', e); } });
+      this._emit(snap.docs.map(d => DB._row(d)));
     }, err => console.error('OrdersFeed error:', err));
+  },
+  // ปุ่มรีเฟรช: ตัดตัวฟังแล้วเริ่มใหม่ (ผู้สมัครรับข้อมูลยังอยู่ครบ)
+  restart() {
+    try { this._unsub && this._unsub(); } catch (e) {}
+    this._unsub = null; this._last = null;
+    if (this._subs.size) this._start();
   }
 };
 
@@ -2038,17 +2110,91 @@ const DB = {
     }
     return this._resetting;
   },
-  async _all(col) {
+  // ── เก็บข้อมูลไว้ในเครื่อง แล้วดึงเฉพาะที่เปลี่ยน ──
+  // ทุกการเขียนผ่าน DB (และหน้าช่าง) ติด updatedAt = เวลาเซิร์ฟเวอร์ ไว้ให้ถามว่า "มีอะไรเปลี่ยนหลังเวลานี้"
+  // กันพลาด: ดึงทั้งหมดใหม่ทุก 6 ชม. / ตอนกดปุ่มรีเฟรช (เผื่อเครื่องที่ยังเป็นแอพรุ่นเก่าเขียนโดยไม่ติด updatedAt)
+  _DELTA_COLS: ['orders', 'invoices', 'customers', 'products', 'expenses', 'craftsmen'],
+  _FULL_EVERY: 6 * 3600 * 1000,
+  _persist: {},          // col → { rows: Map(id → row), maxTs, fullAt }
+  _row(d) {
+    const x = { id: d.id, ...d.data() };
+    if (x.updatedAt && typeof x.updatedAt.toMillis === 'function') x.updatedAt = x.updatedAt.toMillis();
+    return x;
+  },
+  // รวมเอกสารจากเซิร์ฟเวอร์เข้าชุดในเครื่อง → true ถ้ามีอะไรเปลี่ยน
+  _merge(col, d) {
+    const p = this._persist[col]; if (!p) return false;
+    const x = this._row(d);
+    if (typeof x.updatedAt === 'number' && !d.metadata.hasPendingWrites && x.updatedAt > p.maxTs) p.maxTs = x.updatedAt;
+    const old = p.rows.get(String(x.id));
+    p.rows.set(String(x.id), x);
+    return !old || JSON.stringify(old) !== JSON.stringify(x);
+  },
+  _save(col) {
+    clearTimeout((this._saveT ||= {})[col]);
+    this._saveT[col] = setTimeout(() => {
+      const p = this._persist[col]; if (!p) return;
+      KLStore.put(col, { rows: [...p.rows.values()], maxTs: p.maxTs, fullAt: p.fullAt, v: 1 });
+    }, 400);
+  },
+  _syncMem(col) {
+    const p = this._persist[col]; if (!p) return;
+    this._cache[col] = { ts: Date.now(), data: [...p.rows.values()] };
+  },
+  // เขียนเองในเครื่องนี้ → อัปเดตชุดในเครื่องด้วย (ไม่แตะ maxTs — เซิร์ฟเวอร์จะส่งกลับมาเองรอบหน้า)
+  _touchLocal(col, id, rowOrFn) {
+    const p = this._persist[col]; if (!p) return;
+    const old = p.rows.get(String(id));
+    const row = typeof rowOrFn === 'function' ? rowOrFn(old) : rowOrFn;
+    if (row) { p.rows.set(String(id), row); this._save(col); }
+  },
+  async _loadPersist(col) {
+    if (col in this._persist) return this._persist[col];
+    const v = await KLStore.get(col);
+    this._persist[col] = (v && Array.isArray(v.rows))
+      ? { rows: new Map(v.rows.map(r => [String(r.id), r])), maxTs: v.maxTs || 0, fullAt: v.fullAt || 0 }
+      : null;
+    return this._persist[col];
+  },
+  // ดึงทั้งหมดรอบหน้า (ปุ่มรีเฟรช / หลังกู้คืนข้อมูล)
+  forceFull() {
+    Object.values(this._persist).forEach(p => { if (p) p.fullAt = 0; });
+    this._cache = {};
+  },
+  async _all(col, opt) {
     // ออเดอร์: ถ้า OrdersFeed ต่ออยู่แล้ว ใช้ข้อมูลจากมันเลย
     // มันสดกว่า cache 90 วิ และไม่เสียโควตาอ่านเพิ่มสักครั้ง
-    if (col === 'orders' && OrdersFeed._unsub && OrdersFeed._last) return OrdersFeed._last;
+    if (col === 'orders' && !(opt && opt.forFeed) && OrdersFeed._unsub && OrdersFeed._last) return OrdersFeed._last;
     const now = Date.now();
     const c = this._cache[col];
     if (c && now - c.ts < this._CACHE_TTL) return c.data;
-    const snap = await this._read(() => this._fs.collection(col).get(), col);
-    const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    this._cache[col] = { ts: now, data };
-    return data;
+    if (!this._DELTA_COLS.includes(col)) {
+      const snap = await this._read(() => this._fs.collection(col).get(), col);
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      this._cache[col] = { ts: now, data };
+      return data;
+    }
+    const p = await this._loadPersist(col);
+    if (!p || now - p.fullAt > this._FULL_EVERY) {
+      // ── ดึงทั้งหมด (ครั้งแรก / ครบ 6 ชม. / กดรีเฟรช) ──
+      const snap = await this._read(() => this._fs.collection(col).get(), col);
+      const np = { rows: new Map(), maxTs: 0, fullAt: now };
+      snap.docs.forEach(d => { const x = this._row(d); np.rows.set(String(x.id), x); if (typeof x.updatedAt === 'number' && x.updatedAt > np.maxTs) np.maxTs = x.updatedAt; });
+      this._persist[col] = np;
+      this._save(col);
+    } else {
+      // ── ดึงเฉพาะที่เปลี่ยน ── ช้าเกิน 6 วิก็ใช้ของในเครื่องไปก่อน (ไม่ให้หน้าค้าง)
+      try {
+        const since = firebase.firestore.Timestamp.fromMillis(Math.max(1, p.maxTs));
+        const snap = await withTimeout(this._fs.collection(col).where('updatedAt', '>', since).get(), 6000, 'delta ' + col);
+        let ch = false; snap.docs.forEach(d => { if (this._merge(col, d)) ch = true; });
+        if (ch) this._save(col);
+      } catch (e) {
+        klNoteData({ err: ('ใช้ข้อมูลในเครื่อง (' + col + ') · ' + (e && (e.code || e.message) || e)).slice(0, 140) });
+      }
+    }
+    this._syncMem(col);
+    return this._cache[col].data;
   },
   _bust(col) { delete this._cache[col]; },
   async _get(col, id) {
@@ -2061,18 +2207,21 @@ const DB = {
   async _add(col, d) {
     const { id: _id, ...rest } = d;
     const data = { ...rest, createdAt: rest.createdAt || Date.now() };
+    const wire = { ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
     let newId;
     if (_id) {
       // restore: preserve original ID
-      await this._fs.collection(col).doc(String(_id)).set(data);
+      await this._fs.collection(col).doc(String(_id)).set(wire);
       newId = String(_id);
     } else {
-      const ref = await this._fs.collection(col).add(data);
+      const ref = await this._fs.collection(col).add(wire);
       newId = ref.id;
     }
     // อัพเดท cache ทันที แทนที่จะล้างทิ้ง
+    const local = { id: newId, ...data, updatedAt: Date.now() };
     const c = this._cache[col];
-    if (c) c.data.push({ id: newId, ...data });
+    if (c) c.data.push(local);
+    this._touchLocal(col, newId, local);
     return newId;
   },
   async _put(col, d) {
@@ -2080,10 +2229,12 @@ const DB = {
     // merge:false — เขียนทับทั้งเอกสาร ไม่งั้นค่าที่ลบออก (เช่น สีเส้นใน priceMap
     // หรือราคาพิเศษของลูกค้า) จะไม่ถูกลบจริง เพราะ merge เก็บ key เดิมไว้
     // ทุกที่ที่เรียก _put ส่ง object เต็มอยู่แล้ว ({...old, ...ใหม่})
-    await this._fs.collection(col).doc(String(id)).set(rest);
+    await this._fs.collection(col).doc(String(id)).set({ ...rest, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
     // อัพเดท cache record ตรง ๆ
+    const local = { id, ...rest, updatedAt: Date.now() };
     const c = this._cache[col];
-    if (c) { const i = c.data.findIndex(r => String(r.id) === String(id)); if (i >= 0) c.data[i] = { id, ...rest }; }
+    if (c) { const i = c.data.findIndex(r => String(r.id) === String(id)); if (i >= 0) c.data[i] = local; }
+    this._touchLocal(col, id, local);
     return id;
   },
   // ── ลบ = ทำเครื่องหมาย ไม่ได้ลบจริง ──
@@ -2096,21 +2247,28 @@ const DB = {
       deletedBy: null,              // ยังไม่มีล็อกอิน — เติมได้ตอนทำ 0.5
       deleteReason: (reason || '').trim()
     };
-    await this._fs.collection(col).doc(String(id)).set(mark, { merge: true });
+    await this._fs.collection(col).doc(String(id)).set({ ...mark, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
     // อัปเดต cache ในเครื่องให้ตรงกัน ไม่ต้องยิงอ่านใหม่
     const c = this._cache[col];
     if (c) {
       const i = c.data.findIndex(r => String(r.id) === String(id));
       if (i >= 0) c.data[i] = { ...c.data[i], ...mark };
     }
+    this._touchLocal(col, id, old => old ? { ...old, ...mark, updatedAt: Date.now() } : null);
   },
   // เอาเครื่องหมายออก = กู้คืน
   async _undel(col, id) {
     const FV = firebase.firestore.FieldValue;
     await this._fs.collection(col).doc(String(id)).set({
       isDeleted: false, deletedAt: FV.delete(),
-      deletedBy: FV.delete(), deleteReason: FV.delete()
+      deletedBy: FV.delete(), deleteReason: FV.delete(),
+      updatedAt: FV.serverTimestamp()
     }, { merge: true });
+    this._touchLocal(col, id, old => {
+      if (!old) return null;
+      const { deletedAt, deletedBy, deleteReason, ...r } = old;
+      return { ...r, isDeleted: false, updatedAt: Date.now() };
+    });
     const c = this._cache[col];
     if (c) {
       const i = c.data.findIndex(r => String(r.id) === String(id));
@@ -2394,7 +2552,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v94';
+const APP_VERSION = 'v95';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -8424,7 +8582,7 @@ async function confirmRestore() {
         if (!id) continue;
         // เขียนทับทั้งเอกสาร และล้างเครื่องหมายลบออก (ของในไฟล์ถือว่ายังใช้อยู่)
         await DB._fs.collection(store).doc(String(id))
-          .set({ ...rest, isDeleted: rest.isDeleted === true }, { merge: false });
+          .set({ ...rest, isDeleted: rest.isDeleted === true, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: false });
       }
 
       // 2) รายการที่มีอยู่ในระบบแต่ไม่มีในไฟล์ → ทำเครื่องหมายว่าลบ ไม่ได้ลบจริง
@@ -8436,6 +8594,7 @@ async function confirmRestore() {
       }
     }
     DB._cache = {};   // ข้อมูลเปลี่ยนยกชุด ล้าง cache ให้อ่านใหม่
+    DB._persist = {}; await KLStore.clear(); OrdersFeed.restart();   // ชุดในเครื่องก็ล้างด้วย
     // ตั้งค่าร้าน (ชื่อร้าน ที่อยู่ PromptPay ฯลฯ)
     for (const st of (data.settings||[])) {
       const { id, ...rest } = st;
