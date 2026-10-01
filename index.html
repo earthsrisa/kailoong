@@ -2552,7 +2552,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v97';
+const APP_VERSION = 'v98';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -9100,6 +9100,38 @@ window.addEventListener('online',  () => { klOfflineBadge(false); U.toast?.('ก
 window.addEventListener('offline', () => klOfflineBadge(true));
 if (!navigator.onLine) klOfflineBadge(true);
 
+// ── เช็คว่าหน้านี้เป็นเวอร์ชันล่าสุดไหม (กันเคส "แอดมิน v94 แต่หน้าช่าง v97") ──
+// สาเหตุ: หน้าเว็บถูกเก็บไว้ในเครื่อง ถ้าการเก็บตัวใหม่ทับไม่ทันตอนปิดแอพ (iPhone ปิดเร็ว)
+// หน้านั้นจะค้างเป็นตัวเก่าไปเรื่อย ๆ ทั้งที่อีกหน้าอัปเดตไปแล้ว
+// วิธีเช็ค: อ่านเลขเวอร์ชันจาก sw.js บนเซิร์ฟเวอร์ (ไฟล์เล็ก) เทียบกับของหน้านี้
+//   ใหม่กว่า → ลบหน้าเก่าที่เก็บไว้ + ให้ตัวใหม่ขึ้น แล้วโหลดใหม่ 1 ครั้ง (รอบละครั้ง ไม่วน)
+// ⚠️ URL มี "/api/" ตั้งใจ — sw.js รุ่นเก่าปล่อยคำขอที่มี /api/ ผ่านเน็ตตรง ไม่เอาของในเครื่องมาตอบ
+async function klCheckVersion(mine) {
+  try {
+    mine = parseInt(String(mine || '').replace(/\D/g, ''), 10);
+    if (!mine || !('caches' in window)) return;
+    const r = await withTimeout(fetch('/sw.js?vc=/api/' + Date.now(), { cache: 'no-store' }), 8000);
+    if (!r.ok) return;
+    const m = (await r.text()).match(/kailoong-v(\d+)/);
+    const server = m ? parseInt(m[1], 10) : 0;
+    if (!(server > mine)) return;
+    const k = 'kl_vfix_' + server;
+    if (sessionStorage.getItem(k)) return;      // ลองไปแล้วรอบนี้ ไม่วนโหลดซ้ำ
+    sessionStorage.setItem(k, '1');
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    try { reg && await withTimeout(reg.update(), 6000); } catch (e) {}
+    if (reg && reg.waiting) { try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {} }
+    for (const name of await caches.keys()) {
+      if (!name.startsWith('kailoong-v')) continue;
+      const c = await caches.open(name);
+      for (const u of ['/', '/index.html', '/craft.html']) { try { await c.delete(u); } catch (e) {} }
+    }
+    setTimeout(() => location.reload(), 600);
+  } catch (e) { console.warn('version check:', e); }
+}
+// เช็คตอนเปิด (หลังหน้าขึ้นแล้ว ไม่แย่งเน็ตตอนโหลดข้อมูล) และทุกครั้งที่กลับมาเปิดแอพ
+setTimeout(() => klCheckVersion(APP_VERSION), 4000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') klCheckVersion(APP_VERSION); });
 klRegisterSW();
 </script>
 </body>

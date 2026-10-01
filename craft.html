@@ -3097,6 +3097,38 @@ window.addEventListener('DOMContentLoaded', () => {
   if (b) b.style.display = 'flex';
 });
 
+// ── เช็คว่าหน้านี้เป็นเวอร์ชันล่าสุดไหม (กันเคส "แอดมิน v94 แต่หน้าช่าง v97") ──
+// สาเหตุ: หน้าเว็บถูกเก็บไว้ในเครื่อง ถ้าการเก็บตัวใหม่ทับไม่ทันตอนปิดแอพ (iPhone ปิดเร็ว)
+// หน้านั้นจะค้างเป็นตัวเก่าไปเรื่อย ๆ ทั้งที่อีกหน้าอัปเดตไปแล้ว
+// วิธีเช็ค: อ่านเลขเวอร์ชันจาก sw.js บนเซิร์ฟเวอร์ (ไฟล์เล็ก) เทียบกับของหน้านี้
+//   ใหม่กว่า → ลบหน้าเก่าที่เก็บไว้ + ให้ตัวใหม่ขึ้น แล้วโหลดใหม่ 1 ครั้ง (รอบละครั้ง ไม่วน)
+// ⚠️ URL มี "/api/" ตั้งใจ — sw.js รุ่นเก่าปล่อยคำขอที่มี /api/ ผ่านเน็ตตรง ไม่เอาของในเครื่องมาตอบ
+async function klCheckVersion(mine) {
+  try {
+    mine = parseInt(String(mine || '').replace(/\D/g, ''), 10);
+    if (!mine || !('caches' in window)) return;
+    const r = await withTimeout(fetch('/sw.js?vc=/api/' + Date.now(), { cache: 'no-store' }), 8000);
+    if (!r.ok) return;
+    const m = (await r.text()).match(/kailoong-v(\d+)/);
+    const server = m ? parseInt(m[1], 10) : 0;
+    if (!(server > mine)) return;
+    const k = 'kl_vfix_' + server;
+    if (sessionStorage.getItem(k)) return;      // ลองไปแล้วรอบนี้ ไม่วนโหลดซ้ำ
+    sessionStorage.setItem(k, '1');
+    const reg = navigator.serviceWorker && await navigator.serviceWorker.getRegistration();
+    try { reg && await withTimeout(reg.update(), 6000); } catch (e) {}
+    if (reg && reg.waiting) { try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {} }
+    for (const name of await caches.keys()) {
+      if (!name.startsWith('kailoong-v')) continue;
+      const c = await caches.open(name);
+      for (const u of ['/', '/index.html', '/craft.html']) { try { await c.delete(u); } catch (e) {} }
+    }
+    setTimeout(() => location.reload(), 600);
+  } catch (e) { console.warn('version check:', e); }
+}
+const klMyVer = () => (document.getElementById('klVer') || {}).textContent || '';
+setTimeout(() => klCheckVersion(klMyVer()), 4000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') klCheckVersion(klMyVer()); });
 window.addEventListener('DOMContentLoaded', init);
 klRegisterSW();
 </script>
@@ -3110,7 +3142,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span style="opacity:.6;margin-left:6px;">· v97</span>
+      <span id="klVer" style="opacity:.6;margin-left:6px;">· v98</span>
     </div>
   </div>
   <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">

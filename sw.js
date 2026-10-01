@@ -1,4 +1,4 @@
-const CACHE = 'kailoong-v97';        // ไฟล์ของแอพเอง — ล้างทิ้งทุกครั้งที่ขึ้นเวอร์ชัน
+const CACHE = 'kailoong-v98';        // ไฟล์ของแอพเอง — ล้างทิ้งทุกครั้งที่ขึ้นเวอร์ชัน
 const CDN   = 'kailoong-cdn-v1';     // ไฟล์จากเน็ตนอก — คนละถัง จะได้ไม่โดนล้างตามเวอร์ชันแอพ
                                      // (URL พวกนี้มีเลขเวอร์ชันในตัวอยู่แล้ว ของใหม่ = คนละ URL)
 
@@ -100,6 +100,7 @@ self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET') return;          // POST/PUT ปล่อยผ่าน
   if (isLiveData(req.url)) return;           // ข้อมูล Firestore — ผ่านเน็ตเสมอ
+  if (new URL(req.url).pathname === '/sw.js') return;   // ตัวเช็คเวอร์ชันต้องได้ของสดจากเซิร์ฟเวอร์เสมอ
 
   // ── ไลบรารีภายนอก: มีในเครื่องใช้เลย ไม่มีค่อยโหลดแล้วเก็บไว้ ──
   // เดิมปล่อยผ่านหมด เลยต้องพึ่งแคชของเบราว์เซอร์ล้วนๆ ซึ่งมือถือชอบลบทิ้งเอง
@@ -154,7 +155,9 @@ self.addEventListener('fetch', e => {
     try { e.waitUntil(fresh); } catch (_) {}
 
     e.respondWith((async () => {
-      const cached = await caches.match(key) || await caches.match(req, { ignoreSearch: true });
+      // ⚠️ หาเฉพาะในถังของเวอร์ชันนี้ — เดิมค้นทุกถัง ระหว่างมีตัวใหม่รออยู่ อาจไปหยิบหน้าเก่าจากถังเก่ามาตอบ
+      const mine = await caches.open(CACHE);
+      const cached = await mine.match(key) || await mine.match(req, { ignoreSearch: true });
       if (cached) return cached;        // มีของเก่า → ใช้เลย ไม่ต้องรอเน็ต
 
       const res = await Promise.race([fresh, new Promise(r => setTimeout(() => r('slow'), 4000))]);
