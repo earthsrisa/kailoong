@@ -1510,8 +1510,9 @@ function startOrdersListener() {
 async function loadOrderRefData() {
   try {
     const [cs, ps] = await Promise.all([
-      klRead(() => db.collection('customers').get(), 'customers'),
-      klRead(() => db.collection('products').get(), 'products')
+      // source:'server' — get() ธรรมดาตอนเน็ตหลุดคืนผลว่างจากแคช ทำให้ลูกค้า/สินค้าหาย
+      klRead(() => db.collection('customers').get({ source: 'server' }), 'customers'),
+      klRead(() => db.collection('products').get({ source: 'server' }), 'products')
     ]);
     _customers = cs.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
     _products  = ps.docs.map(d => ({id:d.id, ...d.data()}));
@@ -3142,7 +3143,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span id="klVer" style="opacity:.6;margin-left:6px;">· v98</span>
+      <span id="klVer" style="opacity:.6;margin-left:6px;">· v99</span>
     </div>
   </div>
   <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">

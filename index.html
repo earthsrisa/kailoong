@@ -1536,7 +1536,7 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
   </div>
   <nav>
     <div class="nav-section">เมนูหลัก</div>
-    <button class="nav-link active" data-page="dashboard" onclick="navigate('dashboard')"><i class="fa-solid fa-chart-pie"></i><span>Dashboard</span></button>
+    <button class="nav-link active" data-page="dashboard" onclick="navigate('dashboard')"><i class="fa-solid fa-chart-pie"></i><span>หน้าหลัก</span></button>
     <button class="nav-link" data-page="orders" onclick="navigate('orders')"><i class="fa-solid fa-clock-rotate-left"></i><span>ประวัติออเดอร์</span></button>
     <button class="nav-link" data-page="invoices" onclick="navigate('invoices')"><i class="fa-solid fa-file-invoice"></i><span>ใบเสร็จรับเงิน</span></button>
     <div class="nav-section">ข้อมูลหลัก</div>
@@ -1585,7 +1585,7 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 <div id="main">
   <div id="pwa-safe-top"></div>
   <div id="topbar">
-    <h1 id="pageTitle">Dashboard</h1>
+    <h1 id="pageTitle">หน้าหลัก</h1>
     <div style="display:flex;align-items:center;gap:8px;">
       <button id="refreshBtn" onclick="DB.forceFull();OrdersFeed.restart();if(window._currentPage)navigate(window._currentPage)" title="รีเฟรช" style="background:none;border:1.5px solid #d1d5db;border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#6b7280;font-size:15px;transition:all .15s;" onmouseover="this.style.borderColor='#2563eb';this.style.color='#2563eb'" onmouseout="this.style.borderColor='#d1d5db';this.style.color='#6b7280'"><i class="fa-solid fa-rotate-right"></i></button>
       <div id="topbarActions"></div>
@@ -2175,9 +2175,20 @@ const DB = {
       return data;
     }
     const p = await this._loadPersist(col);
-    if (!p || now - p.fullAt > this._FULL_EVERY) {
+    // ชุดในเครื่องว่างเปล่า = น่าจะเคยเก็บผลว่างผิด ๆ ไว้ → ดึงทั้งหมดใหม่ ไม่รอครบ 6 ชม.
+    if (!p || !p.rows.size || now - p.fullAt > this._FULL_EVERY) {
       // ── ดึงทั้งหมด (ครั้งแรก / ครบ 6 ชม. / กดรีเฟรช) ──
-      const snap = await this._read(() => this._fs.collection(col).get(), col);
+      // ต้องเอาจากเซิร์ฟเวอร์เท่านั้น: get() ธรรมดาตอนเน็ตหลุด (หรือช่วง _resetNet ตัดท่อ) คืน "ผลว่าง" จากแคชแทน error
+      // → เดิมเก็บชุดว่างนั้นลงเครื่อง ลูกค้า/สินค้าหายไป 6 ชม. รับออเดอร์ไม่ได้
+      let snap;
+      try {
+        snap = await this._read(() => this._fs.collection(col).get({ source: 'server' }), col);
+      } catch (e) {
+        if (!p || !p.rows.size) throw e;
+        klNoteData({ err: ('ดึงทั้งหมดไม่ได้ ใช้ข้อมูลในเครื่อง (' + col + ') · ' + (e && (e.code || e.message) || e)).slice(0, 140) });
+        this._syncMem(col);
+        return this._cache[col].data;
+      }
       const np = { rows: new Map(), maxTs: 0, fullAt: now };
       snap.docs.forEach(d => { const x = this._row(d); np.rows.set(String(x.id), x); if (typeof x.updatedAt === 'number' && x.updatedAt > np.maxTs) np.maxTs = x.updatedAt; });
       this._persist[col] = np;
@@ -2552,10 +2563,10 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v98';
+const APP_VERSION = 'v99';
 const APP_BUILD   = '12 ก.ย. 69';
 
-const PAGE_TITLES = { dashboard:'Dashboard', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
+const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
 
 const SKELETON_CARDS = `
   <div class="row g-3 mb-3">
@@ -2771,7 +2782,7 @@ async function renderDashboard(el) {
   todayOrders.forEach(o=>{
     if (!custTodayMap[o.customerId]) custTodayMap[o.customerId]={name:o.customerName,items:{},total:0};
     (o.items||[]).forEach(i=>{
-      const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์'; const key=i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:'');
+      const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์'; const key=i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor&&i.trimColor!=='-'?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:'');
       custTodayMap[o.customerId].items[key]=(custTodayMap[o.customerId].items[key]||0)+i.qty;
     });
     custTodayMap[o.customerId].total+=U.orderTotal(o);
@@ -2898,7 +2909,7 @@ function dashRecentRow(o) {
       ${isNew ? '<span class="new-dot">ใหม่</span>' : ''}${craftTakenBadge(o)}
     </td>
     <td class="c-items">
-      ${(o.items||[]).map(i=>`<span class="ord-item-d"><span class="oi-nm">${U.esc(itemLabel(i))}</span> <span class="oi-q">×${i.qty}</span></span>`).join('')||'-'}
+      ${(o.items||[]).map(i=>`<span class="ord-item-d"><span class="oi-nm">${U.esc(itemLabel(i.trimColor==='-'?{...i,trimColor:''}:i))}</span> <span class="oi-q">×${i.qty}</span></span>`).join('')||'-'}
     </td>
     <td class="c-total">${U.money(U.orderTotal(o))}<span class="baht"> ฿</span></td>
     <td class="c-act"><button class="btn btn-sm btn-outline-secondary btn-icon" onclick="showEditOrderModal('${o.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i><span class="act-lbl">แก้ไข</span></button></td>
@@ -4274,7 +4285,7 @@ function buildPendingHtml(orders) {
         const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
         const label = i.productName
           + (i.color&&i.color!=='-'?' ('+i.color+')':'')
-          + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
+          + (isChrist?' ✝คริสต์':(i.trimColor&&i.trimColor!=='-'?' เส้น'+i.trimColor:''))
           + (i.extra?' '+i.extra:'');
         const dKey  = deliverKey(i);
         // อุปกรณ์เสริมไม่ต้องแต่ง → ถือว่าพร้อมส่งเต็มจำนวน
@@ -4541,7 +4552,7 @@ function buildDashCustContent(pendingOrders) {
       const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
       const label = i.productName
         + (i.color&&i.color!=='-'?' ('+i.color+')':'')
-        + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
+        + (isChrist?' ✝คริสต์':(i.trimColor&&i.trimColor!=='-'?' เส้น'+i.trimColor:''))
         + (i.extra?' '+i.extra:'');
       if (isAccessory(i.productName)) {
         accMap[label] = (accMap[label]||0) + remain;
@@ -4574,7 +4585,7 @@ function buildDashCustContent(pendingOrders) {
         const isChrist = i.trimColor==='คริสต์'||i.style==='คริสต์';
         const label = i.productName
           + (i.color&&i.color!=='-'?' ('+i.color+')':'')
-          + (isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))
+          + (isChrist?' ✝คริสต์':(i.trimColor&&i.trimColor!=='-'?' เส้น'+i.trimColor:''))
           + (i.extra?' '+i.extra:'');
         const k = isAccessory(i.productName) ? 'acc' : 'coffin';
         g[k][label] = (g[k][label]||0) + remain;
@@ -4918,7 +4929,7 @@ function printPendingOrders(ordersInput) {
       const rdy = Math.min(craftedRemain, remain);   // พร้อมส่ง
       const nry = remain - rdy;                      // ยังไม่ได้แต่ง
       const isChrist=i.trimColor==='คริสต์'||i.style==='คริสต์';
-      const lbl=i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:'');
+      const lbl=i.productName+(i.color&&i.color!=='-'?' ('+i.color+')':'')+(isChrist?' ✝คริสต์':(i.trimColor&&i.trimColor!=='-'?' เส้น'+i.trimColor:''))+(i.extra?' '+i.extra:'');
       if(isCoffin(i.productName)){
         if(g.items.has(lbl)) { const e=g.items.get(lbl); e.qty+=remain; e.ready+=rdy; e.notReady+=nry; }
         else g.items.set(lbl,{qty:remain,ready:rdy,notReady:nry,productName:i.productName,color:i.color||'',trimColor:i.trimColor||'',isChrist,extra:i.extra||''});
