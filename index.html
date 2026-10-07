@@ -2610,7 +2610,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v102';
+const APP_VERSION = 'v103';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -5108,6 +5108,7 @@ function printPendingOrders(ordersInput) {
       .grand-total,.cust-head{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
     }
   </style></head><body>
+  ${KL_WIN_BACK}
   <h1>🚚 รายการรอส่ง${printAll ? ' <span style="font-size:14px;font-weight:600;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:2px 10px;vertical-align:middle;">พิมพ์ล่วงหน้า</span>' : ''}</h1>
   <div class="sub">${d.dateLabel}${printAll ? ' · ใบนี้แสดงทุกรายการ ยังไม่ได้แยกว่าแต่งเสร็จหรือยัง' : ''}</div>
   <div class="grand-total">
@@ -5122,7 +5123,7 @@ function printPendingOrders(ordersInput) {
   <div class="no-print">
     <button onclick="window.print()" style="padding:10px 26px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ พิมพ์</button>
   </div>
-  <script>window.addEventListener('load',function(){var b=document.body;var h=b.scrollHeight;if(h>1056){b.style.zoom=1056/h;}});<\/script>
+  <script>window.addEventListener('load',function(){var b=document.body;var k=document.getElementById('klBack');var h=b.scrollHeight-(k?k.offsetHeight+10:0);if(h>1056){b.style.zoom=1056/h;}});<\/script>
   </body></html>`);
   win.document.close();
 }
@@ -7063,6 +7064,13 @@ async function confirmBulkInvoices(andPrint) {
   }
 }
 
+// ปุ่ม "◀ กลับ" ติดหัวจอ ในหน้าต่างที่เปิดใหม่ (ใบเสร็จ / รายการรอส่ง)
+// บน iPhone แอพที่ติดตั้งไว้ หน้าต่างใหม่ไม่มีปุ่มกลับให้เลย ต้องปิดแอพแล้วเข้าใหม่ → ใส่ปุ่มปิดหน้าต่างเอง
+// อยู่ใน .no-print = ไม่ติดไปตอนพิมพ์ (ใบเสร็จที่พิมพ์ออกมาหน้าตาเหมือนเดิมทุกอย่าง)
+const KL_WIN_BACK = `<div class="no-print" id="klBack" style="position:sticky;top:0;z-index:99;margin:0 0 10px;padding:8px 10px;background:#fff;text-align:left;">
+<button onclick="klBack()" style="min-height:44px;padding:8px 20px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;font-size:16px;font-weight:700;font-family:inherit;cursor:pointer;">&#9664; กลับ</button></div>
+<script>function klBack(){try{window.close();}catch(e){}
+setTimeout(function(){var b=document.getElementById('klBack');if(b&&!document.getElementById('klBackTip'))b.insertAdjacentHTML('beforeend','<div id="klBackTip" style="font-size:13px;color:#64748b;margin-top:6px;">ปิดหน้านี้เองไม่ได้ — ปัดจากขอบซ้ายของจอไปทางขวา หรือปิดแอพแล้วเปิดใหม่</div>');},500);}<\/script>`;
 // ข้อมูลร้านยังโหลดไม่ได้ → ยังไม่พิมพ์ (ใบเสร็จจะไม่มีชื่อร้าน/บัญชี/QR) ปิดหน้าต่างที่เปิดรอไว้ แล้วลองโหลดใหม่
 function klSettingsNotReady(preWin) {
   if (window._klSettingsOk === true) return false;
@@ -7092,6 +7100,7 @@ body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;font-size:13px;
 ${RECEIPT_CSS}
 .rc-bar{margin:0;padding:12px;text-align:center;background:#f1f5f9;}
 </style></head><body>
+${KL_WIN_BACK}
 <div class="no-print rc-bar">
   <button onclick="window.print()" style="padding:10px 26px;background:#1e3a8a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ พิมพ์ทั้ง ${invList.length} ใบ</button>
   <span style="margin-left:12px;font-size:13px;color:#6b7280;">${invList.map(i=>U.esc(i.invoiceNo)).join(' · ')}</span>
@@ -7287,6 +7296,7 @@ function printReceiptData(inv, preWin) {
 body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;padding:10mm 12mm;font-size:13px;}
 @media print{@page{size:A5 portrait;margin:8mm 10mm;}body{padding:0;}*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}.no-print{display:none!important;}}
 ${RECEIPT_CSS}</style></head><body>
+${KL_WIN_BACK}
 ${receiptPageHtml(inv,'qr_canvas')}
 <div class="no-print">
   <button onclick="window.print()" style="padding:9px 24px;background:#1e3a8a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">🖨️ พิมพ์</button>
