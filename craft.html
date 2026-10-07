@@ -2344,7 +2344,10 @@ async function notifyLine(type, items) {
       type,
       customerName,
       takenBy,
+      // acc + unit → ข้อความ LINE แยก "หีบ" กับ "อุปกรณ์เสริม" (ต้องตรงกับ sendLineNotify ใน index.html)
       items: items.map(i => ({name:i.productName, qty:i.qty, color:i.color, trimColor:i.trimColor,
+                              acc: isAccessory(i.productName),
+                              unit: ((_products.find(p => p.name === i.productName) || {}).unit) || '',
                               changeType: type==='edit' ? 'modified' : undefined})),
       createdAt: Date.now(),
       todayOrders: []
@@ -3192,7 +3195,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span id="klVer" style="opacity:.6;margin-left:6px;">· v101</span>
+      <span id="klVer" style="opacity:.6;margin-left:6px;">· v102</span>
     </div>
   </div>
   <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">

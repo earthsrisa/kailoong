@@ -1904,6 +1904,17 @@ async function sendLineNotify(payload) {
       console.log('LINE muted — ไม่ส่ง:', payload.type);
       return;
     }
+    // ติดป้ายแต่ละรายการว่าเป็นอุปกรณ์เสริมไหม + หน่วย → ข้อความ LINE แยก "หีบ" กับ "อุปกรณ์เสริม"
+    if (!window._allProductsCache) {
+      try { window._allProductsCache = Object.fromEntries((await DB.getProducts()).map(p => [p.name, p])); } catch (e) {}
+    }
+    const tag = it => {
+      const p = (window._allProductsCache || {})[it.name];
+      return { ...it, acc: isAccessory(it.name), unit: (p && p.unit) || '' };
+    };
+    payload = { ...payload,
+      items: (payload.items || []).map(tag),
+      todayOrders: (payload.todayOrders || []).map(o => ({ ...o, items: (o.items || []).map(tag) })) };
     await fetch('/api/notify-line', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -2599,7 +2610,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v101';
+const APP_VERSION = 'v102';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
