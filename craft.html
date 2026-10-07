@@ -2076,7 +2076,7 @@ async function submitDraft() {
       await db.collection('orders').add(data);
       toast('✅ บันทึกออเดอร์แล้ว');
       notifyLine('new', items);
-      pushNewOrderCraft(data.customerName, items, data.orderNo, _craftsman ? _craftsman.name : '');
+      pushNewOrderCraft(data.customerName, items, data.orderNo, _craftsman ? _craftsman.name : '', data.customerId, data);
     }
     _draft = null; _cur = null; _editOrderId = null;
     closeOrderSheet();
@@ -2262,7 +2262,31 @@ async function craftPushDisable() {
 // ── ส่งแจ้งเตือนออเดอร์ใหม่ที่ช่างรับเอง ──
 // รับค่าเป็นพารามิเตอร์ ไม่อ่าน _draft เอง เพราะ submitDraft ล้าง _draft ทิ้งทันทีหลังเรียก
 // ⚠️ ตรรกะแยกกลุ่มต้องตรงกับ pushNewOrder() ใน index.html
-async function pushNewOrderCraft(customerName, items, orderNo, takenBy) {
+// บรรทัดท้ายแจ้งเตือน: ยอด "ค้างส่ง" ทั้งสายของลูกค้าคนนี้ (เฉพาะโลง หักที่ส่งแล้ว)
+// newOrder = ออเดอร์ที่เพิ่งบันทึก — ตัวฟังออเดอร์อาจยังไม่ได้ของใหม่ จึงบวกเข้าไปเองถ้ายังไม่มี
+// ⚠️ ต้องนับแบบเดียวกับ routePendingLine() ใน index.html (= การ์ดค้างส่งหน้าหลัก)
+function routePendingLine(customerId, newOrder) {
+  try {
+    const norm = r => String(r || '').replace(/\s+/g, ' ').trim();
+    const c = (_customers || []).find(x => String(x.id) === String(customerId));
+    const route = norm(c && c.route);
+    if (!route) return '';
+    const ids = new Set(_customers.filter(x => norm(x.route) === route).map(x => String(x.id)));
+    let list = _orders || [];
+    if (newOrder && !list.some(o => o.orderNo && o.orderNo === newOrder.orderNo)) list = [...list, newOrder];
+    let n = 0;
+    for (const o of list) {
+      if (o.isDeleted === true || !ids.has(String(o.customerId))) continue;
+      const ds = o.deliveryStatus || {};
+      for (const i of (o.items || [])) {
+        if (isAccessory(i.productName)) continue;
+        n += Math.max(0, (Number(i.qty) || 0) - getDeliveredQty(ds[deliverKey(i)], i.qty, o.isDelivered));
+      }
+    }
+    return n ? `🚚 สาย${route} ค้างส่งรวม ${n} ใบ` : '';
+  } catch (e) { console.warn('routePendingLine:', e); return ''; }
+}
+async function pushNewOrderCraft(customerName, items, orderNo, takenBy, customerId, newOrder) {
   try {
     const snap = await cpDoc().get();
     const map = (snap.exists && snap.data().value) || {};
@@ -2279,8 +2303,10 @@ async function pushNewOrderCraft(customerName, items, orderNo, takenBy) {
     const pcs = list.reduce((a, i) => a + (Number(i.qty) || 0), 0);
     const lines = list.slice(0, 3).map(i =>
       [i.productName, i.color, i.trimColor].filter(x => x && x !== '-').join(' ') + ' ×' + i.qty);
-    const body = lines.join('\n') + (list.length > 3 ? `\n…และอีก ${list.length - 3} รายการ` : '')
+    let body = lines.join('\n') + (list.length > 3 ? `\n…และอีก ${list.length - 3} รายการ` : '')
                + `\nรวม ${pcs} ใบ` + (takenBy ? ` · ช่าง${takenBy}รับ` : '');
+    const rt = routePendingLine(customerId, newOrder);
+    if (rt) body += '\n' + rt;
     const name = customerName || 'ลูกค้า', tag = 'order-' + (orderNo || Date.now());
     const send = (subs, title, url) => fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ subs, title, body, url, tag }) }).then(r => r.json()).catch(() => ({}));
@@ -3166,7 +3192,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span id="klVer" style="opacity:.6;margin-left:6px;">· v100</span>
+      <span id="klVer" style="opacity:.6;margin-left:6px;">· v101</span>
     </div>
   </div>
   <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">

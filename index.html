@@ -2599,7 +2599,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v100';
+const APP_VERSION = 'v101';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -5351,11 +5351,13 @@ async function doSaveOrder() {
         if (data.notes) merged.notes = (merged.notes ? merged.notes + ' | ' : '') + data.notes;
         // ใบที่ยังส่งไม่ครบ freeze จะคืนค่าเดิมทันที แต่เรียกไว้กันเหนียว
         // เผื่อวันหลังกฎการรวมเปลี่ยนไปรับใบที่ส่งครบแล้วด้วย
-        await DB.putOrder(freezeDeliveryBeforeEdit(merged, origItems));
+        const mergedSaved = freezeDeliveryBeforeEdit(merged, origItems);
+        await DB.putOrder(mergedSaved);
         savedOrderNo = mergeTarget.orderNo || '';
         mergedInto = savedOrderNo;
         // ลูกค้าเดิมสั่งเพิ่มในวันเดียวกัน → ระบบรวมเข้าใบเดิมให้ แต่คนรับต้องรู้ว่ามีงานเข้า
-        pushNewOrder({ customerName: data.customerName, items, orderNo: mergeTarget.orderNo, merged: true });
+        pushNewOrder({ customerName: data.customerName, items, orderNo: mergeTarget.orderNo, merged: true,
+                       customerId: mergeTarget.customerId, savedOrder: { ...mergedSaved, id: mergeTarget.id } });
         // แจ้ง LINE แบบเดียวกับตอนกด "เพิ่มรายการเข้าออเดอร์" — รูปแบบเดิมที่กลุ่มคุ้นอยู่แล้ว
         const addKeys = items.map(it => `${it.productName}|${it.color||''}|${it.trimColor||''}`);
         const todayAdd = await getTodayOrdersSummary({ currentOrderId: mergeTarget.id, actionType: 'edit', actionItemKeys: addKeys });
@@ -5377,7 +5379,8 @@ async function doSaveOrder() {
         savedOrderNo = data.orderNo;
         const newOrderId = await DB.addOrder(data);
         // แจ้งเตือน push ทุกเครื่องที่เปิดรับไว้ (ไม่รอ — ห้ามขวางการบันทึก)
-        pushNewOrder({ customerName: data.customerName, items: data.items, orderNo: data.orderNo });
+        pushNewOrder({ customerName: data.customerName, items: data.items, orderNo: data.orderNo,
+                       customerId: data.customerId, savedOrder: { ...data, id: newOrderId } });
         // แจ้งเตือน LINE กลุ่ม — ออเดอร์ใหม่ (fire-and-forget)
         const lineItems = data.items.map(it=>({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'' }));
         const todayNew = await getTodayOrdersSummary({ currentOrderId: newOrderId, actionType: 'new' });
@@ -8132,7 +8135,32 @@ async function pushDisable() {
 // ── เตือนทุกเครื่องว่ามีออเดอร์ใหม่ ──
 // ไม่เตือนเครื่องที่เป็นคนกดบันทึกเอง · เครื่องที่เลิกรับแล้ว (404/410) ลบออกจากรายชื่อให้เอง
 // เรียกแบบไม่ต้องรอ — ส่งไม่สำเร็จก็ห้ามไปขวางการบันทึกออเดอร์
-async function pushNewOrder({ customerName, items, orderNo, merged }) {
+// บรรทัดท้ายแจ้งเตือน: ยอด "ค้างส่ง" ทั้งสายของลูกค้าคนนี้ (นับแบบเดียวกับการ์ดค้างส่งหน้าหลัก: เฉพาะโลง หักที่ส่งแล้ว)
+// savedOrder = ออเดอร์ที่เพิ่งบันทึก — ใส่ทับเข้าไปเอง เพราะตัวดึงออเดอร์อาจยังไม่ได้ของใหม่
+// ⚠️ ต้องนับแบบเดียวกับ routePendingLine() ใน craft.html
+async function routePendingLine(customerId, savedOrder) {
+  try {
+    const customers = await DB.getCustomers();
+    const c = customers.find(x => String(x.id) === String(customerId));
+    const route = normRoute(c && c.route);
+    if (!route) return '';
+    const ids = new Set(customers.filter(x => normRoute(x.route) === route).map(x => String(x.id)));
+    if (!window._allProductsCache) window._allProductsCache = Object.fromEntries((await DB.getProducts()).map(p => [p.name, p]));
+    let orders = await DB.getOrders();
+    if (savedOrder && savedOrder.id) orders = [...orders.filter(o => String(o.id) !== String(savedOrder.id)), savedOrder];
+    let n = 0;
+    for (const o of orders) {
+      if (o.isDeleted === true || !ids.has(String(o.customerId))) continue;
+      const ds = o.deliveryStatus || {};
+      for (const i of (o.items || [])) {
+        if (isAccessory(i.productName)) continue;
+        n += Math.max(0, (Number(i.qty) || 0) - getDeliveredQty(ds[deliverKey(i)], i.qty, o.isDelivered));
+      }
+    }
+    return n ? `🚚 สาย${route} ค้างส่งรวม ${n} ใบ` : '';
+  } catch (e) { console.warn('routePendingLine:', e); return ''; }
+}
+async function pushNewOrder({ customerName, items, orderNo, merged, customerId, savedOrder }) {
   try {
     const snap = await pushDoc().get();
     const map = (snap.exists && snap.data().value) || {};
@@ -8151,7 +8179,9 @@ async function pushNewOrder({ customerName, items, orderNo, merged }) {
     const pcs = list.reduce((a, i) => a + (Number(i.qty) || 0), 0);
     const lines = list.slice(0, 3).map(i =>
       [i.productName || i.name, i.color, i.trimColor].filter(x => x && x !== '-').join(' ') + ' ×' + i.qty);
-    const body = lines.join('\n') + (list.length > 3 ? `\n…และอีก ${list.length - 3} รายการ` : '') + `\nรวม ${pcs} ใบ`;
+    const rt = await routePendingLine(customerId, savedOrder);
+    const body = lines.join('\n') + (list.length > 3 ? `\n…และอีก ${list.length - 3} รายการ` : '') + `\nรวม ${pcs} ใบ`
+               + (rt ? '\n' + rt : '');
     const name = customerName || 'ลูกค้า', tag = 'order-' + (orderNo || Date.now());
     const jobs = [];
     if (admins.length) jobs.push(pushSend(admins,
