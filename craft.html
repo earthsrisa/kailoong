@@ -1282,9 +1282,17 @@ async function init() {
   loadOrderRefData(); // โหลดลูกค้า/สินค้าเบื้องหลัง (ไม่บล็อกหน้าจอ)
 
   // Load craftsmen with timeout + retry
-  let snap;
-  try {
-    snap = await klRead(() => db.collection('craftsmen').get(), 'craftsmen');
+  // รายชื่อช่างชุดล่าสุดที่เคยโหลดได้ เก็บไว้ในเครื่อง → มีแล้วใช้ได้ทันที ไม่ต้องรอเน็ต
+  // (ตัวฟัง real-time ข้างล่างจะอัปเดตให้เองเมื่อได้ของจากเซิร์ฟเวอร์)
+  let cachedCm = null;
+  try { cachedCm = JSON.parse(localStorage.getItem(CRAFTSMEN_CACHE_KEY) || 'null'); } catch (e) {}
+  let snap = null;
+  if (Array.isArray(cachedCm) && cachedCm.length) {
+    snap = { docs: cachedCm.map(c => ({ id: c.id, data: () => { const { id, ...rest } = c; return rest; } })) };
+  } else try {
+    // source:'server' — get() ธรรมดาตอนเน็ตหลุดคืนผลว่าง → รายชื่อช่างว่าง
+    snap = await klRead(() => db.collection('craftsmen').get({ source: 'server' }), 'craftsmen');
+    saveCraftsmenCache(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   } catch (err) {
     console.error('init error:', err);
     contentEl.innerHTML = `<div class="empty-craft">
@@ -1339,7 +1347,10 @@ async function init() {
   // Real-time craftsmen listener — keeps dropdown fresh when craftsmen are added/removed
   if (_unsubCraftsmen) _unsubCraftsmen();
   _unsubCraftsmen = db.collection('craftsmen').onSnapshot(snap => {
+    // เน็ตหลุดแล้วได้ "ผลว่างจากแคช" → ไม่ใช่ช่างถูกลบจริง ห้ามล้างรายชื่อ/ลืมชื่อช่างที่เลือกไว้
+    if (snap.metadata.fromCache && snap.empty) return;
     _craftsmen = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!snap.metadata.fromCache) saveCraftsmenCache(_craftsmen);
     const s = document.getElementById('craftsmanSel');
     if (!s) return;
     const currentVal = s.value;
@@ -1465,6 +1476,12 @@ function _ordEmit() {
   if (_craftsman) renderCraftOrders();
 }
 
+// รายชื่อช่างที่จำไว้ในเครื่อง (ใช้ตอนเปิดแอพเน็ตช้า)
+const CRAFTSMEN_CACHE_KEY = 'kl_craftsmen_cache';
+function saveCraftsmenCache(list) {
+  try { localStorage.setItem(CRAFTSMEN_CACHE_KEY, JSON.stringify(list || [])); } catch (e) {}
+}
+
 // ── Real-time orders listener ──
 function startOrdersListener() {
   if (_unsubOrders) _unsubOrders(); // cleanup previous
@@ -1476,11 +1493,17 @@ function startOrdersListener() {
       _ordP = (v && Array.isArray(v.rows))
         ? { rows: new Map(v.rows.map(r => [String(r.id), r])), maxTs: v.maxTs || 0, fullAt: v.fullAt || 0 } : null;
       if (_ordP) _ordEmit();   // โชว์ของในเครื่องก่อนเลย ไม่ต้องรอเน็ต
-      if (!_ordP || Date.now() - _ordP.fullAt > ORD_FULL_EVERY) {
-        const snap = await klRead(() => db.collection('orders').get(), 'orders');
-        _ordP = { rows: new Map(), maxTs: 0, fullAt: Date.now() };
-        snap.docs.forEach(d => _ordMerge(d));
-        _ordSave(); _ordEmit();
+      // ชุดในเครื่องว่างเปล่า = น่าจะเคยเก็บผลว่างผิด ๆ ไว้ → ดึงทั้งหมดใหม่ ไม่รอครบเวลา
+      if (!_ordP || !_ordP.rows.size || Date.now() - _ordP.fullAt > ORD_FULL_EVERY) {
+        // source:'server' — get() ธรรมดาตอนเน็ตหลุดคืน "ผลว่าง" จากแคช → เดิมเก็บลงเครื่อง งานช่างหายจากจอหลายชั่วโมง
+        let snap = null;
+        try { snap = await klRead(() => db.collection('orders').get({ source: 'server' }), 'orders'); }
+        catch (e) { if (!_ordP || !_ordP.rows.size) throw e; console.warn('orders full fetch failed, ใช้ข้อมูลในเครื่อง:', e); }
+        if (snap) {
+          _ordP = { rows: new Map(), maxTs: 0, fullAt: Date.now() };
+          snap.docs.forEach(d => _ordMerge(d));
+          _ordSave(); _ordEmit();
+        }
       }
       if (stopped) return;
       const since = firebase.firestore.Timestamp.fromMillis(Math.max(1, _ordP.maxTs));
@@ -3143,7 +3166,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span id="klVer" style="opacity:.6;margin-left:6px;">· v99</span>
+      <span id="klVer" style="opacity:.6;margin-left:6px;">· v100</span>
     </div>
   </div>
   <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">

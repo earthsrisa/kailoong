@@ -2306,15 +2306,51 @@ const DB = {
   },
   async setSetting(key, value) {
     await this._fs.collection('settings').doc(key).set({ value });
+    // ข้อมูลร้านที่จำไว้ในเครื่องต้องตามด้วย ไม่งั้นเปิดแอพครั้งหน้าจะเห็นค่าเก่าแวบหนึ่ง
+    if (this._SETTING_KEYS.includes(key) && window._klSettingsOk === true) {
+      const keep = {}; for (const k of this._SETTING_KEYS) { if (CFG[k] !== undefined) keep[k] = CFG[k]; }
+      keep[key] = value;
+      KLStore.put('settings', { map: keep, at: Date.now(), v: 1 });
+    }
+  },
+  _SETTING_KEYS: ['businessName','sellerName','businessAddress','businessPhone','businessTaxId','promptpayId',
+                  'bankName','bankAccount','bankAccountName','bankLogo','routeColors'],
+  _applySettings(map) {
+    for (const k of this._SETTING_KEYS) { if (map[k] !== undefined) CFG[k] = map[k]; }
+  },
+  // ข้อมูลร้านชุดล่าสุดที่เคยโหลดจากเซิร์ฟเวอร์ได้ (เก็บในเครื่อง) → ใช้ได้ทันทีตอนเปิดแอพ ไม่ต้องรอเน็ต
+  async loadLocalSettings() {
+    if (window._klSettingsOk === true) return;
+    const v = await KLStore.get('settings');
+    if (v && v.map && typeof v.map === 'object') { this._applySettings(v.map); window._klSettingsOk = true; }
   },
   async loadSettings() {
     // ดึงทั้ง collection ครั้งเดียว แทน 4 queries แยก
-    const snap = await this._read(() => this._fs.collection('settings').get(), 'settings');
-    const map = {}; snap.docs.forEach(d => { map[d.id] = d.data().value; });
-    for (const k of ['businessName','sellerName','businessAddress','businessPhone','businessTaxId','promptpayId',
-                     'bankName','bankAccount','bankAccountName','bankLogo','routeColors']) {
-      if (map[k] !== undefined) CFG[k] = map[k];
+    // source:'server' — get() ธรรมดาตอนเน็ตหลุดคืน "ผลว่าง" จากแคช → ชื่อร้าน/พร้อมเพย์บนใบเสร็จหาย
+    // และ ensureRouteColors เข้าใจว่ายังไม่มีสีสาย → ตั้งสีใหม่บันทึกทับของที่เจ้าของเลือกไว้
+    // _klSettingsOk = มีข้อมูลร้านจริงแล้ว (จากเครื่องหรือเซิร์ฟเวอร์) · _klSettingsServer = ได้จากเซิร์ฟเวอร์รอบนี้แล้ว
+    // โหลดไม่ได้ = ใช้ของในเครื่อง/ค่าเริ่มต้นไปก่อน (ไม่ให้แอพเปิดไม่ขึ้น) แล้วลองใหม่เบื้องหลัง
+    let snap;
+    try {
+      snap = await this._read(() => this._fs.collection('settings').get({ source: 'server' }), 'settings');
+    } catch (e) {
+      if (window._klSettingsServer === true) return;   // มีรอบอื่นโหลดสำเร็จไปแล้ว
+      if (this._settingsRetryT) return;                 // มีนัดลองใหม่อยู่แล้ว ไม่ซ้อน
+      const n = (this._settingsTry = (this._settingsTry || 0) + 1);
+      if (n <= 5) this._settingsRetryT = setTimeout(() => { this._settingsRetryT = null; this.loadSettings().then(() => {
+        const el = document.getElementById('sidebarBizName'); if (el) el.textContent = CFG.businessName;
+      }); }, 5000 * n);
+      else if (window._klSettingsOk !== true) U.toast('⚠️ โหลดข้อมูลร้านไม่สำเร็จ — ใบเสร็จอาจไม่มีชื่อร้าน/บัญชี กด ↻ หรือเปิดแอพใหม่', 'error');
+      return;
     }
+    const map = {}; snap.docs.forEach(d => { map[d.id] = d.data().value; });
+    this._applySettings(map);
+    const keep = {}; for (const k of this._SETTING_KEYS) { if (map[k] !== undefined) keep[k] = map[k]; }
+    KLStore.put('settings', { map: keep, at: Date.now(), v: 1 });
+    window._klSettingsOk = true;
+    window._klSettingsServer = true;
+    this._settingsTry = 0;
+    if (window._klRoutesPending) { const r = window._klRoutesPending; window._klRoutesPending = null; ensureRouteColors(r); }
   },
 
   // ── Sequence helpers ──
@@ -2563,7 +2599,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v99';
+const APP_VERSION = 'v100';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -4237,6 +4273,9 @@ const ROUTE_NONE_COLOR = '#94a3b8';
 function routeColor(r) { return r ? ((CFG.routeColors || {})[r] || ROUTE_PALETTE[0]) : ROUTE_NONE_COLOR; }
 // สายใหม่ที่ยังไม่มีสี → ให้สีที่ยังไม่มีใครใช้ แล้วจำไว้ (สายเดิมได้สีเดิมตลอด ไม่สลับไปมา)
 function ensureRouteColors(routes) {
+  // ยังโหลดตั้งค่าจากเซิร์ฟเวอร์ไม่สำเร็จ → ห้ามตั้งสี/บันทึก (จะทับสีที่เจ้าของเลือกไว้) เก็บไว้ทำหลังโหลดได้
+  // (ของในเครื่องอาจเก่ากว่าที่เครื่องอื่นเพิ่งตั้ง จึงรอของจากเซิร์ฟเวอร์ก่อนบันทึก)
+  if (window._klSettingsServer !== true) { window._klRoutesPending = routes; return; }
   const cur = {...(CFG.routeColors || {})}; let changed = false;
   for (const r of [...routes].sort((a,b)=>a.localeCompare(b,'th'))) {
     if (cur[r]) continue;
@@ -7010,7 +7049,16 @@ async function confirmBulkInvoices(andPrint) {
   }
 }
 
+// ข้อมูลร้านยังโหลดไม่ได้ → ยังไม่พิมพ์ (ใบเสร็จจะไม่มีชื่อร้าน/บัญชี/QR) ปิดหน้าต่างที่เปิดรอไว้ แล้วลองโหลดใหม่
+function klSettingsNotReady(preWin) {
+  if (window._klSettingsOk === true) return false;
+  try { if (preWin && !preWin.closed) preWin.close(); } catch (e) {}
+  U.toast('⏳ ยังโหลดข้อมูลร้านไม่เสร็จ (ชื่อร้าน/บัญชี) — รอสักครู่แล้วกดพิมพ์ใหม่', 'error');
+  DB.loadSettings();
+  return true;
+}
 function printMultipleReceipts(invList, preWin) {
+  if (klSettingsNotReady(preWin)) return;
   // ใช้แม่แบบเดียวกับพิมพ์ทีละใบ — 1 ใบต่อ 1 หน้า A5 · QR ของแต่ละใบคิดตามยอดของใบนั้น
   const payloads = invList.map(inv => _promptpayPayload(CFG.promptpayId || '', U.invTotal(inv).total));
   const win = (preWin && !preWin.closed) ? preWin : window.open('', '_blank', 'width=620,height=900');
@@ -7212,6 +7260,7 @@ function receiptPageHtml(inv, qrId) {
 }
 
 function printReceiptData(inv, preWin) {
+  if (klSettingsNotReady(preWin)) return;
   const t=U.invTotal(inv);
   const win = (preWin && !preWin.closed) ? preWin : window.open('','_blank','width=600,height=850');
   win.document.write(`<!DOCTYPE html><html><head>
@@ -7771,6 +7820,9 @@ function _renderCraftsmenOld(el, craftsmen, products, craftsmanStats, totalCount
 // ═══════════════════════════════════════
 async function renderSettings(el) {
   document.getElementById('topbarActions').innerHTML = '';
+  // ข้อมูลร้านยังโหลดไม่ได้ (เน็ตช้าตอนเปิดแอพ) → ห้ามโชว์ฟอร์มด้วยค่าเริ่มต้น กดบันทึกแล้วจะทับของจริง
+  if (window._klSettingsOk !== true) await DB.loadSettings();
+  if (window._klSettingsOk !== true) throw new Error('โหลดข้อมูลร้านไม่สำเร็จ');
 
   // ⚠️ ห้ามรอ getOrders/getInvoices ตรงนี้ — ออเดอร์ 300 กว่าใบคือข้อมูลเกือบ 400 KB
   //    เน็ตช้าเมื่อไหร่หน้าจะหมุนค้างยาว ทั้งที่เอามาใช้แค่ตัวเลข 4 ตัวล่างสุด
@@ -8456,7 +8508,8 @@ async function buildBackupPayload() {
     DB.getCraftsmen()
   ]);
   // settings เก็บเป็น doc เดี่ยว ไม่ได้ผ่าน DB shortcut
-  const setSnap = await DB._fs.collection('settings').get();
+  // source:'server' — ไม่งั้นตอนเน็ตหลุดจะได้ settings ว่างเข้าไฟล์สำรองโดยไม่รู้ตัว
+  const setSnap = await DB._read(() => DB._fs.collection('settings').get({ source: 'server' }), 'settings');
   const settings = setSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   return {
     version: 3,
@@ -8485,6 +8538,13 @@ function saveBackupFile(backup, prefix) {
 async function backupData() {
   try {
     const backup = await buildBackupPayload();
+    // กันไฟล์สำรองว่างเปล่า: ร้านต้องมีลูกค้า/สินค้า/ตั้งค่าเสมอ ถ้าเป็น 0 แปลว่าดึงมาไม่ครบ
+    // (เช็คเฉพาะปุ่มสำรอง — "สำรองก่อนกู้คืน" ต้องผ่านได้แม้ฐานข้อมูลว่างจริง)
+    const d = backup.data, empty = [];
+    if (!d.customers.length) empty.push('ลูกค้า');
+    if (!d.products.length)  empty.push('สินค้า');
+    if (!d.settings.length)  empty.push('ตั้งค่าร้าน');
+    if (empty.length) throw new Error('ดึงข้อมูลไม่ครบ (' + empty.join(', ') + ' เป็น 0) — ยังไม่ได้สำรอง ลองกด ↻ แล้วสำรองใหม่');
     const fname  = saveBackupFile(backup, 'backup');
     await DB.setSetting('lastBackup', Date.now());
     U.toast(`✅ สำรองข้อมูลแล้ว — ${fname}`);
@@ -8968,7 +9028,12 @@ window.addEventListener('popstate', (e) => {
 window.addEventListener('DOMContentLoaded', async () => {
   try {
     await DB.init();
-    await DB.loadSettings();
+    // ข้อมูลร้านไม่ต้องรอให้เสร็จก่อนเปิดหน้า (เน็ตช้า = รอได้ถึง ~30 วิ หน้าค้าง) — รอไม่เกิน 3 วิ แล้วโหลดต่อเบื้องหลัง
+    // ระหว่างยังไม่ได้จากเซิร์ฟเวอร์ ensureRouteColors จะไม่บันทึกสีทับ (ดู _klSettingsServer) · loadSettings ไม่ throw
+    await DB.loadLocalSettings();          // ของในเครื่อง ใช้ได้ทันที
+    const settingsP = DB.loadSettings();   // ของจริงจากเซิร์ฟเวอร์ ตามมาเบื้องหลัง
+    if (window._klSettingsOk !== true) await Promise.race([settingsP, new Promise(r => setTimeout(r, 3000))]);
+    settingsP.then(() => { const el = document.getElementById('sidebarBizName'); if (el) el.textContent = CFG.businessName; });
     document.getElementById('sidebarBizName').textContent = CFG.businessName;
     const verEl = document.getElementById('sidebarVer');
     if (verEl) verEl.textContent = '· ' + APP_VERSION;
