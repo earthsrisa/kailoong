@@ -7855,6 +7855,9 @@ async function renderSettings(el) {
   const [lastBackup, muteUntil, craftOn] = await Promise.all([
     DB.getSetting('lastBackup'), getMuteUntil(), getCraftOrderEnabled()
   ]);
+  // โฟลเดอร์ที่เลือกเก็บไฟล์สำรองไว้ (ชื่อเฉย ๆ — เบราว์เซอร์ไม่ให้รู้ที่อยู่เต็ม)
+  let backupDirName = '';
+  if (klDirSupported()) { try { const v = await KLStore.get('backupDir'); backupDirName = (v && v.handle && v.handle.name) || ''; } catch (e) {} }
   const isMuted = !!muteLabel(muteUntil);      // ปิดอยู่จริงไหม (เลยเวลาแล้ว = ไม่ปิด)
   const pst = await pushState().catch(() => 'unsupported');   // แจ้งเตือน push บนเครื่องนี้
   const PUSH_TXT = {
@@ -7987,6 +7990,9 @@ async function renderSettings(el) {
             lastBackup ? 'สำรองล่าสุด ' + U.datetime(lastBackup) : 'ยังไม่เคยสำรองข้อมูล'}</div>
         <button type="button" class="stbk green" onclick="backupData()">
           <i class="fa-solid fa-download"></i>ดาวน์โหลดไฟล์สำรอง (.json)</button>
+        ${klDirSupported() ? `<div style="font-size:11.5px;color:#64748b;margin-top:7px;text-align:center;">
+          <i class="fa-solid fa-folder-open me-1"></i>เก็บที่: <b id="bkDirName">${U.esc(backupDirName || 'ยังไม่ได้เลือก (ครั้งแรกจะให้เลือกโฟลเดอร์)')}</b>
+          · <a href="#" onclick="changeBackupDir();return false;">เปลี่ยนโฟลเดอร์</a></div>` : ''}
       </div>
       <div class="stbtnrow">
         <label class="stbk dgr" style="margin:0;">
@@ -8571,23 +8577,61 @@ async function buildBackupPayload() {
 }
 
 // เซฟก้อนข้อมูลลงเครื่องเป็นไฟล์ คืนชื่อไฟล์ที่เซฟ
-function saveBackupFile(backup, prefix) {
+// ── โฟลเดอร์เก็บไฟล์สำรอง (Chrome/Edge บนคอม) ──
+// เลือกโฟลเดอร์ครั้งแรก (เช่น E:\project\BACKUP) แล้วจำไว้ใน IndexedDB → ครั้งต่อไปเขียนไฟล์ลงตรงนั้นเลย
+// เบราว์เซอร์ที่ไม่รองรับ (iPhone/Firefox) หรือกดยกเลิก = ดาวน์โหลดแบบเดิม
+// ⚠️ requestPermission/showDirectoryPicker ต้องเรียกตอนผู้ใช้เพิ่งกด (ก่อนรอดึงข้อมูลนาน ๆ)
+function klDirSupported() { return typeof window.showDirectoryPicker === 'function'; }
+async function klBackupDir(interactive, pickNew) {
+  if (!klDirSupported()) return null;
+  let h = null;
+  if (!pickNew) { try { const v = await KLStore.get('backupDir'); h = v && v.handle || null; } catch (e) {} }
+  try {
+    if (h) {
+      if (await h.queryPermission({ mode: 'readwrite' }) === 'granted') return h;
+      if (interactive && await h.requestPermission({ mode: 'readwrite' }) === 'granted') return h;
+      if (!interactive) return null;
+    }
+    if (!interactive) return null;
+    h = await window.showDirectoryPicker({ id: 'kl-backup', mode: 'readwrite', startIn: 'downloads' });
+    await KLStore.put('backupDir', { handle: h, at: Date.now() });
+    return h;
+  } catch (e) {
+    if (e && e.name !== 'AbortError') console.warn('backup dir:', e);
+    return null;   // กดยกเลิก / ไม่อนุญาต → ดาวน์โหลดแบบเดิม
+  }
+}
+async function changeBackupDir() {
+  const h = await klBackupDir(true, true);
+  if (h) { U.toast('✅ ต่อไปไฟล์สำรองจะเก็บที่โฟลเดอร์ ' + h.name); navigate('settings'); }
+}
+// เซฟก้อนข้อมูลเป็นไฟล์ → คืน { fname, dir } (dir = ชื่อโฟลเดอร์ที่เขียนลง หรือ '' ถ้าดาวน์โหลดแบบเดิม)
+async function saveBackupFile(backup, prefix, dirHandle) {
   const json = JSON.stringify(backup, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
   const now  = new Date();
   const pad  = n => String(n).padStart(2,'0');
   const fname= `${prefix}_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
+  if (dirHandle) {
+    try {
+      const fh = await dirHandle.getFileHandle(fname, { create: true });
+      const w = await fh.createWritable();
+      await w.write(json); await w.close();
+      return { fname, dir: dirHandle.name };
+    } catch (e) { console.warn('เขียนลงโฟลเดอร์ไม่ได้ ดาวน์โหลดแทน:', e); }
+  }
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = fname;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  return fname;
+  return { fname, dir: '' };
 }
 
 async function backupData() {
   try {
+    const dir = await klBackupDir(true);   // ขอโฟลเดอร์ก่อน (ต้องเป็นจังหวะที่เพิ่งกดปุ่ม)
     const backup = await buildBackupPayload();
     // กันไฟล์สำรองว่างเปล่า: ร้านต้องมีลูกค้า/สินค้า/ตั้งค่าเสมอ ถ้าเป็น 0 แปลว่าดึงมาไม่ครบ
     // (เช็คเฉพาะปุ่มสำรอง — "สำรองก่อนกู้คืน" ต้องผ่านได้แม้ฐานข้อมูลว่างจริง)
@@ -8596,9 +8640,9 @@ async function backupData() {
     if (!d.products.length)  empty.push('สินค้า');
     if (!d.settings.length)  empty.push('ตั้งค่าร้าน');
     if (empty.length) throw new Error('ดึงข้อมูลไม่ครบ (' + empty.join(', ') + ' เป็น 0) — ยังไม่ได้สำรอง ลองกด ↻ แล้วสำรองใหม่');
-    const fname  = saveBackupFile(backup, 'backup');
+    const saved  = await saveBackupFile(backup, 'backup', dir);
     await DB.setSetting('lastBackup', Date.now());
-    U.toast(`✅ สำรองข้อมูลแล้ว — ${fname}`);
+    U.toast(saved.dir ? `✅ สำรองข้อมูลแล้ว — ${saved.fname} (เก็บในโฟลเดอร์ ${saved.dir})` : `✅ สำรองข้อมูลแล้ว — ${saved.fname}`);
     setTimeout(() => navigate('settings'), 800);
   } catch(e) {
     U.toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
@@ -8676,7 +8720,7 @@ async function confirmRestore() {
     U.toast('กำลังสำรองข้อมูลเดิมก่อน...');
     try {
       const pre = await buildBackupPayload();
-      safetyFile = saveBackupFile(pre, 'ก่อนกู้คืน');
+      safetyFile = (await saveBackupFile(pre, 'ก่อนกู้คืน', await klBackupDir(false))).fname;
     } catch (preErr) {
       U.toast('สำรองข้อมูลเดิมไม่สำเร็จ — ยกเลิกการกู้คืนเพื่อความปลอดภัย', 'error');
       console.error('pre-restore backup failed:', preErr);
