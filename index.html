@@ -1793,6 +1793,15 @@ function readyQtyFor(item, craftedQty) {
 }
 
 // ── ป้ายออเดอร์ที่ช่างแต่งเป็นคนรับ (ยังไม่ได้ตรวจ) ──
+// ช่างคนนี้ทำของชิ้นนี้ไหม — ต้องตรงกับ craftsmanCanDo() ใน craft.html
+// จับคู่ทั้ง "ชื่อปัจจุบันของสินค้า (หาจากรหัส)" และ "ชื่อที่บันทึกในออเดอร์" → เปลี่ยนชื่อสินค้าแล้วออเดอร์เก่า/ใหม่ยังเห็นครบ
+function craftsmanDoes(c, it, prodById) {
+  const types = (c && c.productTypes) || [];
+  if (!types.length) return true;                 // ไม่กำหนด = ทำได้ทุกชนิด
+  const cur = prodById && it.productId != null ? (prodById[String(it.productId)] || {}).name : '';
+  const names = [String(it.productName || '').trim(), String(cur || '').trim()].filter(Boolean);
+  return types.some(t => names.includes(String(t || '').trim()));
+}
 function craftTakenBadge(o) {
   if (!o?.createdByCraftsmanName) return '';
   const name = U.esc(o.createdByCraftsmanName);
@@ -2020,6 +2029,7 @@ const OrdersFeed = {
       if (this._stop) return;
       const p = DB._persist.orders;
       if (!base || !p) { this._listenFull(); return; }   // ใช้แบบใหม่ไม่ได้ → ฟังทั้งหมดแบบเดิม
+      this._delta = true;                    // แบบใหม่: _last มาจากชุดในเครื่อง (DB._persist.orders)
       this._emit(base);
       const since = firebase.firestore.Timestamp.fromMillis(Math.max(1, p.maxTs));
       const unsub = DB._fs.collection('orders').where('updatedAt', '>', since).onSnapshot(snap => {
@@ -2034,6 +2044,7 @@ const OrdersFeed = {
   },
   _listenFull() {
     if (this._stop) return;
+    this._delta = false;
     this._unsub = DB._fs.collection('orders').onSnapshot(snap => {
       this._emit(snap.docs.map(d => DB._row(d)));
     }, err => console.error('OrdersFeed error:', err));
@@ -2157,7 +2168,12 @@ const DB = {
     const p = this._persist[col]; if (!p) return;
     const old = p.rows.get(String(id));
     const row = typeof rowOrFn === 'function' ? rowOrFn(old) : rowOrFn;
-    if (row) { p.rows.set(String(id), row); this._save(col); }
+    if (row) {
+      p.rows.set(String(id), row); this._save(col);
+      // ออเดอร์: ตัวฟังสด (OrdersFeed) เป็นแหล่งที่ getOrders() ใช้ → ต้องได้ของที่เพิ่งบันทึกทันทีด้วย
+      // ไม่งั้นสรุปยอดท้ายข้อความ LINE ที่สร้างทันทีหลังบันทึก ยังเป็นข้อมูลก่อนแก้ (รอเซิร์ฟเวอร์ส่งกลับมาก่อน)
+      if (col === 'orders' && typeof OrdersFeed !== 'undefined' && OrdersFeed._delta && OrdersFeed._last) OrdersFeed._last = [...p.rows.values()];
+    }
   },
   async _loadPersist(col) {
     if (col in this._persist) return this._persist[col];
@@ -2462,7 +2478,19 @@ const DB = {
   getOrders()      { return this._live('orders'); },
   getOrder(id)     { return this._get('orders',id); },
   addOrder(d)      { return this._add('orders',d); },
-  putOrder(d)      { return this._put('orders',d); },
+  // ออเดอร์: เขียนทุกช่อง "ยกเว้น craftStatus" — ช่องนี้ช่างเขียนจากมือถืออีกเครื่อง (แบบเจาะช่อง)
+  // ของในเครื่องแอดมินอาจยังไม่ได้รับ (เช่น เพิ่งเปิดแอพจากพักหน้าจอ) ถ้าเขียนทั้งใบทับ = "แต่งเสร็จ" ของช่างหาย
+  // update() = แทนค่าเฉพาะช่องที่ส่งไป (ช่องที่เป็นก้อน เช่น billedStatus ถูกแทนทั้งก้อน = ลบ key ได้ตามเดิม)
+  // แอดมินไม่มีที่ไหนแก้ craftStatus เอง (ช่างเป็นคนกด) จึงไม่เสียอะไร
+  async putOrder(d) {
+    const { id, craftStatus, ...rest } = d;
+    await this._fs.collection('orders').doc(String(id)).update({ ...rest, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    const local = { id, ...d, updatedAt: Date.now() };
+    const c = this._cache.orders;
+    if (c) { const i = c.data.findIndex(r => String(r.id) === String(id)); if (i >= 0) c.data[i] = local; }
+    this._touchLocal('orders', id, local);
+    return id;
+  },
   delOrder(id,r)     { return this._del('orders',id,r); },
 
   getInvoices()    { return this._live('invoices'); },
@@ -2610,7 +2638,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v103';
+const APP_VERSION = 'v104';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2746,10 +2774,15 @@ function U_confirm(msg, onYes, {title='ยืนยันการดำเน�
 }
 // อ่านค่าเหตุผลก่อนปิดกล่อง เพราะปิดแล้ว DOM จะหายไป
 function _confirmYes() {
+  // ดึงคำสั่งออกมาแล้วล้างทิ้งก่อนทำงาน — แตะปุ่มยืนยันซ้ำเร็ว ๆ (ระหว่างกล่องกำลังปิด) จะได้ไม่ทำซ้ำ 2 รอบ
+  // เดิมคำสั่งค้างไว้ → เช่น ลบบิล 2 รอบ = หักยอดออกบิลคืน 2 เท่า
+  const cb = window._confirmCb;
+  window._confirmCb = null;
+  if (!cb) return;
   const box = document.getElementById('confirmReason');
   const reason = box ? box.value.trim() : '';
   closeModal('confirmDialog');
-  if (window._confirmCb) window._confirmCb(reason);
+  cb(reason);
 }
 
 // ═══════════════════════════════════════
@@ -2856,7 +2889,7 @@ async function renderDashboard(el) {
       <div class="today-card" style="height:100%;overflow-y:auto;max-height:420px;">
         <h3 style="margin:0 0 10px;font-size:15px;font-weight:700;opacity:.85;">
           <i class="fa-solid fa-box-open me-2"></i>ออเดอร์ค้างส่ง
-          <span id="dashPendCountBlue" style="background:rgba(255,255,255,.2);border-radius:20px;padding:1px 10px;font-size:12px;margin-left:6px;">${pendingOrders.length} รายการ</span>
+          <span id="dashPendCountBlue" style="background:rgba(255,255,255,.2);border-radius:20px;padding:1px 10px;font-size:12px;margin-left:6px;">${pendingOrders.length} ออเดอร์</span>
         </h3>
         <div id="dashCustFilter" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;">
           ${initDashCust.chipsHtml}
@@ -2872,7 +2905,7 @@ async function renderDashboard(el) {
       <div class="cust-today-card" style="height:100%;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
           <h3 style="margin:0;font-size:15px;font-weight:700;opacity:.85;"><i class="fa-solid fa-truck me-2"></i>รายการรอส่ง
-            <span id="pendingCount" style="background:rgba(255,255,255,.2);border-radius:20px;padding:1px 10px;font-size:12px;margin-left:6px;">${pendingOrders.length} รายการ</span>
+            <span id="pendingCount" style="background:rgba(255,255,255,.2);border-radius:20px;padding:1px 10px;font-size:12px;margin-left:6px;">${pendingOrders.length} ออเดอร์</span>
             <span title="อัปเดตแบบ real-time" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#4ade80;margin-left:6px;vertical-align:middle;animation:livepulse 2s ease-in-out infinite;"></span>
           </h3>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -2917,7 +2950,7 @@ async function renderDashboard(el) {
     const pending = freshOrders.filter(o => !isOrderFullyDelivered(o)).sort((a,b) => a.createdAt - b.createdAt);
     // badge count อัปเดตเสมอ (แสดงยอด pending รวม ไม่ขึ้นกับ date filter)
     const countEl = document.getElementById('pendingCount');
-    if (countEl) countEl.textContent = pending.length + ' รายการ';
+    if (countEl) countEl.textContent = pending.length + ' ออเดอร์';
     if (isToday) {
       const listEl = document.getElementById('pendingList');
       if (listEl) listEl.innerHTML = buildPendingHtml(pending);
@@ -2927,7 +2960,7 @@ async function renderDashboard(el) {
     // ── Update blue card (pending by customer filter) ──
     const {chipsHtml: rtChipsHtml, itemsHtml: rtItemsHtml} = buildDashCustContent(pending);
     const blueCountEl = document.getElementById('dashPendCountBlue');
-    if (blueCountEl) blueCountEl.textContent = pending.length + ' รายการ';
+    if (blueCountEl) blueCountEl.textContent = pending.length + ' ออเดอร์';
     const chipsEl = document.getElementById('dashCustFilter');
     const cItemsEl = document.getElementById('dashCustItems');
     if (chipsEl) chipsEl.innerHTML = rtChipsHtml;
@@ -3114,7 +3147,7 @@ function renderOrderRows(list) {
       ${(o.items||[]).map(i=>{
         const trimBg=i.trimColor==='ทอง'?'#fef3c7':i.trimColor==='เงิน'?'#f1f5f9':'#f8fafc';
         const trimTx=i.trimColor==='ทอง'?'#92400e':i.trimColor==='เงิน'?'#475569':'#6b7280';
-        const label=U.esc(i.productName)+(i.color?` <span style="background:${i.color==='แดง'?'#fee2e2':i.color==='ดำ'?'#374151':i.color==='น้ำตาล'?'#fef3c7':'#f1f5f9'};color:${i.color==='ดำ'?'#fff':'inherit'};border-radius:3px;padding:1px 5px;font-size:12.5px;">${U.esc(i.color)}</span>`:'')+(i.trimColor?` <span style="background:${trimBg};color:${trimTx};border-radius:3px;padding:1px 5px;font-size:12.5px;">${i.trimColor==='ทอง'?'🟡':'🔘'}เส้น${U.esc(i.trimColor)}</span>`:'')+(i.style&&i.style!=='ธรรมดา'?` <span style="background:#dbeafe;color:#1e40af;border-radius:3px;padding:1px 6px;font-size:12.5px;font-weight:600;">✝ ${U.esc(i.style)}</span>`:' ')+(i.specialNote?` <em style="color:#6b7280;font-size:12.5px;">${U.esc(i.specialNote)}</em>`:'');
+        const label=U.esc(i.productName)+(i.color?` <span style="background:${i.color==='แดง'?'#fee2e2':i.color==='ดำ'?'#374151':i.color==='น้ำตาล'?'#fef3c7':'#f1f5f9'};color:${i.color==='ดำ'?'#fff':'inherit'};border-radius:3px;padding:1px 5px;font-size:12.5px;">${U.esc(i.color)}</span>`:'')+(i.trimColor&&i.trimColor!=='-'?` <span style="background:${trimBg};color:${trimTx};border-radius:3px;padding:1px 5px;font-size:12.5px;">${i.trimColor==='ทอง'?'🟡':'🔘'}เส้น${U.esc(i.trimColor)}</span>`:'')+(i.style&&i.style!=='ธรรมดา'?` <span style="background:#dbeafe;color:#1e40af;border-radius:3px;padding:1px 6px;font-size:12.5px;font-weight:600;">✝ ${U.esc(i.style)}</span>`:' ')+(i.specialNote?` <em style="color:#6b7280;font-size:12.5px;">${U.esc(i.specialNote)}</em>`:'');
         const csDone=getCraftedFor(o.craftStatus||{}, i);
         const craftBadge=csDone>=i.qty
           ?`<span style="background:#dcfce7;color:#15803d;border-radius:3px;padding:1px 5px;font-size:12px;font-weight:700;margin-left:3px;">✅ แต่ง</span>`
@@ -3259,7 +3292,7 @@ async function showAddItemsModal(orderId) {
 
   window._addItemsIdx=1;
   showModal('addItemsModal',`เพิ่มรายการเข้าออเดอร์ ${U.esc(order.orderNo)}`,body,
-    `<button class="btn btn-primary" onclick="saveAddItems(${orderId})"><i class="fa-solid fa-plus me-1"></i>เพิ่มรายการ</button>
+    `<button class="btn btn-primary" onclick="saveAddItems('${U.esc(String(orderId))}')"><i class="fa-solid fa-plus me-1"></i>เพิ่มรายการ</button>
      <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,'modal-lg');
 }
 
@@ -3267,12 +3300,12 @@ function addItemRow(i, custId, products) {
   const opts=(products||window._addItemsProducts||[]).map(p=>`<option value="${p.id}" data-price="${p.price}" data-name="${U.esc(p.name)}">${U.esc(p.name)}</option>`).join('');
   return `<tr id="airow_${i}">
     <td>
-      <select class="form-select form-select-sm" onchange="onAddItemProdChange(this,${i},${custId})" id="aiprod_${i}">
+      <select class="form-select form-select-sm" onchange="onAddItemProdChange(this,${i},'${U.esc(String(custId||''))}')" id="aiprod_${i}">
         <option value="">-- เลือกสินค้า --</option>${opts}
       </select>
       <div id="aispec_${i}" style="display:none;gap:5px;flex-wrap:wrap;margin-top:5px;">
         <select id="aicolor_${i}" class="form-select form-select-sm" style="min-width:80px;flex:1;"></select>
-        <select id="aitrim_${i}" class="form-select form-select-sm" style="min-width:80px;flex:1;"></select>
+        <select id="aitrim_${i}" class="form-select form-select-sm" style="min-width:80px;flex:1;" onchange="aiRefreshPrice(${i})"></select>
       </div>
       <div id="aiextra_wrap_${i}" style="display:none;margin-top:4px;">
         <select id="aiextra_${i}" class="form-select form-select-sm"></select>
@@ -3319,12 +3352,13 @@ function updateAddItemSpec(i, prodName) {
     colorSel.innerHTML=spec.colors.map(c=>`<option value="${c}">${c==='ขาว'?'⬜':'🟥'} ${c}</option>`).join('');
     colorSel.style.display='';
   } else {
-    colorSel.innerHTML='<option value="-">-</option>';
+    colorSel.innerHTML='<option value="">-</option>';
     colorSel.style.display='none';
   }
-  const _aiLines=getProductLines(prodName,window._addItemsProducts||[]);
-  trimSel.innerHTML=_aiLines.map(l=>`<option value="${l}">${lineIcons[l]||''} ${l}</option>`).join('');
-  specWrap.style.display='flex';
+  const _aiLines=_isAcc?[]:getProductLines(prodName,window._addItemsProducts||[]);
+  trimSel.innerHTML=_aiLines.length ? _aiLines.map(l=>`<option value="${l}">${lineIcons[l]||''} ${l}</option>`).join('') : '<option value="">-</option>';
+  trimSel.style.display=_aiLines.length?'':'none';
+  specWrap.style.display=(hasColor||_aiLines.length)?'flex':'none';
   // extra (ขนาด) — แสดงเฉพาะสินค้าที่มี spec.extra
   const extraWrap=document.getElementById(`aiextra_wrap_${i}`);
   const extraSel=document.getElementById(`aiextra_${i}`);
@@ -3351,12 +3385,21 @@ async function onAddItemProdChange(sel,i,custId) {
     if(spec) spec.style.display='none';
     return;
   }
-  const defaultPrice=parseFloat(opt.dataset.price||0);
-  const price=await DB.getEffectivePrice(custId,prodId,defaultPrice);
-  const priceEl=document.getElementById(`aiprice_${i}`);
-  if (priceEl) priceEl.value=price;
+  updateAddItemSpec(i, opt.dataset.name||opt.text||'');   // สร้างช่องสี/เส้นก่อน แล้วค่อยคิดราคาตามเส้นที่เลือก
+  await aiRefreshPrice(i);
+}
+// ราคา = ราคาลูกค้า → ราคาตามสีเส้น → ราคาตั้งต้น (ตรรกะเดียวกับ ocRefreshPrice ในหน้ารับออเดอร์)
+async function aiRefreshPrice(i) {
+  const prodId = document.getElementById(`aiprod_${i}`)?.value; if (!prodId) return;
+  const prod = (window._addItemsProducts||[]).find(p => p.id === prodId); if (!prod) return;
+  const trim = document.getElementById(`aitrim_${i}`)?.value || '';
+  let price = prod.price || 0;
+  if (prod.priceMap && Object.keys(prod.priceMap).length) {
+    price = (trim && prod.priceMap[trim] != null) ? prod.priceMap[trim] : (prod.priceMap[Object.keys(prod.priceMap)[0]] || 0);
+  }
+  try { price = await DB.getEffectivePrice(window._addItemsCustId, prodId, price, trim); } catch (e) {}
+  const priceEl = document.getElementById(`aiprice_${i}`); if (priceEl) priceEl.value = price;
   updateAddItemTotal();
-  updateAddItemSpec(i, opt.dataset.name||opt.text||'');
 }
 
 function updateAddItemTotal() {
@@ -3587,7 +3630,7 @@ function showOrderConfirm() {
       : 'background:#fff;color:#111;border:1.5px solid #94a3b8;';
     const chips =
         (x.color && x.color!=='-' ? `<span class="oc-chip" style="${cs}">${U.esc(x.color)}</span>` : '')
-      + (x.trimColor ? `<span class="oc-chip" style="background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">เส้น${U.esc(x.trimColor)} ${TRIM_ICON[x.trimColor]||''}</span>` : '')
+      + (x.trimColor && x.trimColor !== '-' ? `<span class="oc-chip" style="background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">เส้น${U.esc(x.trimColor)} ${TRIM_ICON[x.trimColor]||''}</span>` : '')
       + (x.extra ? `<span class="oc-chip" style="background:#fef3c7;color:#92400e;">${U.esc(x.extra)}</span>` : '')
       + (isAcc ? `<span class="oc-chip" style="background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc;">อุปกรณ์เสริม</span>` : '');
     return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #f1f5f9;">
@@ -4254,7 +4297,7 @@ async function filterPendingByDate(dateStr) {
   d.pendingOrders = filtered;
   const listEl = document.getElementById('pendingList');
   const countEl = document.getElementById('pendingCount');
-  if (countEl) countEl.textContent = filtered.length + ' รายการ';
+  if (countEl) countEl.textContent = filtered.length + ' ออเดอร์';
   if (!listEl) return;
 
   if (!filtered.length) {
@@ -4813,28 +4856,6 @@ async function pendBill(el) {
   await showCreateReceiptModal(null, encodeURIComponent(grp.customerName||''));
 }
 
-function markDeliveredGroup(ids) {
-  U_confirm(`ยืนยันการจัดส่ง ${ids.length} ออเดอร์ใช่ไหม?`, async()=>{
-    const deliveredAt = Date.now();
-    await Promise.all(ids.map(async id => {
-      const o = await DB.getOrder(id);
-      if (o) await DB.putOrder({...o, isDelivered:true, deliveredAt});
-    }));
-    U.toast('บันทึกจัดส่งแล้ว ✓');
-    navigate('dashboard');
-  }, {title:'ยืนยันการจัดส่ง', yesLabel:'ส่งแล้ว', yesCls:'btn-success', icon:'fa-truck', iconColor:'#16a34a'});
-}
-
-function markDelivered(orderId) {
-  U_confirm('ยืนยันว่าจัดส่งออเดอร์นี้แล้วใช่ไหม?', async()=>{
-    const order = await DB.getOrder(orderId);
-    if (!order) return;
-    await DB.putOrder({...order, isDelivered:true, deliveredAt:Date.now()});
-    U.toast('บันทึกจัดส่งแล้ว ✓');
-    navigate('dashboard');
-  }, {title:'ยืนยันการจัดส่ง', yesLabel:'ส่งแล้ว', yesCls:'btn-success', icon:'fa-truck', iconColor:'#16a34a'});
-}
-
 function showPrintSelectModal() {
   const d = window._dashTodayData;
   if (!d || !d.pendingOrders || !d.pendingOrders.length) {
@@ -5006,7 +5027,7 @@ function printPendingOrders(ordersInput) {
   // สร้าง HTML badge สำหรับสีเส้น
   function trimBadge(trim, isChrist) {
     if (isChrist) return '<span style="display:inline-block;background:#dbeafe;color:#1e40af;border-radius:3px;padding:1px 7px;font-size:12px;margin-left:3px;">✝คริสต์</span>';
-    if (!trim) return '';
+    if (!trim || trim === '-') return '';
     const s = {
       'เงิน': 'background:#d1d5db;color:#111;border:1.5px solid #6b7280;',
       'ทอง':  'background:#b45309;color:#fff;border:1px solid #92400e;',
@@ -5293,36 +5314,44 @@ async function doSaveOrder() {
     if (editId) {
       const old=await DB.getOrder(editId);
       savedOrderNo = old?.orderNo || '';
+      // แก้ไขออเดอร์ = คงเวลาเดิมไว้ (เดิมเอาเวลาตอนกดแก้มาใส่ → ลำดับออเดอร์สลับ/รวมใบวันเดียวกันเพี้ยน)
+      // วันที่เท่าเดิม → ใช้เวลาเดิมทั้งหมด · เปลี่ยนวันที่ → วันใหม่ + เวลาเดิมของวัน
+      if (old && old.createdAt) {
+        if (!dateStr || dateStr === U.dateInput(old.createdAt)) data.createdAt = old.createdAt;
+        else {
+          const hm = new Date(old.createdAt).toLocaleTimeString('sv-SE',{timeZone:'Asia/Bangkok'}).slice(0,8);
+          data.createdAt = new Date(dateStr+'T'+hm+'+07:00').getTime();
+        }
+      }
       // แก้รายการในออเดอร์ที่ส่งครบแล้ว → ตรึงของเดิมไว้ก่อน แล้วคิดธงส่งครบใหม่
       // ถ้าออเดอร์ยังส่งไม่ครบ ฟังก์ชันนี้คืนค่าเดิมทันที ไม่แตะอะไรเลย
       await DB.putOrder(freezeDeliveryBeforeEdit({...old,...data,id:editId}, old?.items||[]));
       U.toast('แก้ไขออเดอร์แล้ว ✓');
       // แจ้งเตือน LINE กลุ่ม — แก้ไขออเดอร์ (เฉพาะรายการที่เปลี่ยน)
-      const oldItemMap = {};
-      (old.items||[]).forEach(it => { oldItemMap[it.productId] = it; });
-      const newItemMap = {};
-      (data.items||[]).forEach(it => { newItemMap[it.productId] = it; });
+      // เทียบรายการเก่า/ใหม่ด้วย สินค้า+สี+เส้น+ขนาด (เดิมเทียบแค่รหัสสินค้า → สินค้าเดียวกันหลายสีในใบเดียว ข้อความบอกผิด)
+      // รวมจำนวนตาม key ก่อน (สินค้าเดียวกันแยกหลายบรรทัดได้)
+      const ikey = it => `${it.productId}|${it.color||''}|${it.trimColor||''}|${it.extra||''}`;
+      const sumBy = list => { const m = {}; (list||[]).forEach(it => { const k = ikey(it); m[k] = m[k] ? { ...m[k], qty: (Number(m[k].qty)||0) + (Number(it.qty)||0) } : { ...it, qty: Number(it.qty)||0 }; }); return m; };
+      const oldItemMap = sumBy(old.items), newItemMap = sumBy(data.items);
+      const lineOf = (it, changeType) => ({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType });
       const changedItems = [];
-      // เพิ่มใหม่ หรือ แก้ไข
-      for (const it of data.items) {
-        const prev = oldItemMap[it.productId];
-        if (!prev) {
-          changedItems.push({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType: 'added' });
-        } else if (it.qty !== prev.qty || (it.color||'') !== (prev.color||'') || (it.trimColor||'') !== (prev.trimColor||'') || (it.extra||'') !== (prev.extra||'')) {
-          changedItems.push({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType: 'modified' });
-        }
+      // เพิ่มใหม่ หรือ เปลี่ยนจำนวน
+      for (const [k, it] of Object.entries(newItemMap)) {
+        const prev = oldItemMap[k];
+        if (!prev) changedItems.push(lineOf(it, 'added'));
+        else if (it.qty !== prev.qty) changedItems.push(lineOf(it, 'modified'));
       }
-      // ลบออก
-      for (const it of (old.items||[])) {
-        if (!newItemMap[it.productId]) {
-          changedItems.push({ name: it.productName, qty: it.qty, color: it.color||'', trimColor: it.trimColor||'', changeType: 'removed' });
-        }
+      // ลบออก (รวมกรณีเปลี่ยนสี/เส้น = ของเดิมหาย + ของใหม่เพิ่ม)
+      for (const [k, it] of Object.entries(oldItemMap)) {
+        if (!newItemMap[k]) changedItems.push(lineOf(it, 'removed'));
       }
       const custChanged = data.customerName !== (old.customerName || '');
       if (changedItems.length > 0 || custChanged) {
-        // ถ้าชื่อลูกค้าเปลี่ยนแต่ไม่มีรายการเปลี่ยน ให้แสดงว่าแก้ไขชื่อ
-        const notifyItems = changedItems.length > 0 ? changedItems
-          : [{ name: `(เปลี่ยนชื่อจาก "${old.customerName}" → "${data.customerName}")`, qty: 0, color: '', trimColor: '', changeType: 'modified' }];
+        // เปลี่ยนลูกค้า → บรรทัดข้อความบอก (note = ไม่ใช่สินค้า ไม่มีจำนวน)
+        const notifyItems = [
+          ...(custChanged ? [{ name: `เปลี่ยนลูกค้าจาก "${old.customerName||'-'}" เป็น "${data.customerName}"`, note: true, qty: '', color: '', trimColor: '' }] : []),
+          ...changedItems
+        ];
         const actionItemKeys = notifyItems.map(it => `${it.name}|${it.color||''}|${it.trimColor||''}`);
         const todayEdit = await getTodayOrdersSummary({ currentOrderId: editId, actionType: 'edit', actionItemKeys });
         sendLineNotify({
@@ -5423,8 +5452,20 @@ async function doSaveOrder() {
   }
 }
 
-function deleteOrder(id) {
-  U_confirm('ต้องการลบออเดอร์นี้ใช่ไหม?', async(reason)=>{
+async function deleteOrder(id) {
+  // ออกบิลไปแล้ว → เตือนก่อน (ลบออเดอร์ไม่ได้ลบบิล บิลยังนับเป็นยอดขาย)
+  let msg = 'ต้องการลบออเดอร์นี้ใช่ไหม?';
+  try {
+    const o = await DB.getOrder(id);
+    const invIds = [...new Set(Object.values((o && o.billedStatus) || {}).map(b => b && b.invoiceId).filter(Boolean))];
+    if (invIds.length) {
+      const nos = (await Promise.all(invIds.map(x => DB.getInvoice(x).catch(() => null))))
+        .filter(inv => inv && inv.isDeleted !== true).map(inv => inv.invoiceNo).filter(Boolean);
+      if (nos.length) msg = `<b style="color:#b45309;">⚠️ ออเดอร์นี้ออกบิลไปแล้ว: ${nos.map(n => U.esc(n)).join(', ')}</b><br>`
+        + `ลบออเดอร์จะ<b>ไม่ลบบิล</b> — บิลยังอยู่และยังนับเป็นยอดขาย ถ้าต้องการยกเลิกทั้งหมด ให้ไปลบบิลที่หน้าใบเสร็จด้วย<br><br>ยืนยันลบออเดอร์ใช่ไหม?`;
+    }
+  } catch (e) { console.warn('deleteOrder check bill:', e); }
+  U_confirm(msg, async(reason)=>{
     // ดึงข้อมูลออเดอร์ก่อนลบ เพื่อส่ง LINE notify
     const order = await DB.getOrder(id);
     await DB.delOrder(id, reason);
@@ -6097,7 +6138,7 @@ function addPriceLineRow() {
   row.querySelector('.pf-line-name').focus();
 }
 async function showProductModal(id) {
-  const p=id?await DB.getProduct(id):null;
+  const [p, craftsmen] = await Promise.all([id ? DB.getProduct(id) : null, DB.getCraftsmen().catch(() => [])]);
   const specNames=Object.keys(COFFIN_SPEC);
   const nameOpts=specNames.map(n=>`<option value="${n}">`).join('');
   const initPriceFields=buildPriceFields(p?.name||'',p?.priceMap||{},p?.lines,p?.colors);
@@ -6106,14 +6147,58 @@ async function showProductModal(id) {
       <input type="text" class="form-control" id="pf_name" required value="${U.esc(p?.name||'')}" placeholder="ชื่อโลง / รุ่น" list="specNameList" oninput="refreshPriceFields(this.value)" onchange="refreshPriceFields(this.value)">
       <datalist id="specNameList">${nameOpts}</datalist></div>
     <div class="col-sm-3"><label class="form-label">หน่วย</label>
-      <input type="text" class="form-control" id="pf_unit" value="${U.esc(p?.unit||'โลง')}"></div>
+      <input type="text" class="form-control" id="pf_unit" value="${U.esc(p?.unit||'โลง')}" oninput="pfToggleCm()"></div>
     <div class="col-12" id="pf_price_wrap">${initPriceFields}</div>
+    ${pfCraftsmenHtml(p, craftsmen)}
     <input type="hidden" id="pf_id" value="${p?.id||''}">
   </form>`;
   setTimeout(updateColorHint, 60);
   showModal('prodModal',p?'แก้ไขสินค้า':'เพิ่มสินค้าใหม่',body,
     `<button class="btn btn-primary" onclick="saveProduct()"><i class="fa-solid fa-floppy-disk me-1"></i>บันทึก</button>
      <button class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>`,'modal-lg');
+}
+// ── ช่างที่ทำหีบนี้ (เฉพาะหีบ) ──
+// ช่างที่ตั้ง "ชนิดหีบที่ทำ" ไว้ จะเห็นเฉพาะหีบที่อยู่ในรายการ → สินค้าใหม่ต้องเลือกตรงนี้ ไม่งั้นไม่มีใครเห็นงาน
+// สินค้าใหม่ติ๊กทุกคนไว้ให้ก่อน (ลืมติ๊ก = งานยังมีคนเห็น ดีกว่างานหายจากทุกคน)
+function pfCraftsmenHtml(p, craftsmen) {
+  if (!craftsmen || !craftsmen.length) return '';
+  const isNew = !p;
+  const rows = craftsmen.map(c => {
+    const types = c.productTypes || [];
+    if (!types.length) return `<label class="pf-cm" style="opacity:.7;"><input type="checkbox" checked disabled> ${U.esc(c.name)} <span style="font-size:12px;color:#64748b;">(ทำได้ทุกชนิดอยู่แล้ว)</span></label>`;
+    const on = isNew || (p && types.includes(p.name));
+    return `<label class="pf-cm"><input type="checkbox" class="pf-cm-cb" data-id="${U.esc(c.id)}" ${on ? 'checked' : ''}> ${U.esc(c.name)}</label>`;
+  }).join('');
+  return `<div class="col-12" id="pf_cm_wrap" style="${p && isAccessory(p.name) ? 'display:none;' : ''}">
+    <label class="form-label"><i class="fa-solid fa-hammer me-1"></i>ช่างที่ทำหีบนี้</label>
+    <div style="display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;">${rows}</div>
+    <div style="font-size:12px;color:#64748b;margin-top:4px;">ช่างที่ไม่ได้ติ๊ก จะไม่เห็นงานของหีบนี้ในหน้าช่าง</div></div>`;
+}
+function pfToggleCm() {
+  const w = document.getElementById('pf_cm_wrap'); if (!w) return;
+  w.style.display = ((document.getElementById('pf_unit')?.value || 'โลง').trim() === 'โลง') ? '' : 'none';
+}
+// หลังบันทึกสินค้า: เปลี่ยนชื่อ → แทนชื่อเดิมในรายการชนิดของช่างทุกคน · หีบ → ใส่/เอาออกตามที่ติ๊ก
+async function syncCraftsmenForProduct(oldName, newName, isCoffin, checkedIds) {
+  const cms = await DB.getCraftsmen();
+  for (const c of cms) {
+    let t = (c.productTypes || []).slice();
+    if (!t.length) continue;                       // ทำได้ทุกชนิด ไม่ต้องแตะ
+    let changed = false;
+    if (oldName && oldName !== newName && t.includes(oldName)) { t = t.map(x => x === oldName ? newName : x); changed = true; }
+    if (isCoffin && checkedIds) {
+      const want = checkedIds.has(String(c.id)), has = t.includes(newName);
+      if (want && !has) { t.push(newName); changed = true; }
+      // เอาออกจนว่าง = กลายเป็น "ทำได้ทุกชนิด" → ไม่ทำ (ช่างคนนี้มีหีบนี้ชนิดเดียว ต้องไปแก้ที่ข้อมูลช่างเอง)
+      if (!want && has && t.length > 1) { t = t.filter(x => x !== newName); changed = true; }
+    }
+    if (changed) await DB.putCraftsman({ ...c, productTypes: t });
+  }
+}
+// ข้อมูลสินค้าในหน่วยความจำ (ใช้แยกหีบ/อุปกรณ์เสริม) — ต้องอัปเดตทันทีหลังเพิ่ม/แก้/ลบสินค้า
+// เดิมรอจนเปิดหน้าหลักใหม่ → อุปกรณ์เสริมที่เพิ่งเพิ่มถูกนับเป็นหีบใน LINE/แจ้งเตือน
+async function refreshProductsCache() {
+  try { window._allProductsCache = Object.fromEntries((await DB.getProducts()).map(p => [p.name, p])); } catch (e) {}
 }
 function refreshPriceFields(name) {
   const wrap=document.getElementById('pf_price_wrap');
@@ -6129,6 +6214,8 @@ async function saveProduct() {
     const name=document.getElementById('pf_name')?.value.trim();
     if (!name){U.toast('กรุณากรอกชื่อสินค้า','error');return;}
     const id=document.getElementById('pf_id')?.value||'';
+    const cmBoxes = document.querySelectorAll('.pf-cm-cb');
+    const cmChecked = cmBoxes.length ? new Set([...cmBoxes].filter(cb => cb.checked).map(cb => cb.dataset.id)) : null;
     const priceMap={};
     const lines=[];   // เก็บลำดับสีเส้นที่ตั้งไว้ เพื่อให้ลบแล้วไม่กลับมาอีก
     document.querySelectorAll('.pf-line-row').forEach(row=>{
@@ -6144,13 +6231,23 @@ async function saveProduct() {
       const c=el.value.trim();
       if(c && !colors.includes(c)) colors.push(c);
     });
+    // ชื่อสินค้า/สีโลง/สีเส้น ถูกใช้เป็นชื่อช่องข้อมูลตอนช่างกด "แต่งเสร็จ" (craftStatus.<ชื่อ|สี|เส้น|ขนาด>)
+    // มี / * [ ] ~ = ช่างกดแต่งเสร็จไม่ได้ (error) · มี . = บันทึกผิดที่เงียบ ๆ → ห้ามตั้งแต่ตอนบันทึกสินค้า
+    const BAD_CH = /[.\/~*\[\]]/;
+    const badField = [['ชื่อสินค้า', name], ...lines.map(l => ['สีเส้น', l]), ...colors.map(c => ['สีโลง', c])]
+      .find(([, v]) => BAD_CH.test(v));
+    if (badField) { U.toast(`${badField[0]} "${badField[1]}" มีเครื่องหมายที่ใช้ไม่ได้ ( . / * [ ] ~ ) — ใช้ช่องว่างหรือขีด - แทน`, 'error'); return; }
     const defaultPrice=parseFloat(document.getElementById('pf_price')?.value||0)||0;
     // รหัสสินค้า/ประเภท เอาออกจากฟอร์มแล้ว (ไม่ได้ใช้) — แก้ของเดิมจะคงค่าเดิมไว้ผ่าน {...old,...data}
     const data={name,
       unit:document.getElementById('pf_unit')?.value.trim()||'โลง',
       price:defaultPrice, priceMap, lines, colors};
-    if (id){const old=await DB.getProduct(id);await DB.putProduct({...old,...data});U.toast('แก้ไขสินค้าแล้ว ✓');}
+    let oldName = '';
+    if (id){const old=await DB.getProduct(id);oldName=old?.name||'';await DB.putProduct({...old,...data});U.toast('แก้ไขสินค้าแล้ว ✓');}
     else{await DB.addProduct(data);U.toast('เพิ่มสินค้าแล้ว ✓');}
+    try { await syncCraftsmenForProduct(oldName, name, data.unit.trim() === 'โลง', cmChecked); }
+    catch (e) { console.warn('sync craftsmen:', e); U.toast('บันทึกสินค้าแล้ว แต่ตั้งช่างไม่สำเร็จ — ตั้งเองได้ที่หน้าช่างแต่ง', 'error'); }
+    await refreshProductsCache();
     closeModal('prodModal');navigate('products');
   } catch(e) {
     U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
@@ -6166,7 +6263,20 @@ async function deleteProduct(id) {
     U.toast('ไม่สามารถลบได้ มีออเดอร์ที่ใช้สินค้านี้อยู่', 'error'); return;
   }
   U_confirm('ต้องการลบสินค้านี้ใช่ไหม?', async(reason)=>{
-    await DB.delProduct(id, reason);U.toast('ลบสินค้าแล้ว');navigate('products');
+    const gone = await DB.getProduct(id);
+    await DB.delProduct(id, reason);
+    // เอาชื่อออกจากรายการชนิดของช่าง (ถ้าไม่มีสินค้าอื่นชื่อซ้ำ) — กู้คืนสินค้าทีหลัง ค่อยติ๊กช่างใหม่ในหน้าสินค้า
+    try {
+      if (gone && gone.name && !(await DB.getProducts()).some(p => p.name === gone.name)) {
+        for (const c of await DB.getCraftsmen()) {
+          const t = c.productTypes || [];
+          const nt = t.filter(x => x !== gone.name);
+          // เหลือว่าง = ระบบถือว่า "ทำได้ทุกชนิด" → ห้ามทำให้ว่าง ปล่อยชื่อเดิมไว้ (ไม่มีสินค้าชื่อนี้แล้ว ไม่มีผล)
+          if (t.includes(gone.name) && nt.length) await DB.putCraftsman({ ...c, productTypes: nt });
+        }
+      }
+    } catch (e) { console.warn('remove from craftsmen:', e); }
+    await refreshProductsCache();U.toast('ลบสินค้าแล้ว');navigate('products');
   }, {askReason:true});
 }
 
@@ -6570,7 +6680,7 @@ function itemLabel(i) {
   if (i.color && i.color!=='-') label+=' '+i.color;
   const isChrist = i.trimColor==='คริสต์' || i.style==='คริสต์';
   if (isChrist) label+=' ✝คริสต์';
-  else if (i.trimColor) label+=' เส้น'+i.trimColor;
+  else if (i.trimColor && i.trimColor !== '-') label+=' เส้น'+i.trimColor;
   if (i.extra)       label+=' '+i.extra;
   if (i.specialNote) label+=' ('+i.specialNote+')';
   return label;
@@ -7390,14 +7500,15 @@ async function renderReports(el) {
     if (r==='year')   return new Date(y,0,1).getTime();
     if (r==='custom') {
       const v=document.getElementById('rpt_from')?.value||window._reportFrom||'';
-      return v ? new Date(v).getTime() : 0;
+      // new Date('YYYY-MM-DD') = เที่ยงคืนเวลาอังกฤษ = 7 โมงเช้าบ้านเรา → วันแรกหายช่วงตี 0–7 · ต้องระบุเวลาเที่ยงคืนไทย
+      return v ? new Date(v+'T00:00:00+07:00').getTime() : 0;
     }
     return 0; // all
   }
   function getRangeEnd(r) {
     if (r==='custom') {
       const v=document.getElementById('rpt_to')?.value||window._reportTo||'';
-      return v ? new Date(v).setHours(23,59,59,999) : Date.now();
+      return v ? new Date(v+'T23:59:59.999+07:00').getTime() : Date.now();
     }
     return Date.now();
   }
@@ -7617,16 +7728,16 @@ async function renderCraftsmen(el) {
     }
   }
 
-  // สรุป pending per craftsman
+  // สรุป pending per craftsman (ไม่นับอุปกรณ์เสริม — ไม่ต้องแต่ง)
+  const prodById = Object.fromEntries(products.map(p => [String(p.id), p]));
   const craftsmanStats = craftsmen.map(c => {
-    const myTypes = new Set(c.productTypes || []);
-    const allTypes = !c.productTypes?.length;
     let pending = 0, done = 0;
     for (const o of orders) {
       if (isOrderFullyDelivered(o)) continue;
       const cs = o.craftStatus || {};
       for (const it of (o.items || [])) {
-        if (!allTypes && !myTypes.has(it.productName)) continue;
+        if (isAccessory(it.productName)) continue;
+        if (!craftsmanDoes(c, it, prodById)) continue;
         const cqPer = getCraftedFor(cs, it);
         done    += cqPer;
         pending += (it.qty - cqPer);
@@ -7649,6 +7760,15 @@ async function renderCraftsmen(el) {
   }
   const totalPending = craftsmanStats.reduce((a,c)=>a+Math.max(0,c.pending), 0);
   const allTypeCount = [...new Set(products.map(p=>p.name))].length;
+  // หีบที่ไม่มีช่างคนไหนเห็นงาน (ทุกคนตั้งชนิดไว้ และไม่มีใครเลือกหีบนี้) → เตือนให้ไปติ๊กในหน้าสินค้า
+  const anyAll = craftsmen.some(c => !(c.productTypes || []).length);
+  const uncovered = (craftsmen.length && !anyAll)
+    ? products.filter(p => !isAccessory(p.name) && !craftsmen.some(c => (c.productTypes || []).includes(p.name))).map(p => p.name)
+    : [];
+  const uncoveredHtml = uncovered.length ? `<div style="margin:0 0 12px;padding:10px 14px;border-radius:12px;background:#fffbeb;border:1px solid #fde68a;color:#92400e;font-size:13.5px;line-height:1.6;">
+      <b><i class="fa-solid fa-triangle-exclamation me-1"></i>หีบที่ยังไม่มีช่างรับ ${uncovered.length} ชนิด</b> — ช่างทุกคนจะไม่เห็นงานของหีบเหล่านี้<br>
+      ${uncovered.map(n => `<span style="display:inline-block;background:#fff;border:1px solid #fde68a;border-radius:6px;padding:0 7px;margin:3px 4px 0 0;">${U.esc(n)}</span>`).join('')}
+      <div style="font-size:12px;margin-top:4px;opacity:.85;">แก้ได้ที่ หน้าสินค้า → แก้ไข → "ช่างที่ทำหีบนี้" หรือแก้ข้อมูลช่างแต่ละคน</div></div>` : '';
 
   el.innerHTML = `
   <div class="oh">
@@ -7668,6 +7788,7 @@ async function renderCraftsmen(el) {
     <div class="t"><div class="n" style="color:${totalPending?'#dc2626':'#16a34a'};">${totalPending}</div><div class="l">ค้างแต่ง (ใบ)</div></div>
     <div class="t"><div class="n" style="color:#16a34a;">${Math.max(0,doneToday)}</div><div class="l">เสร็จวันนี้ (ใบ)</div></div>
   </div>
+  ${uncoveredHtml}
 
   <div style="font-weight:800;font-size:14px;margin:4px 2px 10px;">ช่างและภาระงาน</div>
   <div id="cmList">${craftsmen.length
@@ -7721,124 +7842,6 @@ function craftsmanCardHtml(c, allTypeCount) {
   </div>`;
 }
 
-function _renderCraftsmenOld(el, craftsmen, products, craftsmanStats, totalCount, craftedCount) {
-  el.innerHTML = `
-  <div class="row g-3">
-
-    <!-- สถิติ -->
-    <div class="col-12">
-      <div class="row g-3">
-        <div class="col-6 col-md-3">
-          <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <div class="label">จำนวนช่างแต่ง</div>
-                <div class="value">${craftsmen.length}</div>
-                <div class="sub">คน</div>
-              </div>
-              <div class="icon-wrap" style="background:#fef3c7;color:#d97706;"><i class="fa-solid fa-hammer"></i></div>
-            </div>
-          </div>
-        </div>
-        <div class="col-6 col-md-3">
-          <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <div class="label">รายการค้างแต่ง</div>
-                <div class="value" style="color:#dc2626;">${Object.keys(totalCount).reduce((s,k)=>s+(totalCount[k]-(craftedCount[k]||0)),0)}</div>
-                <div class="sub">ใบ (ยังไม่เสร็จ)</div>
-              </div>
-              <div class="icon-wrap" style="background:#fee2e2;color:#dc2626;"><i class="fa-solid fa-clock"></i></div>
-            </div>
-          </div>
-        </div>
-        <div class="col-6 col-md-3">
-          <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <div class="label">แต่งเสร็จแล้ว</div>
-                <div class="value" style="color:#16a34a;">${Object.values(craftedCount).reduce((s,v)=>s+v,0)}</div>
-                <div class="sub">ใบ (รอส่ง)</div>
-              </div>
-              <div class="icon-wrap" style="background:#dcfce7;color:#16a34a;"><i class="fa-solid fa-check-circle"></i></div>
-            </div>
-          </div>
-        </div>
-        <div class="col-6 col-md-3">
-          <div class="stat-card">
-            <div class="d-flex justify-content-between align-items-start">
-              <div>
-                <div class="label">ประเภทหีบ</div>
-                <div class="value">${[...new Set(products.map(p=>p.name))].length}</div>
-                <div class="sub">ประเภท</div>
-              </div>
-              <div class="icon-wrap" style="background:#ede9fe;color:#7c3aed;"><i class="fa-solid fa-box"></i></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ตารางช่าง -->
-    <div class="col-12">
-      <div class="card-box">
-        <div class="card-head">
-          <h2><i class="fa-solid fa-hammer me-2 text-warning"></i>รายชื่อช่างแต่ง</h2>
-        </div>
-        <div id="craftsmanPageList">
-          ${craftsmen.length === 0
-            ? `<div class="empty-state"><i class="fa-solid fa-hammer"></i><p>ยังไม่มีช่างแต่ง กด "เพิ่มช่าง" เพื่อเริ่มต้น</p></div>`
-            : `<div class="table-scroll"><table class="table-clean">
-                <thead><tr>
-                  <th>ชื่อช่าง</th>
-                  <th>ประเภทหีบที่รับผิดชอบ</th>
-                  <th style="text-align:center;">ค้างแต่ง</th>
-                  <th style="text-align:center;">เสร็จแล้ว</th>
-                  <th></th>
-                </tr></thead>
-                <tbody>
-                  ${craftsmanStats.map(c => {
-                    const types = (c.productTypes||[]).length
-                      ? (c.productTypes||[]).map(t=>`<span style="background:#eff6ff;color:#1e40af;font-size:12.5px;padding:2px 8px;border-radius:20px;font-weight:600;display:inline-block;margin:1px 2px;">${U.esc(t)}</span>`).join('')
-                      : `<span style="color:#6b7280;font-size:13px;">ทุกประเภท</span>`;
-                    const pendingStyle = c.pending > 0 ? 'color:#dc2626;font-weight:700;' : 'color:#6b7280;';
-                    const doneStyle = c.done > 0 ? 'color:#16a34a;font-weight:700;' : 'color:#6b7280;';
-                    return `<tr>
-                      <td><strong>${U.esc(c.name)}</strong></td>
-                      <td>${types}</td>
-                      <td style="text-align:center;${pendingStyle}">${c.pending > 0 ? c.pending+' ใบ' : '—'}</td>
-                      <td style="text-align:center;${doneStyle}">${c.done > 0 ? c.done+' ใบ' : '—'}</td>
-                      <td>
-                        <div class="d-flex gap-1">
-                          <button class="btn btn-sm btn-outline-primary btn-icon" onclick="showCraftsmanModal('${c.id}')" title="แก้ไข"><i class="fa-solid fa-pen"></i></button>
-                          <button class="btn btn-sm btn-outline-danger btn-icon" onclick="deleteCraftsman('${c.id}')" title="ลบ"><i class="fa-solid fa-trash"></i></button>
-                        </div>
-                      </td>
-                    </tr>`;
-                  }).join('')}
-                </tbody>
-              </table></div>`
-          }
-        </div>
-      </div>
-    </div>
-
-    <!-- คำแนะนำ -->
-    <div class="col-12">
-      <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:12px;padding:16px 20px;">
-        <div style="font-size:14px;font-weight:600;color:#0369a1;margin-bottom:8px;"><i class="fa-solid fa-circle-info me-2"></i>วิธีใช้งาน</div>
-        <ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;line-height:1.9;">
-          <li>เพิ่มรายชื่อช่างแต่งพร้อมระบุประเภทหีบที่รับผิดชอบ</li>
-          <li>ช่างเปิดหน้า <a href="/craft.html" onclick="return goCraftPage()" style="color:#2563eb;font-weight:600;">craft.html</a> → เลือกชื่อตัวเอง → จะเห็นเฉพาะรายการที่ตัวเองรับผิดชอบ</li>
-          <li>ช่างกดติ๊กเสร็จแล้ว ระบบจะแสดงสถานะ "✅ แต่งเสร็จแล้ว" ในหน้ารายการรอส่ง</li>
-          <li>ถ้าไม่ระบุประเภทหีบ ช่างคนนั้นจะเห็นทุกรายการ</li>
-        </ul>
-      </div>
-    </div>
-
-  </div>`;
-}
-
 // ═══════════════════════════════════════
 //  SETTINGS
 // ═══════════════════════════════════════
@@ -7855,6 +7858,9 @@ async function renderSettings(el) {
   const [lastBackup, muteUntil, craftOn] = await Promise.all([
     DB.getSetting('lastBackup'), getMuteUntil(), getCraftOrderEnabled()
   ]);
+  // โฟลเดอร์ที่เลือกเก็บไฟล์สำรองไว้ (ชื่อเฉย ๆ — เบราว์เซอร์ไม่ให้รู้ที่อยู่เต็ม)
+  let backupDirName = '';
+  if (klDirSupported()) { try { const v = await KLStore.get('backupDir'); backupDirName = (v && v.handle && v.handle.name) || ''; } catch (e) {} }
   const isMuted = !!muteLabel(muteUntil);      // ปิดอยู่จริงไหม (เลยเวลาแล้ว = ไม่ปิด)
   const pst = await pushState().catch(() => 'unsupported');   // แจ้งเตือน push บนเครื่องนี้
   const PUSH_TXT = {
@@ -7987,6 +7993,9 @@ async function renderSettings(el) {
             lastBackup ? 'สำรองล่าสุด ' + U.datetime(lastBackup) : 'ยังไม่เคยสำรองข้อมูล'}</div>
         <button type="button" class="stbk green" onclick="backupData()">
           <i class="fa-solid fa-download"></i>ดาวน์โหลดไฟล์สำรอง (.json)</button>
+        ${klDirSupported() ? `<div style="font-size:11.5px;color:#64748b;margin-top:7px;text-align:center;">
+          <i class="fa-solid fa-folder-open me-1"></i>เก็บที่: <b id="bkDirName">${U.esc(backupDirName || 'ยังไม่ได้เลือก (ครั้งแรกจะให้เลือกโฟลเดอร์)')}</b>
+          · <a href="#" onclick="changeBackupDir();return false;">เปลี่ยนโฟลเดอร์</a></div>` : ''}
       </div>
       <div class="stbtnrow">
         <label class="stbk dgr" style="margin:0;">
@@ -8197,11 +8206,14 @@ async function pushNewOrder({ customerName, items, orderNo, merged, customerId, 
     }
     if (!admins.length && !crafts.length) return;
     const list = items || [];
-    const pcs = list.reduce((a, i) => a + (Number(i.qty) || 0), 0);
+    // "รวม N ใบ" นับเฉพาะหีบ · อุปกรณ์เสริมบอกเป็นจำนวนรายการ (หน่วยต่างกัน ชิ้น/มัด/ม้วน รวมกันไม่ได้)
+    const accN = list.filter(i => isAccessory(i.productName || i.name)).length;
+    const pcs = list.filter(i => !isAccessory(i.productName || i.name)).reduce((a, i) => a + (Number(i.qty) || 0), 0);
+    const totalTxt = [pcs ? `รวม ${pcs} ใบ` : '', accN ? `อุปกรณ์เสริม ${accN} รายการ` : ''].filter(Boolean).join(' + ');
     const lines = list.slice(0, 3).map(i =>
       [i.productName || i.name, i.color, i.trimColor].filter(x => x && x !== '-').join(' ') + ' ×' + i.qty);
     const rt = await routePendingLine(customerId, savedOrder);
-    const body = lines.join('\n') + (list.length > 3 ? `\n…และอีก ${list.length - 3} รายการ` : '') + `\nรวม ${pcs} ใบ`
+    const body = lines.join('\n') + (list.length > 3 ? `\n…และอีก ${list.length - 3} รายการ` : '') + `\n${totalTxt}`
                + (rt ? '\n' + rt : '');
     const name = customerName || 'ลูกค้า', tag = 'order-' + (orderNo || Date.now());
     const jobs = [];
@@ -8571,23 +8583,61 @@ async function buildBackupPayload() {
 }
 
 // เซฟก้อนข้อมูลลงเครื่องเป็นไฟล์ คืนชื่อไฟล์ที่เซฟ
-function saveBackupFile(backup, prefix) {
+// ── โฟลเดอร์เก็บไฟล์สำรอง (Chrome/Edge บนคอม) ──
+// เลือกโฟลเดอร์ครั้งแรก (เช่น E:\project\BACKUP) แล้วจำไว้ใน IndexedDB → ครั้งต่อไปเขียนไฟล์ลงตรงนั้นเลย
+// เบราว์เซอร์ที่ไม่รองรับ (iPhone/Firefox) หรือกดยกเลิก = ดาวน์โหลดแบบเดิม
+// ⚠️ requestPermission/showDirectoryPicker ต้องเรียกตอนผู้ใช้เพิ่งกด (ก่อนรอดึงข้อมูลนาน ๆ)
+function klDirSupported() { return typeof window.showDirectoryPicker === 'function'; }
+async function klBackupDir(interactive, pickNew) {
+  if (!klDirSupported()) return null;
+  let h = null;
+  if (!pickNew) { try { const v = await KLStore.get('backupDir'); h = v && v.handle || null; } catch (e) {} }
+  try {
+    if (h) {
+      if (await h.queryPermission({ mode: 'readwrite' }) === 'granted') return h;
+      if (interactive && await h.requestPermission({ mode: 'readwrite' }) === 'granted') return h;
+      if (!interactive) return null;
+    }
+    if (!interactive) return null;
+    h = await window.showDirectoryPicker({ id: 'kl-backup', mode: 'readwrite', startIn: 'downloads' });
+    await KLStore.put('backupDir', { handle: h, at: Date.now() });
+    return h;
+  } catch (e) {
+    if (e && e.name !== 'AbortError') console.warn('backup dir:', e);
+    return null;   // กดยกเลิก / ไม่อนุญาต → ดาวน์โหลดแบบเดิม
+  }
+}
+async function changeBackupDir() {
+  const h = await klBackupDir(true, true);
+  if (h) { U.toast('✅ ต่อไปไฟล์สำรองจะเก็บที่โฟลเดอร์ ' + h.name); navigate('settings'); }
+}
+// เซฟก้อนข้อมูลเป็นไฟล์ → คืน { fname, dir } (dir = ชื่อโฟลเดอร์ที่เขียนลง หรือ '' ถ้าดาวน์โหลดแบบเดิม)
+async function saveBackupFile(backup, prefix, dirHandle) {
   const json = JSON.stringify(backup, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url  = URL.createObjectURL(blob);
   const now  = new Date();
   const pad  = n => String(n).padStart(2,'0');
   const fname= `${prefix}_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.json`;
+  if (dirHandle) {
+    try {
+      const fh = await dirHandle.getFileHandle(fname, { create: true });
+      const w = await fh.createWritable();
+      await w.write(json); await w.close();
+      return { fname, dir: dirHandle.name };
+    } catch (e) { console.warn('เขียนลงโฟลเดอร์ไม่ได้ ดาวน์โหลดแทน:', e); }
+  }
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = fname;
   document.body.appendChild(a); a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  return fname;
+  return { fname, dir: '' };
 }
 
 async function backupData() {
   try {
+    const dir = await klBackupDir(true);   // ขอโฟลเดอร์ก่อน (ต้องเป็นจังหวะที่เพิ่งกดปุ่ม)
     const backup = await buildBackupPayload();
     // กันไฟล์สำรองว่างเปล่า: ร้านต้องมีลูกค้า/สินค้า/ตั้งค่าเสมอ ถ้าเป็น 0 แปลว่าดึงมาไม่ครบ
     // (เช็คเฉพาะปุ่มสำรอง — "สำรองก่อนกู้คืน" ต้องผ่านได้แม้ฐานข้อมูลว่างจริง)
@@ -8596,9 +8646,9 @@ async function backupData() {
     if (!d.products.length)  empty.push('สินค้า');
     if (!d.settings.length)  empty.push('ตั้งค่าร้าน');
     if (empty.length) throw new Error('ดึงข้อมูลไม่ครบ (' + empty.join(', ') + ' เป็น 0) — ยังไม่ได้สำรอง ลองกด ↻ แล้วสำรองใหม่');
-    const fname  = saveBackupFile(backup, 'backup');
+    const saved  = await saveBackupFile(backup, 'backup', dir);
     await DB.setSetting('lastBackup', Date.now());
-    U.toast(`✅ สำรองข้อมูลแล้ว — ${fname}`);
+    U.toast(saved.dir ? `✅ สำรองข้อมูลแล้ว — ${saved.fname} (เก็บในโฟลเดอร์ ${saved.dir})` : `✅ สำรองข้อมูลแล้ว — ${saved.fname}`);
     setTimeout(() => navigate('settings'), 800);
   } catch(e) {
     U.toast('เกิดข้อผิดพลาด: ' + e.message, 'error');
@@ -8676,7 +8726,7 @@ async function confirmRestore() {
     U.toast('กำลังสำรองข้อมูลเดิมก่อน...');
     try {
       const pre = await buildBackupPayload();
-      safetyFile = saveBackupFile(pre, 'ก่อนกู้คืน');
+      safetyFile = (await saveBackupFile(pre, 'ก่อนกู้คืน', await klBackupDir(false))).fname;
     } catch (preErr) {
       U.toast('สำรองข้อมูลเดิมไม่สำเร็จ — ยกเลิกการกู้คืนเพื่อความปลอดภัย', 'error');
       console.error('pre-restore backup failed:', preErr);

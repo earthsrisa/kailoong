@@ -1238,8 +1238,11 @@ function craftsmanCanDo(item) {
   if (isAccessory(item.productName)) return false; // อุปกรณ์เสริมไม่ต้องแต่ง
   const types = _craftsman.productTypes || [];
   if (types.length === 0) return true; // ไม่กำหนด = ทำได้ทุกประเภท
-  const name = (item.productName || '').trim();
-  return types.some(t => (t || '').trim() === name);
+  // จับคู่ทั้งชื่อในออเดอร์ และชื่อปัจจุบันของสินค้า (หาจากรหัส) → เจ้าของเปลี่ยนชื่อสินค้าแล้ว ออเดอร์เก่า/ใหม่ยังเห็นครบ
+  // ⚠️ ต้องตรงกับ craftsmanDoes() ใน index.html
+  const cur = item.productId != null ? ((_products.find(p => String(p.id) === String(item.productId)) || {}).name || '') : '';
+  const names = [(item.productName || '').trim(), cur.trim()].filter(Boolean);
+  return types.some(t => names.includes((t || '').trim()));
 }
 
 // ══════════════════════════════════════
@@ -1537,11 +1540,25 @@ async function loadOrderRefData() {
       klRead(() => db.collection('customers').get({ source: 'server' }), 'customers'),
       klRead(() => db.collection('products').get({ source: 'server' }), 'products')
     ]);
-    _customers = cs.docs.map(d => ({id:d.id, ...d.data()})).sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
-    _products  = ps.docs.map(d => ({id:d.id, ...d.data()}));
+    // ลบ = แค่ทำเครื่องหมาย isDeleted → ต้องกรองออกเอง ไม่งั้นลูกค้า/สินค้าที่ลบแล้วโผล่ในช่องเลือกตอนรับออเดอร์
+    _customers = cs.docs.map(d => ({id:d.id, ...d.data()})).filter(c => c.isDeleted !== true)
+      .sort((a,b)=>(a.name||'').localeCompare(b.name||'','th'));
+    _products  = ps.docs.map(d => ({id:d.id, ...d.data()})).filter(p => p.isDeleted !== true);
   } catch (e) {
     console.error('loadOrderRefData:', e);
   }
+  startProductsListener();
+}
+// สินค้าแบบสด — เดิมโหลดครั้งเดียวตอนเปิดแอพ: เจ้าของเพิ่มอุปกรณ์เสริมใหม่ → หน้าช่างที่เปิดค้างไว้
+// ไม่รู้จัก เดาจากชื่อ แล้วโชว์เป็นงานต้องแต่ง (สินค้ามีไม่กี่สิบชิ้น ฟังสดเปลืองโควตาน้อยมาก)
+let _unsubProducts = null;
+function startProductsListener() {
+  if (_unsubProducts) return;
+  _unsubProducts = db.collection('products').onSnapshot(snap => {
+    if (snap.metadata.fromCache && snap.empty) return;   // เน็ตหลุดได้ผลว่างจากแคช ≠ สินค้าหายจริง
+    _products = snap.docs.map(d => ({id:d.id, ...d.data()})).filter(p => p.isDeleted !== true);
+    if (_craftsman) renderCraftOrders();
+  }, err => console.warn('products listener:', err));
 }
 
 function onCraftsmanChange() {
@@ -1925,8 +1942,8 @@ function renderMyRecentOrders() {
 // ── Popup ยืนยัน ──
 function draftLabel(i) {
   const cc = i.color==='แดง' ? 'background:#7f0000;color:#fff;' : 'background:#fff;color:#111;border:1.5px solid #333;';
-  const col = i.color ? `<span class="ord-chip" style="${cc}">${esc(i.color)}</span>` : '';
-  const trm = i.trimColor ? `<span class="ord-chip" style="background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;">เส้น${esc(i.trimColor)}</span>` : '';
+  const col = (i.color && i.color !== '-') ? `<span class="ord-chip" style="${cc}">${esc(i.color)}</span>` : '';
+  const trm = (i.trimColor && i.trimColor !== '-') ? `<span class="ord-chip" style="background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;">เส้น${esc(i.trimColor)}</span>` : '';
   const ex  = i.extra ? `<span class="ord-chip" style="background:#fef3c7;color:#92400e;">${esc(i.extra)}</span>` : '';
   return `<span style="font-size:14.5px;font-weight:700;color:#1a2332;">${esc(i.productName)}</span>${col}${trm}${ex}`;
 }
@@ -2300,11 +2317,14 @@ async function pushNewOrderCraft(customerName, items, orderNo, takenBy, customer
     }
     if (!admins.length && !crafts.length) return;
     const list = items || [];
-    const pcs = list.reduce((a, i) => a + (Number(i.qty) || 0), 0);
+    // "รวม N ใบ" นับเฉพาะหีบ · อุปกรณ์เสริมบอกเป็นจำนวนรายการ — ต้องตรงกับ pushNewOrder() ใน index.html
+    const accN = list.filter(i => isAccessory(i.productName)).length;
+    const pcs = list.filter(i => !isAccessory(i.productName)).reduce((a, i) => a + (Number(i.qty) || 0), 0);
+    const totalTxt = [pcs ? `รวม ${pcs} ใบ` : '', accN ? `อุปกรณ์เสริม ${accN} รายการ` : ''].filter(Boolean).join(' + ');
     const lines = list.slice(0, 3).map(i =>
       [i.productName, i.color, i.trimColor].filter(x => x && x !== '-').join(' ') + ' ×' + i.qty);
     let body = lines.join('\n') + (list.length > 3 ? `\n…และอีก ${list.length - 3} รายการ` : '')
-               + `\nรวม ${pcs} ใบ` + (takenBy ? ` · ช่าง${takenBy}รับ` : '');
+               + `\n${totalTxt}` + (takenBy ? ` · ช่าง${takenBy}รับ` : '');
     const rt = routePendingLine(customerId, newOrder);
     if (rt) body += '\n' + rt;
     const name = customerName || 'ลูกค้า', tag = 'order-' + (orderNo || Date.now());
@@ -3195,7 +3215,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span id="klVer" style="opacity:.6;margin-left:6px;">· v103</span>
+      <span id="klVer" style="opacity:.6;margin-left:6px;">· v104</span>
     </div>
   </div>
   <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">

@@ -39,8 +39,11 @@ export default async function handler(req, res) {
   const unitOf = i => isAcc(i) ? (String(i.unit || '').trim() || 'ชิ้น') : 'ใบ';
   // ชื่อ + สีโลง + สีเส้น (ไม่เอา "-" ที่แปลว่าไม่มี)
   const label = i => [i.name, i.color, i.trimColor].filter(x => x && x !== '-').join(' ');
-  const coffins = itemList.filter(i => !isAcc(i));
-  const accs    = itemList.filter(i => isAcc(i));
+  // note = บรรทัดข้อความ ไม่ใช่สินค้า (เช่น "เปลี่ยนลูกค้าจาก ... เป็น ...") → ขึ้นก่อน ไม่มีจำนวน/หน่วย
+  const notes   = itemList.filter(i => i.note);
+  const goods   = itemList.filter(i => !i.note);
+  const coffins = goods.filter(i => !isAcc(i));
+  const accs    = goods.filter(i => isAcc(i));
 
   const numEmoji = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
   const lineOf = (i, idx, bullet) => {
@@ -54,7 +57,8 @@ export default async function handler(req, res) {
   };
   // หีบมาก่อน ตามด้วยหัวข้อ "อุปกรณ์เสริม" (มีเฉพาะเมื่อมีของ)
   const itemsBlock = (coffinTitle) => {
-    const out = [];
+    const out = notes.map(i => `✏️ ${i.name}`);
+    if (out.length && (coffins.length || accs.length)) out.push('');
     if (coffins.length) out.push(coffinTitle, ...coffins.map((i, idx) => lineOf(i, idx, false)));
     if (accs.length) {
       if (out.length) out.push('');
