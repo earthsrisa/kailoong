@@ -176,6 +176,8 @@ body { background: #f0f2f5; margin: 0; min-height: 100vh; }
   animation: livepulse 2s ease-in-out infinite;
 }
 @keyframes livepulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+/* ขาดการติดต่อฐานข้อมูล (ดู klSyncWatch) → จุด "อัปเดตสด" เป็นสีส้ม ไม่กะพริบ */
+body.kl-stale .live-dot, body.kl-stale .chero .lbl .d { background:#f59e0b !important; animation:none !important; }
 
 /* ── Select craftsman bar ── */
 #craft-select-bar {
@@ -1282,6 +1284,7 @@ async function init() {
   // Start real-time listener for orders immediately
   startOrdersListener();
   startCraftSettingListener();   // ฟังสวิตช์เปิด-ปิดการรับออเดอร์
+  klSyncWatch();                 // จุด "อัปเดตสด" สะท้อนการเชื่อมต่อฐานข้อมูลจริง
   loadOrderRefData(); // โหลดลูกค้า/สินค้าเบื้องหลัง (ไม่บล็อกหน้าจอ)
 
   // Load craftsmen with timeout + retry
@@ -3144,6 +3147,38 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// ── สถานะเชื่อมต่อฐานข้อมูลจริง ──
+// เดิมจุดเขียว "อัปเดตสด" เขียวตลอด ไม่ได้เช็คอะไร · navigator.onLine ดูแค่ว่ามีเน็ต ไม่รู้ว่าฐานข้อมูลยังคุยกันอยู่ไหม
+// ฟังเอกสารเล็ก 1 ชิ้นแบบ includeMetadataChanges: fromCache=true = ตัดขาดจากเซิร์ฟเวอร์, false = ต่ออยู่
+// ขาดเกิน 15 วิ (กันกะพริบตอนสลับแอพ/ต่อใหม่สั้น ๆ) → จุดเป็นสีส้ม + ป้าย "ข้อมูลล่าสุดเมื่อ …"
+let _klLastSync = Date.now(), _klStaleT = null, _klStale = false;
+function klSyncState(ok) {
+  if (ok) {
+    _klLastSync = Date.now();
+    clearTimeout(_klStaleT); _klStaleT = null;
+    if (_klStale) { _klStale = false; document.body.classList.remove('kl-stale'); document.getElementById('klStaleBadge')?.remove(); toast('✅ เชื่อมต่อได้แล้ว ข้อมูลเป็นปัจจุบัน'); }
+    return;
+  }
+  if (_klStaleT || _klStale) return;
+  _klStaleT = setTimeout(() => {
+    _klStaleT = null; _klStale = true;
+    document.body.classList.add('kl-stale');
+    if (document.getElementById('klOffBadge')) return;   // ป้าย "ออฟไลน์" ขึ้นอยู่แล้ว ไม่ซ้อน
+    const t = new Date(_klLastSync).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+    const b = document.createElement('div'); b.id = 'klStaleBadge';
+    b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);top:calc(54px + env(safe-area-inset-top));z-index:3000;background:#b45309;color:#fff;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.2);white-space:nowrap;';
+    b.textContent = `⚠️ ขาดการติดต่อ — ข้อมูลล่าสุดเมื่อ ${t} น.`;
+    document.body.appendChild(b);
+  }, 15000);
+}
+let _klSyncUnsub = null;
+function klSyncWatch() {
+  if (_klSyncUnsub || typeof db === 'undefined' || !db) return;
+  try {
+    _klSyncUnsub = db.collection('settings').doc('craftOrderEnabled')
+      .onSnapshot({ includeMetadataChanges: true }, snap => klSyncState(!snap.metadata.fromCache), () => {});
+  } catch (e) { console.warn('sync watch:', e); }
+}
 function klOfflineBadge(show) {
   let b = document.getElementById('klOffBadge');
   if (!show) { b?.remove(); return; }
