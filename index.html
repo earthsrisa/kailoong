@@ -2638,7 +2638,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v107';
+const APP_VERSION = 'v108';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -9369,6 +9369,61 @@ async function klCheckVersion(mine) {
     setTimeout(() => location.reload(), 600);
   } catch (e) { console.warn('version check:', e); }
 }
+// ═══════════════════════════════════════
+//  ปุ่มบันทึก "กำลังบันทึก…" — กดแล้วปุ่มจางลง มีวงกลมหมุน กดซ้ำไม่ได้ จนกว่างานจะเสร็จ
+// ═══════════════════════════════════════
+// ผู้ใช้สูงอายุ + เน็ตช้า: เดิมกดแล้วปุ่มไม่เปลี่ยน ไม่รู้ว่ากำลังทำงาน → กดซ้ำ/คิดว่าค้าง
+// ทำแบบ "ครอบ" ฟังก์ชันบันทึกเดิม ไม่แก้ข้างใน: จำปุ่มที่เพิ่งกด → ถ้าฟังก์ชันคืนงานที่ต้องรอ (Promise)
+// ทำปุ่มเป็นสถานะรอ แล้วคืนสภาพเมื่อเสร็จ (สำเร็จหรือพลาด) · ปุ่มถูกลบไปแล้ว (ปิดหน้าต่าง/เปลี่ยนหน้า) = ไม่ต้องคืน
+let _klLastBtn = null, _klLastBtnAt = 0;
+document.addEventListener('click', e => {
+  const b = e.target && e.target.closest && e.target.closest('button');
+  if (b) { _klLastBtn = b; _klLastBtnAt = Date.now(); }
+}, true);
+function klBtnBusy(b, on, label) {
+  if (!b) return;
+  if (on) {
+    if (b.dataset.klBusy) return;
+    b.dataset.klBusy = '1'; b.dataset.klHtml = b.innerHTML; b.dataset.klDis = b.disabled ? '1' : '';
+    b.disabled = true; b.style.opacity = '.75';
+    b.innerHTML = `<i class="fa-solid fa-spinner fa-spin me-1"></i>${label || 'กำลังบันทึก…'}`;
+  } else {
+    if (!b.dataset.klBusy) return;
+    b.innerHTML = b.dataset.klHtml; b.disabled = !!b.dataset.klDis; b.style.opacity = '';
+    delete b.dataset.klBusy; delete b.dataset.klHtml; delete b.dataset.klDis;
+  }
+}
+// fallback = ปุ่มที่จะแสดงสถานะรอแทน เมื่อปุ่มที่กดหายไปแล้ว (เช่น กดยืนยันในหน้าสรุปซึ่งปิดตัวเองทันที)
+function klWithBusy(name, fallbackSel, label) {
+  const fn = window[name];
+  if (typeof fn !== 'function' || fn._klBusy) return;
+  const shown = b => b && b.isConnected && b.offsetParent !== null && !b.closest('.modal:not(.show)');
+  const w = function (...args) {
+    let btns = [];
+    if (Date.now() - _klLastBtnAt < 1500 && shown(_klLastBtn) && !_klLastBtn.disabled) btns = [_klLastBtn];
+    else if (fallbackSel) btns = [...document.querySelectorAll(fallbackSel)].filter(shown);
+    const r = fn.apply(this, args);
+    if (btns.length && r && typeof r.then === 'function') {
+      btns.forEach(b => klBtnBusy(b, true, label));
+      r.then(() => btns.forEach(b => klBtnBusy(b, false)), () => btns.forEach(b => klBtnBusy(b, false)));
+    }
+    return r;
+  };
+  w._klBusy = true;
+  window[name] = w;
+}
+[
+  ['saveProduct'], ['saveCustomer'], ['saveCustomerPrices'], ['saveExpense'], ['saveCraftsman'],
+  ['saveAddItems'], ['saveShopInfo'], ['saveBankInfo'], ['saveRoutes'],
+  ['doSaveOrder',  '#orderModal.show button[onclick^="saveOrder"]'],       // ปุ่มยืนยันในหน้าสรุปปิดตัวเองทันที
+  ['saveReceipt',  '#rcModal.show button[onclick^="saveReceipt"]'],        // ยืนยันจากหน้าตัวอย่างบิล
+  ['bulkCreateInvoices', '#bulkInvModal.show button[onclick^="bulkCreateInvoices"]'],
+  ['confirmBulkInvoices', '#bulkInvModal.show button[onclick^="confirmBulkInvoices"]'],
+  ['backupData', null, 'กำลังสำรอง…'],
+  ['confirmRestore', null, 'กำลังกู้คืน…'],
+  ['undoLastBatch', null, 'กำลังยกเลิก…'],
+].forEach(([n, fb, lb]) => klWithBusy(n, fb, lb));
+
 // เช็คตอนเปิด (หลังหน้าขึ้นแล้ว ไม่แย่งเน็ตตอนโหลดข้อมูล) และทุกครั้งที่กลับมาเปิดแอพ
 setTimeout(() => klCheckVersion(APP_VERSION), 4000);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') klCheckVersion(APP_VERSION); });
