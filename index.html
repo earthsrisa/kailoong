@@ -2638,7 +2638,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v106';
+const APP_VERSION = 'v107';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -3630,7 +3630,7 @@ function showOrderConfirm() {
       : 'background:#fff;color:#111;border:1.5px solid #94a3b8;';
     const chips =
         (x.color && x.color!=='-' ? `<span class="oc-chip" style="${cs}">${U.esc(x.color)}</span>` : '')
-      + (x.trimColor && x.trimColor !== '-' ? `<span class="oc-chip" style="background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;">เส้น${U.esc(x.trimColor)} ${TRIM_ICON[x.trimColor]||''}</span>` : '')
+      + (x.trimColor && x.trimColor !== '-' ? `<span class="oc-chip" style="${trimChipStyle(x.trimColor)}">เส้น${U.esc(x.trimColor)} ${TRIM_ICON[x.trimColor]||''}</span>` : '')
       + (x.extra ? `<span class="oc-chip" style="background:#fef3c7;color:#92400e;">${U.esc(x.extra)}</span>` : '')
       + (isAcc ? `<span class="oc-chip" style="background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc;">อุปกรณ์เสริม</span>` : '');
     return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid #f1f5f9;">
@@ -4203,6 +4203,18 @@ function ocSetNote(i, v) {
   const it = window._ordCart[i]; if (it) it.specialNote = v;
 }
 
+// ── สีป้าย "เส้น…" ในหน้ารับออเดอร์ — ชุดสีเดียวกับใบพิมพ์รายการรอส่ง จะได้ดูออกทันทีว่าเส้นอะไร ──
+const TRIM_CHIP = {
+  'ทอง':      'background:#b45309;color:#fff;border:1px solid #92400e;',
+  'เงิน':     'background:#d1d5db;color:#111;border:1.5px solid #6b7280;',
+  'ขาว':      'background:#fff;color:#111;border:1.5px solid #374151;',
+  'ซีด':      'background:#d9f99d;color:#365314;border:1px solid #a3e635;',
+  'คริสต์':   'background:#dbeafe;color:#1e40af;border:1px solid #93c5fd;',
+  'ผ้าจีบ':   'background:#ede9fe;color:#5b21b6;border:1px solid #c4b5fd;',
+  'ผ้าจีบทอง': 'background:#fef3c7;color:#92400e;border:1px solid #d6a83a;',
+  'ผ้าดอก':   'background:#fce7f3;color:#9d174d;border:1px solid #f9a8d4;',
+};
+function trimChipStyle(t) { return TRIM_CHIP[t] || 'background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;'; }
 // ── วาดตะกร้า ──
 function ocRowLabel(x) {
   const cs = x.color === 'แดง' ? 'background:#7f0000;color:#fff;'
@@ -4213,7 +4225,7 @@ function ocRowLabel(x) {
   const hasTrim = x.trimColor && x.trimColor !== '-';
   return `<span>${U.esc(x.productName)}</span>`
     + (x.color && x.color !== '-' ? `<span class="oc-chip" style="${cs}">${U.esc(x.color)}</span>` : '')
-    + (hasTrim ? `<span class="oc-chip" style="background:${isChrist?'#dbeafe':'#f3f4f6'};color:${isChrist?'#1e40af':'#374151'};border:1px solid #e5e7eb;">${isChrist?'✝คริสต์':'เส้น'+U.esc(x.trimColor)}</span>` : '')
+    + (hasTrim ? `<span class="oc-chip" style="${trimChipStyle(x.trimColor)}">${isChrist?'✝คริสต์':'เส้น'+U.esc(x.trimColor)}</span>` : '')
     + (x.extra ? `<span class="oc-chip" style="background:#fef3c7;color:#92400e;">${U.esc(x.extra)}</span>` : '');
 }
 
@@ -4759,36 +4771,43 @@ function pendDeliver(el) {
   const rows = picks.length;
   const pcs  = picks.reduce((a,[,v]) => a+v, 0);
 
-  // ── ตรวจก่อนว่าเลือกเกินของที่แต่งเสร็จไหม (ส่งได้เฉพาะของที่แต่งแล้ว) ──
-  const bad = [];
+  // ── ของที่ยังไม่ได้แต่ง: ส่งได้ (เจ้าของขอ 17 ต.ค. 69) แต่ต้องเด้งให้ทบทวนก่อนว่ามีอะไรบ้าง ──
+  // ส่งแล้ว = หายจากงานช่างเอง (หน้าช่างนับงานจาก "ยังไม่ได้ส่ง") ไม่ต้องแตะ craftStatus
+  const unready = [];
   for (const [idxStr, want] of picks) {
     const m = grp.merged[Number(idxStr)]; if (!m) continue;
     const ready = Math.min(m.craftedQty || 0, m.qty);
-    if (want > ready) bad.push({name: m.key, want, ready});
+    if (want > ready) unready.push({ name: m.key, n: want - ready });
   }
-  if (bad.length) {
-    const b = bad[0];
-    const more = bad.length > 1 ? ` (และอีก ${bad.length-1} รายการ)` : '';
-    U.toast(`ส่งไม่ได้: ${b.name} เลือก ${b.want} แต่แต่งเสร็จแค่ ${b.ready}${more}`, 'error');
-    return;
-  }
+  const unreadyN = unready.reduce((a, u) => a + u.n, 0);
+  const msg = unready.length
+    // ⚠️ ข้อความอยู่ใน <p> ของกล่องยืนยัน → ใช้ span (display:block) ห้ามใช้ div ไม่งั้นหน้าตาแตกเป็นคอลัมน์
+    ? `<b style="color:#b45309;">มีหีบที่ยังไม่ได้แต่ง ${unreadyN} ใบ</b>
+       <span style="display:block;margin:8px 0 10px;padding:8px 12px;border-radius:10px;background:#fffbeb;border:1px solid #fde68a;line-height:1.8;">
+         ${unready.map(u => `• ${U.esc(u.name)} — <b>ยังไม่แต่ง ${u.n}</b>`).join('<br>')}</span>
+       ส่งทั้งหมด ${pcs} ชิ้น ให้ ${U.esc(grp.customerName)} เลยไหม?
+       <span style="display:block;font-size:13px;color:#64748b;margin-top:4px;">ที่ยังไม่แต่งจะหายจากงานของช่าง (ถือว่าส่งไปแล้ว)</span>`
+    : `ยืนยันจัดส่ง ${rows} รายการ รวม ${pcs} ชิ้น ให้ ${U.esc(grp.customerName)} ใช่ไหม?`;
 
-  U_confirm(`ยืนยันจัดส่ง ${rows} รายการ รวม ${pcs} ชิ้น ให้ ${grp.customerName} ใช่ไหม?`, async () => {
+  U_confirm(msg, async () => {
     // กระจายจำนวนที่เลือกกลับไปยังออเดอร์ต้นทาง
+    // รอบ 1: เอาของที่แต่งเสร็จแล้วก่อน · รอบ 2: ส่วนที่เหลือ (ยังไม่แต่ง) ตามลำดับออเดอร์เก่า→ใหม่
+    // (ถือว่าใบที่แต่งแล้วออกไปก่อน → ที่ยังค้างในหน้าช่างตรงกับของที่ยังอยู่ในโรงงาน)
     const updates = {}; // orderId → { dKey: newDeliveredQty }
     for (const [idxStr, want] of picks) {
       const m = grp.merged[Number(idxStr)]; if (!m) continue;
       let left = want;
-      // ส่งได้เฉพาะของที่แต่งเสร็จแล้ว → cap ด้วย remainCraft ไม่ใช่ remainQty
-      for (const s of m.sources) {
-        if (left <= 0) break;
-        const take = Math.min(left, s.remainCraft, s.remainQty);
-        if (take <= 0) continue;
+      const took = new Map();   // source → จำนวนที่เอาไปแล้ว
+      const give = (s, take) => {
+        if (take <= 0) return;
+        took.set(s, (took.get(s) || 0) + take);
         if (!updates[s.orderId]) updates[s.orderId] = {};
         updates[s.orderId][s.dKey] = (updates[s.orderId][s.dKey] ?? s.delivered) + take;
         left -= take;
-      }
-      if (left > 0) { U.toast(`ส่งไม่ได้: ${m.key} มีของแต่งเสร็จไม่พอ`, 'error'); return; }
+      };
+      for (const s of m.sources) { if (left <= 0) break; give(s, Math.min(left, s.remainCraft, s.remainQty)); }
+      for (const s of m.sources) { if (left <= 0) break; give(s, Math.min(left, s.remainQty - (took.get(s) || 0))); }
+      if (left > 0) { U.toast(`ส่งไม่ได้: ${m.key} เลือกเกินจำนวนที่ค้างส่ง`, 'error'); return; }
     }
     try {
       const deliveredAt = Date.now();
@@ -4810,7 +4829,9 @@ function pendDeliver(el) {
     } catch (e) {
       U.toast('เกิดข้อผิดพลาด: '+e.message,'error');
     }
-  }, {title:'ยืนยันการจัดส่ง', yesLabel:'ส่งแล้ว', yesCls:'btn-success', icon:'fa-truck', iconColor:'#16a34a'});
+  }, unready.length
+    ? {title:'ยังมีหีบที่ไม่ได้แต่ง', yesLabel:'ส่งทั้งหมดเลย', yesCls:'btn-warning', icon:'fa-triangle-exclamation', iconColor:'#d97706'}
+    : {title:'ยืนยันการจัดส่ง', yesLabel:'ส่งแล้ว', yesCls:'btn-success', icon:'fa-truck', iconColor:'#16a34a'});
 }
 
 // ── ออกบิลเฉพาะรายการที่เลือก ──
@@ -4983,7 +5004,7 @@ function printPendingOrders(ordersInput) {
   const custMap = new Map();
   ordersToUse.forEach(o => {
     const key = o.customerId || o.customerName;
-    if (!custMap.has(key)) custMap.set(key, {name:o.customerName, dates:[], items:new Map(), extras:{}});
+    if (!custMap.has(key)) custMap.set(key, {name:o.customerName, custId:o.customerId, dates:[], items:new Map(), extras:{}});
     const g = custMap.get(key);
     g.dates.push(U.date(o.createdAt));
     const ds = o.deliveryStatus || {};
@@ -5073,11 +5094,13 @@ function printPendingOrders(ordersInput) {
         <td class="c-box"></td>
       </tr>`).join('');
     const extraSection = extraRows ? `<tr><td colspan="3" style="font-size:12.5px;color:#6b7280;padding:3px 8px;border-top:1px dashed #e5e7eb;">อุปกรณ์เสริม</td></tr>${extraRows}` : '';
+    // สีสติ๊กเกอร์ของลูกค้า → ระบายกรอบ+หัวกล่อง (ไม่มี = สีฟ้าเดิม)
+    const stk = stickerOfCust(c.custId, c.name);
     return `
-    <div class="cust-block">
-      <div class="cust-head">
-        <span class="cust-name">${c.name}</span>
-        <span class="cust-count">${custUnready > 0 ? `พร้อมส่ง ${custReady} / ${custPieces} โลง` : `${custPieces} โลง`}</span>
+    <div class="cust-block"${stk ? ` style="border-color:${stk.bg};"` : ''}>
+      <div class="cust-head"${stk ? ` style="background:${stk.bg};border-bottom-color:${stk.bg};"` : ''}>
+        <span class="cust-name"${stk ? ` style="color:${stk.fg};"` : ''}>${U.esc(c.name)}</span>
+        <span class="cust-count"${stk ? ` style="background:#fff;color:#111827;border-color:#fff;"` : ''}>${custUnready > 0 ? `พร้อมส่ง ${custReady} / ${custPieces} โลง` : `${custPieces} โลง`}</span>
       </div>
       <table>
         <colgroup><col class="c-name"><col class="c-qty"><col class="c-box"></colgroup>
@@ -5672,6 +5695,34 @@ async function showCustomerHistory(custId) {
   showModal('custHistModal',`ประวัติ: ${U.esc(cust.name)}`,body,`<button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>`,'modal-lg');
 }
 
+// ── สีสติ๊กเกอร์ลูกค้า (ร้านติดสติ๊กเกอร์สีบนหีบตามลูกค้า) ──
+// ใช้ระบายหัวกล่องลูกค้าในใบพิมพ์รายการรอส่ง · ตั้งได้ที่หน้าต่างแก้ไขลูกค้า (ช่อง stickerColor)
+// stickerColor: ไม่มีช่องนี้ = ใช้ค่าตั้งต้นตามชื่อ (STICKER_DEFAULTS) · 'none' = ไม่มีสติ๊กเกอร์
+const STICKER_COLORS = {
+  'ม่วง':   { bg:'#7c3aed', fg:'#fff' },
+  'น้ำเงิน': { bg:'#1d4ed8', fg:'#fff' },
+  'ดำ':     { bg:'#111827', fg:'#fff' },
+  'เขียว':  { bg:'#15803d', fg:'#fff' },
+  'แดง':    { bg:'#dc2626', fg:'#fff' },
+  'ส้ม':    { bg:'#ea580c', fg:'#fff' },
+  'ชมพู':   { bg:'#db2777', fg:'#fff' },
+  'เหลือง': { bg:'#facc15', fg:'#111827' },
+};
+// เจ้าที่ร้านติดสติ๊กเกอร์อยู่แล้ว (เจ้าของบอก 17 ต.ค. 69) — แก้ในหน้าลูกค้าเมื่อไร ค่าที่บันทึกจะใช้แทน
+const STICKER_DEFAULTS = { 'ป้าแมว':'ม่วง', 'ครูนุช':'น้ำเงิน', 'ป้าดา':'ดำ', 'ป้าขวัญ':'เขียว' };
+function custStickerName(c) {
+  if (!c) return '';
+  const v = c.stickerColor;
+  if (v === 'none') return '';
+  if (v && STICKER_COLORS[v]) return v;
+  return STICKER_DEFAULTS[String(c.name || '').trim()] || '';
+}
+// หาจากรหัสลูกค้า (ข้อมูลลูกค้าในเครื่อง) ไม่เจอค่อยใช้ชื่อ — ใช้แบบไม่ต้องรอ (หน้าพิมพ์ต้องเปิดทันทีตอนกด)
+function stickerOfCust(custId, name) {
+  const list = (DB._cache.customers && DB._cache.customers.data) || [];
+  const c = list.find(x => String(x.id) === String(custId)) || { name };
+  return STICKER_COLORS[custStickerName(c)] || null;
+}
 async function showCustomerModal(id) {
   const [c, allCust] = await Promise.all([id ? DB.getCustomer(id) : null, DB.getCustomers()]);
   // สายที่เคยตั้งไว้แล้ว (ไว้เลือก) + จำนวนลูกค้าในแต่ละสาย
@@ -5689,6 +5740,15 @@ async function showCustomerModal(id) {
         `<button type="button" class="btn btn-sm btn-outline-secondary" style="border-radius:14px;padding:1px 10px;font-size:12.5px;" data-route="${U.esc(r)}" onclick="document.getElementById('cf_route').value=this.dataset.route">${U.esc(r)} <span style="opacity:.6;">${routeCount[r]}</span></button>`).join('')}
         <button type="button" class="btn btn-sm btn-link" style="font-size:12.5px;padding:1px 4px;" onclick="document.getElementById('cf_route').value=''">ไม่มีสาย</button></div>` : ''}
     </div>
+    <div class="col-12"><label class="form-label"><i class="fa-solid fa-tag me-1" style="color:#7c3aed;"></i>สีสติ๊กเกอร์บนหีบ
+        <span style="font-size:12.5px;color:#6b7280;font-weight:400;">(ใบพิมพ์รายการรอส่งจะระบายกล่องลูกค้าเป็นสีนี้)</span></label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">${(() => {
+        const cur = custStickerName(c || { name: '' });
+        const chip = (val, label, st) => `<label style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:16px;border:1.5px solid #e5e7eb;cursor:pointer;font-size:13.5px;">
+          <input type="radio" name="cf_sticker" value="${val}" ${cur === val || (!cur && val === 'none') ? 'checked' : ''}>
+          ${st ? `<span style="width:14px;height:14px;border-radius:4px;background:${st.bg};display:inline-block;"></span>` : ''}${label}</label>`;
+        return chip('none', 'ไม่มี', null) + Object.entries(STICKER_COLORS).map(([n, st]) => chip(n, n, st)).join('');
+      })()}</div></div>
     <div class="col-sm-6"><label class="form-label">เบอร์โทรศัพท์</label>
       <input type="tel" class="form-control" id="cf_phone" value="${U.esc(c?.phone||'')}" placeholder="08x-xxx-xxxx"></div>
     <div class="col-sm-6"><label class="form-label">เลขผู้เสียภาษี</label>
@@ -5714,6 +5774,8 @@ async function saveCustomer() {
     if (!name){U.toast('กรุณากรอกชื่อ','error');return;}
     const id=document.getElementById('cf_id')?.value||'';
     const data={name,route:normRoute(document.getElementById('cf_route')?.value),phone:document.getElementById('cf_phone')?.value.trim()||'',taxId:document.getElementById('cf_taxId')?.value.trim()||'',address:document.getElementById('cf_address')?.value.trim()||'',notes:document.getElementById('cf_notes')?.value.trim()||''};
+    const stk = document.querySelector('input[name="cf_sticker"]:checked');
+    if (stk) data.stickerColor = stk.value;     // 'none' หรือชื่อสี
     if (id){const old=await DB.getCustomer(id);await DB.putCustomer({...old,...data});U.toast('แก้ไขข้อมูลลูกค้าแล้ว ✓');}
     else{await DB.addCustomer(data);U.toast('เพิ่มลูกค้าแล้ว ✓');}
     setCustRoutes(await DB.getCustomers());   // หน้าหลักจัดกลุ่มตามสายใหม่ทันที
@@ -7739,8 +7801,9 @@ async function renderCraftsmen(el) {
         if (isAccessory(it.productName)) continue;
         if (!craftsmanDoes(c, it, prodById)) continue;
         const cqPer = getCraftedFor(cs, it);
+        const dl = getDeliveredQty((o.deliveryStatus || {})[deliverKey(it)], it.qty, o.isDelivered);
         done    += cqPer;
-        pending += (it.qty - cqPer);
+        pending += Math.max(0, (it.qty - dl) - Math.max(0, cqPer - dl));
       }
     }
     return { ...c, pending, done };
