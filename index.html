@@ -2638,7 +2638,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v108';
+const APP_VERSION = 'v109';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -5033,6 +5033,15 @@ function printPendingOrders(ordersInput) {
   if (!list.length) { U.toast('ไม่มีรายการค้างส่งให้พิมพ์','error'); return; }
   const totalPieces = list.reduce((a,c)=>a+[...c.items.values()].reduce((x,v)=>x+v.qty,0),0);
   const totalCusts  = list.length;
+  // ── สรุปท้ายใบ: แต่ละชนิดหีบกี่ใบ (ไม่แยกสี/เส้น — เจ้าของขอ 19 ต.ค. 69) ──
+  const typeSum = {};
+  list.forEach(c => c.items.forEach(v => { const t = v.productName || '?'; typeSum[t] = (typeSum[t] || 0) + v.qty; }));
+  const typeRows = Object.entries(typeSum).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'th'));
+  const typeSumHtml = typeRows.length ? `
+  <div class="type-sum">
+    <div class="ts-head"><span>สรุปตามชนิดหีบ</span><span>รวม ${totalPieces} โลง</span></div>
+    <div class="ts-grid">${typeRows.map(([t, n]) => `<div class="ts-row"><span class="ts-name">${U.esc(t)}</span><span class="ts-n">${n} ใบ</span></div>`).join('')}</div>
+  </div>` : '';
 
   // สร้าง HTML badge สำหรับสีโลง
   function colorBadge(color) {
@@ -5132,6 +5141,12 @@ function printPendingOrders(ordersInput) {
     .cust-head{background:#dbeafe;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #93c5fd;}
     .cust-name{font-size:15px;font-weight:800;color:#1e3a8a;letter-spacing:.2px;}
     .cust-count{font-size:12px;color:#1d4ed8;font-weight:800;background:#eff6ff;padding:2px 9px;border-radius:20px;border:1.5px solid #93c5fd;}
+    .type-sum{margin-top:10px;border:2px solid #1e3a8a;border-radius:8px;overflow:hidden;break-inside:avoid;page-break-inside:avoid;}
+    .ts-head{background:#1e3a8a;color:#fff;padding:6px 12px;display:flex;justify-content:space-between;font-weight:800;font-size:15px;}
+    .ts-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;}
+    .ts-row{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb;font-size:14px;}
+    .ts-name{font-weight:700;color:#111;}
+    .ts-n{font-weight:800;color:#1e3a8a;white-space:nowrap;margin-left:8px;}
     table{width:100%;border-collapse:collapse;table-layout:auto;}
     th{text-align:left;background:#f8fafc;padding:4px 8px;font-size:11px;color:#64748b;font-weight:700;letter-spacing:.3px;}
     th.c-qty,td.c-qty{text-align:center;white-space:nowrap;width:1%;}
@@ -5164,6 +5179,7 @@ function printPendingOrders(ordersInput) {
     <div style="font-size:32px;opacity:.3;">📦</div>
   </div>
   <div class="grid-wrap">${rows}</div>
+  ${typeSumHtml}
   <div class="no-print">
     <button onclick="window.print()" style="padding:10px 26px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ พิมพ์</button>
   </div>
