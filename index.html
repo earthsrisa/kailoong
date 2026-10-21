@@ -2638,7 +2638,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v110';
+const APP_VERSION = 'v111';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -5141,12 +5141,17 @@ function printPendingOrders(ordersInput) {
     .cust-head{background:#dbeafe;padding:6px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #93c5fd;}
     .cust-name{font-size:15px;font-weight:800;color:#1e3a8a;letter-spacing:.2px;}
     .cust-count{font-size:12px;color:#1d4ed8;font-weight:800;background:#eff6ff;padding:2px 9px;border-radius:20px;border:1.5px solid #93c5fd;}
-    .type-sum{margin-top:10px;border:2px solid #1e3a8a;border-radius:8px;overflow:hidden;break-inside:avoid;page-break-inside:avoid;}
-    .ts-head{background:#1e3a8a;color:#fff;padding:6px 12px;display:flex;justify-content:space-between;font-weight:800;font-size:15px;}
-    .ts-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;}
-    .ts-row{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;border-bottom:1px solid #e5e7eb;border-right:1px solid #e5e7eb;font-size:14px;}
-    .ts-name{font-weight:700;color:#111;}
-    .ts-n{font-weight:800;color:#1e3a8a;white-space:nowrap;margin-left:8px;}
+    /* .sheet สูงเท่าพื้นที่พิมพ์ A4 (297 − ขอบบนล่าง 10+10 มม.) → กล่องสรุป margin-top:auto ไปชิดขอบล่างของกระดาษ */
+    .sheet{display:flex;flex-direction:column;min-height:274mm;}  /* เผื่อ 3 มม. กันปัดเศษแล้วล้นเป็นหน้าว่างที่ 2 */
+    .type-sum{margin-top:auto;align-self:flex-start;min-width:240px;border:2px solid #1e3a8a;border-radius:8px;overflow:hidden;break-inside:avoid;page-break-inside:avoid;}
+    .grid-wrap{margin-bottom:12px;}
+    .ts-head{background:#1e3a8a;color:#fff;padding:6px 14px;display:flex;justify-content:space-between;gap:24px;font-weight:800;font-size:15px;}
+    .ts-grid{display:grid;grid-template-columns:max-content auto;}
+    .ts-row{display:contents;}
+    .ts-row:nth-child(even)>span{background:#f8fafc;}
+    .ts-row:last-child>span{border-bottom:none;}
+    .ts-name{font-weight:700;color:#111;font-size:15px;padding:6px 18px 6px 14px;border-bottom:1px solid #e5e7eb;}
+    .ts-n{font-weight:800;color:#1e3a8a;white-space:nowrap;font-size:16px;text-align:right;padding:6px 14px 6px 0;border-bottom:1px solid #e5e7eb;}
     table{width:100%;border-collapse:collapse;table-layout:auto;}
     th{text-align:left;background:#f8fafc;padding:4px 8px;font-size:11px;color:#64748b;font-weight:700;letter-spacing:.3px;}
     th.c-qty,td.c-qty{text-align:center;white-space:nowrap;width:1%;}
@@ -5168,6 +5173,7 @@ function printPendingOrders(ordersInput) {
     }
   </style></head><body>
   ${KL_WIN_BACK}
+  <div class="sheet">
   <h1>🚚 รายการรอส่ง${printAll ? ' <span style="font-size:14px;font-weight:600;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:2px 10px;vertical-align:middle;">พิมพ์ล่วงหน้า</span>' : ''}</h1>
   <div class="sub">${d.dateLabel}${printAll ? ' · ใบนี้แสดงทุกรายการ ยังไม่ได้แยกว่าแต่งเสร็จหรือยัง' : ''}</div>
   <div class="grand-total">
@@ -5180,10 +5186,11 @@ function printPendingOrders(ordersInput) {
   </div>
   <div class="grid-wrap">${rows}</div>
   ${typeSumHtml}
+  </div>
   <div class="no-print">
     <button onclick="window.print()" style="padding:10px 26px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">🖨️ พิมพ์</button>
   </div>
-  <script>window.addEventListener('load',function(){var b=document.body;var k=document.getElementById('klBack');var h=b.scrollHeight-(k?k.offsetHeight+10:0);if(h>1056){b.style.zoom=1056/h;}});<\/script>
+  <script>window.addEventListener('load',function(){var s=document.querySelector('.sheet');if(!s)return;s.style.minHeight='0';var h=s.scrollHeight;s.style.minHeight='';var lim=1040;if(h>lim){document.body.style.zoom=lim/h;}});<\/script>
   </body></html>`);
   win.document.close();
 }
