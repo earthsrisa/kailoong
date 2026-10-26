@@ -2638,7 +2638,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v111';
+const APP_VERSION = 'v112';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2818,6 +2818,59 @@ async function backupWarningHtml() {
   </div>`;
 }
 
+// ═══════════════════════════════════════
+// แถบเตือนจ่ายเงินสมทบประกันสังคม (ม.33 — ร้านจ่ายให้ลูกจ้าง) — เจ้าของขอ 26 ต.ค. 69
+// เงินสมทบของค่าจ้าง "เดือนก่อน" ต้องนำส่งภายในวันที่ 15 · เริ่มเตือนวันที่ 5 จนกว่าจะกด "จ่ายแล้ว"
+// วันที่ 1–4 ถ้างวดก่อนหน้ายังไม่กดจ่าย → ยังเตือนต่อ (สีแดง เลยกำหนด)
+// เก็บใน settings/ssoPaid = 'YYYY-MM' (ค.ศ.) ของงวดล่าสุดที่จ่ายแล้ว
+const SSO_WARN_DAY = 5, SSO_DUE_DAY = 15;
+function ssoPeriodNow() {
+  const d = new Date();
+  const back = d.getDate() >= SSO_WARN_DAY ? 1 : 2;   // งวด = ค่าจ้างเดือนไหน
+  const p = new Date(d.getFullYear(), d.getMonth() - back, 1);
+  return { key: p.getFullYear() + '-' + String(p.getMonth() + 1).padStart(2, '0'), date: p,
+           due: new Date(p.getFullYear(), p.getMonth() + 1, SSO_DUE_DAY) };
+}
+async function ssoWarningHtml() {
+  let paid = null;
+  try { paid = await withTimeout(DB.getSetting('ssoPaid'), 4000); } catch(e) { return ''; }
+  const per = ssoPeriodNow();
+  if (paid && paid >= per.key) return '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const left = Math.round((per.due - today) / 86400000);
+  const late = left < 0;
+  const mon = per.date.toLocaleDateString('th-TH-u-ca-buddhist', { month: 'long', year: 'numeric' });
+  const dueTxt = per.due.toLocaleDateString('th-TH-u-ca-buddhist', { day: 'numeric', month: 'short', year: 'numeric' });
+  const sub = late ? `เลยกำหนดแล้ว ${-left} วัน (ต้องจ่ายภายใน ${dueTxt})`
+            : left === 0 ? `ครบกำหนด <strong>วันนี้</strong> (${dueTxt})`
+            : `ต้องจ่ายภายใน ${dueTxt} · เหลืออีก <strong>${left} วัน</strong>`;
+  const c = late ? { bg:'#fef2f2', bd:'#fecaca', bar:'#dc2626', ic:'#b91c1c', t:'#7f1d1d', s:'#991b1b', btn:'btn-danger' }
+                 : { bg:'#fffbeb', bd:'#fde68a', bar:'#f59e0b', ic:'#b45309', t:'#78350f', s:'#92400e', btn:'btn-warning' };
+  return `
+  <div id="ssoWarn" style="background:${c.bg};border:1px solid ${c.bd};border-left:4px solid ${c.bar};
+    border-radius:0 12px 12px 0;padding:13px 16px;margin-bottom:14px;
+    display:flex;align-items:center;gap:13px;flex-wrap:wrap;">
+    <i class="fa-solid fa-building-shield" style="font-size:21px;color:${c.ic};"></i>
+    <div style="flex:1;min-width:190px;">
+      <div style="font-size:14.5px;color:${c.t};">ยังไม่ได้จ่าย<strong>ประกันสังคม</strong> งวด${U.esc(mon)}</div>
+      <div style="font-size:12.5px;color:${c.s};opacity:.9;margin-top:2px;">${sub}</div>
+    </div>
+    <button class="btn ${c.btn}" style="font-weight:700;white-space:nowrap;"
+      onclick="ssoMarkPaid('${per.key}', this)"><i class="fa-solid fa-check me-1"></i>จ่ายแล้ว</button>
+  </div>`;
+}
+async function ssoMarkPaid(key, btn) {
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i>กำลังบันทึก…'; }
+  try {
+    await DB.setSetting('ssoPaid', key);
+    document.getElementById('ssoWarn')?.remove();
+    U.toast('บันทึกแล้ว — เดือนหน้าจะเตือนใหม่วันที่ ' + SSO_WARN_DAY + ' ✓');
+  } catch(e) {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check me-1"></i>จ่ายแล้ว'; }
+    U.toast('บันทึกไม่สำเร็จ: ' + e.message, 'error');
+  }
+}
+
 // แถบบอกว่าแจ้งเตือน LINE ปิดอยู่
 // ⚠️ ไม่ได้ใช้ที่หน้าแรกแล้ว — ย้ายไปดูสถานะที่หน้าตั้งค่าแทน (สวิตช์ LINE)
 //    เก็บฟังก์ชันไว้เผื่ออยากเอากลับมาใช้ ไม่ได้ลบทิ้งเพราะโค้ดเสียเปล่าไม่มีโทษ
@@ -2881,8 +2934,10 @@ async function renderDashboard(el) {
   if (!window._dashCustSet) window._dashCustSet = new Set();
   const initDashCust = buildDashCustContent(pendingOrders);
 
+  const [bkWarn, ssoWarn] = await Promise.all([backupWarningHtml(), ssoWarningHtml()]);
   el.innerHTML=`
-  ${await backupWarningHtml()}
+  ${ssoWarn}
+  ${bkWarn}
   <div class="row g-3 mb-3">
     <!-- ออเดอร์ค้างส่ง + customer filter -->
     <div class="col-xl-4">
