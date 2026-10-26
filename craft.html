@@ -1489,18 +1489,20 @@ function saveCraftsmenCache(list) {
 }
 
 // ── Real-time orders listener ──
-function startOrdersListener() {
+// opt.full = ดึงทุกใบจากเซิร์ฟเวอร์ใหม่ (ปุ่ม ↻) — คืน promise: true = ได้ข้อมูลจากเซิร์ฟเวอร์แล้ว
+function startOrdersListener(opt) {
   if (_unsubOrders) _unsubOrders(); // cleanup previous
   let stopped = false;
   _unsubOrders = () => { stopped = true; };
-  (async () => {
+  let fresh = false;
+  return (async () => {
     try {
       const v = await KLStore.get('orders');
       _ordP = (v && Array.isArray(v.rows))
         ? { rows: new Map(v.rows.map(r => [String(r.id), r])), maxTs: v.maxTs || 0, fullAt: v.fullAt || 0 } : null;
       if (_ordP) _ordEmit();   // โชว์ของในเครื่องก่อนเลย ไม่ต้องรอเน็ต
       // ชุดในเครื่องว่างเปล่า = น่าจะเคยเก็บผลว่างผิด ๆ ไว้ → ดึงทั้งหมดใหม่ ไม่รอครบเวลา
-      if (!_ordP || !_ordP.rows.size || Date.now() - _ordP.fullAt > ORD_FULL_EVERY) {
+      if ((opt && opt.full) || !_ordP || !_ordP.rows.size || Date.now() - _ordP.fullAt > ORD_FULL_EVERY) {
         // source:'server' — get() ธรรมดาตอนเน็ตหลุดคืน "ผลว่าง" จากแคช → เดิมเก็บลงเครื่อง งานช่างหายจากจอหลายชั่วโมง
         let snap = null;
         try { snap = await klRead(() => db.collection('orders').get({ source: 'server' }), 'orders'); }
@@ -1509,16 +1511,18 @@ function startOrdersListener() {
           _ordP = { rows: new Map(), maxTs: 0, fullAt: Date.now() };
           snap.docs.forEach(d => _ordMerge(d));
           _ordSave(); _ordEmit();
+          fresh = true;
         }
       }
-      if (stopped) return;
+      if (stopped) return fresh;
       const since = firebase.firestore.Timestamp.fromMillis(Math.max(1, _ordP.maxTs));
       const unsub = db.collection('orders').where('updatedAt', '>', since).onSnapshot(snap => {
         let ch = false; snap.docs.forEach(d => { if (_ordMerge(d)) ch = true; });
         if (ch) { _ordSave(); _ordEmit(); }
       }, err => { console.error('orders delta error:', err); toast('⚠️ เชื่อมต่อ Firestore ไม่ได้ กรุณารีเฟรช'); });
-      if (stopped) { unsub(); return; }
+      if (stopped) { unsub(); return fresh; }
       _unsubOrders = unsub;
+      return fresh;
     } catch (e) {
       // แบบใหม่ใช้ไม่ได้ → ฟังทั้งหมดแบบเดิม
       console.warn('orders cache path failed, fallback:', e);
@@ -3060,14 +3064,32 @@ function showConfirm({ icon, title, desc, itemLabel, yesLabel, yesColor, onYes }
 function doConfirm()  { closeConfirm(); if (_confirmCb) { _confirmCb(); _confirmCb = null; } }
 function closeConfirm() { document.getElementById('craft-confirm')?.remove(); }
 
-// ── Manual refresh (onSnapshot already keeps data fresh; this just re-renders) ──
-function refreshData() {
+// ── ปุ่ม ↻: ดึงออเดอร์ทุกใบจากเซิร์ฟเวอร์ใหม่ ──
+// เดิมแค่วาดหน้าจอใหม่จากของในเครื่อง → ถ้าตัวฟังข้อมูลหลุดเงียบ ๆ (เจอบนแอนดรอยด์ 27 ต.ค. 69:
+// แอดมินลบรายการออกแล้ว หน้าช่างยังเห็นอยู่) กดกี่ครั้งก็ไม่หาย · อ่าน ~400 ใบต่อครั้ง (โควตาวันละ 50,000)
+let _refreshing = false;
+async function refreshData() {
+  if (_refreshing) return;
+  _refreshing = true;
   const btn = document.getElementById('refreshBtn');
   if (btn) { btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; }
-  renderCraftOrders();
-  setTimeout(() => { if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i>'; }, 400);
-  toast('รีเฟรชแล้ว');
+  try {
+    const ok = await startOrdersListener({ full: true });
+    toast(ok ? '✅ ดึงข้อมูลล่าสุดแล้ว' : '⚠️ ดึงข้อมูลไม่สำเร็จ เช็คเน็ตแล้วลองใหม่');
+  } catch (e) {
+    toast('⚠️ ดึงข้อมูลไม่สำเร็จ เช็คเน็ตแล้วลองใหม่');
+  } finally {
+    _refreshing = false;
+    if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i>';
+  }
 }
+// กลับมาเปิดแอพหลังพักหน้าจอ/สลับแอพ ≥ 1 นาที → ต่อตัวฟังออเดอร์ใหม่ (ถามเฉพาะที่เปลี่ยน อ่านน้อย)
+// มือถือ (โดยเฉพาะแอนดรอยด์) แช่แข็งแอพที่อยู่เบื้องหลัง ตัวฟังข้อมูลอาจหลุดเงียบ ๆ ไม่ error
+let _klHiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { _klHiddenAt = Date.now(); return; }
+  if (_klHiddenAt && Date.now() - _klHiddenAt >= 60000 && _ordP) { _klHiddenAt = 0; startOrdersListener(); }
+});
 
 // ═══════════════════════════════════════
 //  SERVICE WORKER + สถานะออฟไลน์
@@ -3250,7 +3272,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span id="klVer" style="opacity:.6;margin-left:6px;">· v112</span>
+      <span id="klVer" style="opacity:.6;margin-left:6px;">· v113</span>
     </div>
   </div>
   <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">
