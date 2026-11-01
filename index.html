@@ -2638,7 +2638,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v113';
+const APP_VERSION = 'v114';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -9371,7 +9371,22 @@ function klApplyUpdate(worker) {
   worker.addEventListener('statechange', () => { if (worker.state === 'activated') go(); });
   setTimeout(go, 8000);            // เผื่อไม่มีสัญญาณอะไรเลย
 }
-function klShowUpdateBar(worker) {
+// iPhone เด้ง "มีเวอร์ชันใหม่" วันละครั้งทั้งที่ไม่ได้ขึ้นเว็บอะไร (เจอ 1 พ.ย. 69)
+// → เว็บจริง: เช็คเลขใน sw.js ก่อน เลขไม่ได้ใหม่กว่าหน้านี้ = ไม่มีอะไรใหม่ ไม่ต้องโชว์ป้าย
+//   (ตัวที่รออยู่จะถูกสลับเงียบ ๆ ตอนสลับแอพตามเดิม) · เว็บทดสอบเลขไม่ขยับ เลยโชว์ป้ายทุกครั้งเหมือนเดิม
+async function klShowUpdateBar(worker) {
+  _klPendingWorker = worker;
+  if (!KL_IS_TEST) {
+    try {
+      const r = await withTimeout(fetch('/sw.js?vc=/api/' + Date.now(), { cache: 'no-store' }), 8000);
+      const m = r.ok && (await r.text()).match(/kailoong-v(\d+)/);
+      const mine = parseInt(String(APP_VERSION || '').replace(/\D/g, ''), 10);
+      if (m && mine && parseInt(m[1], 10) <= mine) return;
+    } catch (e) {}
+  }
+  klShowUpdateBarNow(worker);
+}
+function klShowUpdateBarNow(worker) {
   _klPendingWorker = worker;
   if (document.getElementById('klUpdateBar')) return;
   let recent = 0;

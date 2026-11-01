@@ -3137,7 +3137,22 @@ function klApplyUpdate(worker) {
   worker.addEventListener('statechange', () => { if (worker.state === 'activated') go(); });
   setTimeout(go, 8000);            // เผื่อไม่มีสัญญาณอะไรเลย
 }
-function klShowUpdateBar(worker) {
+// iPhone เด้ง "มีเวอร์ชันใหม่" วันละครั้งทั้งที่ไม่ได้ขึ้นเว็บอะไร (เจอ 1 พ.ย. 69)
+// → เว็บจริง: เช็คเลขใน sw.js ก่อน เลขไม่ได้ใหม่กว่าหน้านี้ = ไม่มีอะไรใหม่ ไม่ต้องโชว์ป้าย
+//   (ตัวที่รออยู่จะถูกสลับเงียบ ๆ ตอนสลับแอพตามเดิม) · เว็บทดสอบเลขไม่ขยับ เลยโชว์ป้ายทุกครั้งเหมือนเดิม
+async function klShowUpdateBar(worker) {
+  _klPendingWorker = worker;
+  if (!KL_IS_TEST) {
+    try {
+      const r = await withTimeout(fetch('/sw.js?vc=/api/' + Date.now(), { cache: 'no-store' }), 8000);
+      const m = r.ok && (await r.text()).match(/kailoong-v(\d+)/);
+      const mine = parseInt(String(klMyVer() || '').replace(/\D/g, ''), 10);
+      if (m && mine && parseInt(m[1], 10) <= mine) return;
+    } catch (e) {}
+  }
+  klShowUpdateBarNow(worker);
+}
+function klShowUpdateBarNow(worker) {
   _klPendingWorker = worker;
   if (document.getElementById('klUpdateBar')) return;
   let recent = 0;
@@ -3272,7 +3287,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span id="klVer" style="opacity:.6;margin-left:6px;">· v113</span>
+      <span id="klVer" style="opacity:.6;margin-left:6px;">· v114</span>
     </div>
   </div>
   <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">
