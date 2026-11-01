@@ -1835,6 +1835,8 @@ function loadScriptOnce(url) {
 const LIB = {
   chart: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js',
   xlsx:  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+  qr:    'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
+  h2c:   'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
 };
 async function ensureChart() {
   if (typeof Chart !== 'undefined') return true;
@@ -2638,7 +2640,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v114';
+const APP_VERSION = 'v115';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2966,6 +2968,7 @@ async function renderDashboard(el) {
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input type="date" id="pendingDatePicker" value="${todayLocal()}" onchange="filterPendingByDate(this.value)" style="background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.3);border-radius:8px;color:#fff;font-size:12px;padding:4px 8px;cursor:pointer;">
             <button class="btn-card-outline" onclick="showPrintSelectModal()"><i class="fa-solid fa-print me-1"></i>พิมพ์รายการรอส่ง</button>
+            <button class="btn-card-outline" onclick="showShareBillModal()"><i class="fa-solid fa-share-nodes me-1"></i>แชร์บิล</button>
             <button class="btn-neworder-hero" onclick="showCreateOrderModal()"><i class="fa-solid fa-cart-plus"></i>รับออเดอร์ใหม่</button>
           </div>
         </div>
@@ -4930,6 +4933,170 @@ async function pendBill(el) {
   window._pendBillPlan  = plan;
   window._pendBillGid   = gid;
   await showCreateReceiptModal(null, encodeURIComponent(grp.customerName||''));
+}
+
+// ═══════════════════════════════════════
+//  แชร์บิลเป็นรูป (เจ้าของขอ 2 พ.ย. 69) — แทนการพิมพ์แล้วถ่ายรูปส่งลูกค้า
+//  เลือกลูกค้า → แตะเลือกรายการที่สั่งไว้ → ดูรูป → แชร์ (LINE / Messenger ฯลฯ ผ่านเมนูแชร์ของเครื่อง)
+//  เป็น "รายการ+ราคา" เฉย ๆ ไม่ใช่ใบเสร็จ: ไม่บันทึกอะไร ไม่มีเลขบิล ไม่แตะยอดออกบิล/จัดส่ง
+// ═══════════════════════════════════════
+// ออเดอร์ของวันที่เลือกบนหน้าหลัก (รวมใบที่ส่งครบแล้ว — มักส่งของเสร็จแล้วค่อยส่งบิล)
+// วันนี้: บวกใบเก่าที่ยังค้างส่งด้วย เหมือนรายการรอส่ง
+function shareBillOrders() {
+  const dateStr = document.getElementById('pendingDatePicker')?.value || todayLocal();
+  const isToday = dateStr === todayLocal();
+  const dayOf = o => new Date(o.createdAt).toLocaleDateString('sv-SE', {timeZone:'Asia/Bangkok'});
+  return (window._allOrdersCache || [])
+    .filter(o => !o.isDeleted && (dayOf(o) === dateStr || (isToday && !isOrderFullyDelivered(o))))
+    .sort((a,b) => a.createdAt - b.createdAt);
+}
+function shareBillLabel(i) {
+  const isChrist = i.trimColor==='คริสต์' || i.style==='คริสต์';
+  return (i.productName||'')
+    + (i.color && i.color!=='-' ? ' ('+i.color+')' : '')
+    + (isChrist ? ' คริสต์' : (i.trimColor && i.trimColor!=='-' ? ' เส้น'+i.trimColor : ''))
+    + (i.extra ? ' '+i.extra : '');
+}
+function showShareBillModal() {
+  const groups = [];
+  for (const o of shareBillOrders()) {
+    const k = o.customerId || o.customerName || '-';
+    let g = groups.find(x => x.k === k);
+    if (!g) groups.push(g = {k, name: o.customerName || '-', orders: []});
+    g.orders.push(o);
+  }
+  if (!groups.length) { U.toast('ไม่มีออเดอร์ในวันที่เลือก','error'); return; }
+  window._shb = {groups};
+  showModal('shbModal', '<i class="fa-solid fa-share-nodes me-2"></i>แชร์บิลให้ลูกค้า', '', '', 'modal-md');
+  shareBillStep1();
+}
+function _shbSet(body, footer) {
+  const m = document.getElementById('shbModal'); if (!m) return;
+  m.querySelector('.modal-body').innerHTML = body;
+  m.querySelector('.modal-footer').innerHTML = footer;
+}
+function shareBillStep1() {
+  const {groups} = window._shb;
+  _shbSet(`<div style="font-size:13.5px;color:#6b7280;margin-bottom:8px;">แตะชื่อลูกค้าที่จะส่งให้</div>` +
+    groups.map((g,i) => {
+      const pcs = g.orders.reduce((s,o) => s + (o.items||[]).reduce((a,it) => a + (+it.qty||0), 0), 0);
+      return `<button type="button" onclick="shareBillStep2(${i})" style="display:flex;width:100%;align-items:center;gap:10px;padding:12px 14px;margin-bottom:7px;border:2px solid #e5e7eb;border-radius:10px;background:#fff;text-align:left;font-family:inherit;cursor:pointer;">
+        <span style="flex:1;font-weight:700;font-size:15px;color:#1a2332;">${U.esc(g.name)}</span>
+        <span style="font-size:12.5px;color:#6b7280;">${g.orders.length} ใบ · ${pcs} ชิ้น</span>
+        <i class="fa-solid fa-chevron-right" style="color:#9ca3af;"></i></button>`;
+    }).join(''),
+    `<button class="btn btn-secondary" data-bs-dismiss="modal">ปิด</button>`);
+}
+// รวมรายการเดียวกัน (ชื่อ+ราคาเท่ากัน) จากทุกใบของลูกค้าคนนี้ — เลือกไว้ทั้งหมดก่อน แตะแถวเพื่อเอาออก
+function shareBillStep2(gi) {
+  const s = window._shb;
+  if (gi !== undefined) {
+    const g = s.groups[gi]; const items = [];
+    for (const o of g.orders) for (const i of (o.items||[])) {
+      const name = shareBillLabel(i), price = +i.price || 0;
+      const ex = items.find(x => x.name === name && x.price === price);
+      if (ex) ex.qty += (+i.qty||0); else items.push({name, price, qty: +i.qty||0, on: true});
+    }
+    s.gi = gi; s.items = items;
+  }
+  const g = s.groups[s.gi];
+  _shbSet(`<div style="font-size:15px;font-weight:700;margin-bottom:2px;">${U.esc(g.name)}</div>
+    <div style="font-size:13px;color:#6b7280;margin-bottom:10px;">แตะรายการเพื่อเลือก/เอาออก</div>
+    <div id="shbItems"></div>
+    <div id="shbSum" style="text-align:right;font-weight:800;font-size:16px;margin-top:8px;"></div>`,
+    `<button class="btn btn-outline-secondary" onclick="shareBillStep1()"><i class="fa-solid fa-chevron-left me-1"></i>เลือกลูกค้าใหม่</button>
+     <button class="btn btn-primary" onclick="shareBillStep3()"><i class="fa-solid fa-image me-1"></i>ดูรูปก่อนส่ง</button>`);
+  shareBillPaintItems();
+}
+function shareBillToggle(i) { const it = window._shb.items[i]; if (it) { it.on = !it.on; shareBillPaintItems(); } }
+function shareBillPaintItems() {
+  const s = window._shb, box = document.getElementById('shbItems'); if (!box) return;
+  box.innerHTML = s.items.map((it,i) => `<div onclick="shareBillToggle(${i})" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;border-radius:10px;cursor:pointer;
+      border:2px solid ${it.on?'#3b82f6':'#e5e7eb'};background:${it.on?'#eff6ff':'#fff'};opacity:${it.on?1:.55};">
+      <i class="fa-solid ${it.on?'fa-circle-check':'fa-circle'}" style="color:${it.on?'#2563eb':'#d1d5db'};font-size:18px;"></i>
+      <span style="flex:1;font-size:14.5px;font-weight:600;">${U.esc(it.name)}</span>
+      <span style="font-size:13.5px;color:#475569;white-space:nowrap;">${it.qty} × ${it.price ? U.money(it.price) : '-'}</span></div>`).join('');
+  const on = s.items.filter(it => it.on);
+  document.getElementById('shbSum').textContent = on.length
+    ? `รวม ${on.reduce((a,it)=>a+it.qty,0)} ชิ้น · ${U.money(on.reduce((a,it)=>a+it.qty*it.price,0))} บาท` : 'ยังไม่ได้เลือกรายการ';
+}
+async function shareBillStep3() {
+  const s = window._shb, g = s.groups[s.gi];
+  const items = s.items.filter(it => it.on);
+  if (!items.length) { U.toast('กรุณาเลือกอย่างน้อย 1 รายการ','error'); return; }
+  _shbSet(`<div style="text-align:center;padding:30px 0;color:#6b7280;"><i class="fa-solid fa-spinner fa-spin me-2"></i>กำลังทำรูป...</div>`, '');
+  try {
+    const dateStr = document.getElementById('pendingDatePicker')?.value || todayLocal();
+    const canvas = await shareBillCanvas(g, dateStr, items);
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    if (!blob) throw new Error('ทำรูปไม่สำเร็จ');
+    if (s.url) URL.revokeObjectURL(s.url);
+    s.blob = blob; s.url = URL.createObjectURL(blob);
+    s.fname = ('รายการ_' + g.name + '_' + dateStr).replace(/[\\/:*?"<>|\s]+/g, '_') + '.png';
+    _shbSet(`<img src="${s.url}" style="width:100%;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,.15);">`,
+      `<button class="btn btn-outline-secondary" onclick="shareBillStep2()"><i class="fa-solid fa-chevron-left me-1"></i>แก้รายการ</button>
+       <button class="btn btn-success" onclick="shareBillSend()"><i class="fa-solid fa-share-nodes me-1"></i>แชร์</button>`);
+  } catch (e) {
+    console.error(e);
+    U.toast('ทำรูปไม่สำเร็จ: ' + e.message, 'error');
+    shareBillStep2();
+  }
+}
+// ต้องเรียกจากการกดปุ่มโดยตรง (iPhone ไม่ยอมเปิดเมนูแชร์ถ้ามีงานรอนานคั่น) — รูปทำเสร็จไว้ก่อนแล้วใน step 3
+async function shareBillSend() {
+  const s = window._shb; if (!s || !s.blob) return;
+  const file = new File([s.blob], s.fname, {type: 'image/png'});
+  if (navigator.canShare && navigator.canShare({files: [file]})) {
+    try { await navigator.share({files: [file]}); }
+    catch (e) { if (e.name !== 'AbortError') U.toast('แชร์ไม่สำเร็จ: ' + e.message, 'error'); }
+    return;
+  }
+  // เครื่องที่แชร์ไฟล์ไม่ได้ (เช่นคอมบางรุ่น) → บันทึกรูปลงเครื่องแทน
+  const a = document.createElement('a');
+  a.href = s.url; a.download = s.fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  U.toast('เครื่องนี้แชร์ตรงไม่ได้ — บันทึกรูปลงเครื่องแล้ว ส่งต่อเองได้เลย');
+}
+
+// ทำรูปจากแม่แบบใบเสร็จตัวจริง (receiptPageHtml + RECEIPT_CSS) ขนาด A5 เหมือนที่พิมพ์ — หัวเป็น "ใบแจ้งรายการ" ไม่มีเลขที่
+// วาดใน iframe แยก กัน CSS ของหน้าแอพปนเข้ามา แล้วถ่ายเป็นรูปด้วย html2canvas (ความละเอียด 2 เท่า)
+async function shareBillCanvas(g, dateStr, items) {
+  await loadScriptOnce(LIB.h2c);
+  const qrOk = CFG.promptpayId ? await loadScriptOnce(LIB.qr).then(() => true, () => false) : false;
+  let cust = {};
+  const cid = g.orders.find(o => o.customerId)?.customerId;
+  if (cid) { try { cust = (await withTimeout(DB.getCustomer(cid), 5000)) || {}; } catch (e) {} }
+  const inv = {
+    customerName: g.name, customerAddress: cust.address || '', customerPhone: cust.phone || '', customerTaxId: cust.taxId || '',
+    items: items.map(it => ({name: it.name, qty: it.qty, price: it.price})), discount: 0, taxRate: 0, notes: '',
+    createdAt: new Date(dateStr + 'T12:00:00').getTime(),
+  };
+  // A5 = 148×210 มม. ≈ 559×794 px · ขอบเท่าตอนพิมพ์ (8 มม. บนล่าง / 10 มม. ซ้ายขวา)
+  const fr = document.createElement('iframe');
+  fr.style.cssText = 'position:fixed;left:-2000px;top:0;width:600px;height:900px;border:0;visibility:hidden;';
+  document.body.appendChild(fr);
+  try {
+    const doc = fr.contentDocument;
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:'Sarabun',sans-serif;color:#000;background:#fff;font-size:13px;}
+#sheet{width:559px;min-height:794px;padding:30px 38px;background:#fff;}${RECEIPT_CSS}</style></head>
+<body><div id="sheet">${receiptPageHtml(inv, 'shb_qr', {docType: 'ใบแจ้งรายการ'})}</div></body></html>`);
+    doc.close();
+    await new Promise(r => fr.contentWindow.document.readyState === 'complete' ? r() : fr.onload = r);
+    try { await withTimeout(Promise.all(['400','600','700','800'].map(w => doc.fonts.load(w + ' 13px Sarabun'))), 5000); } catch (e) {}
+    const qrEl = doc.getElementById('shb_qr');
+    const pp = qrOk && qrEl ? _promptpayPayload(CFG.promptpayId, U.invTotal(inv).total) : null;
+    if (pp) {
+      new QRCode(qrEl, {text: pp, width: 120, height: 120, correctLevel: QRCode.CorrectLevel.M});
+      const qc = qrEl.querySelector('canvas');           // qrcodejs ซ่อน canvas แล้วโชว์ img แทน — ใช้ canvas ตรง ๆ ไม่ต้องรอรูปโหลด
+      qrEl.querySelectorAll('img').forEach(im => im.remove());
+      if (qc) qc.style.display = 'block';
+    }
+    await Promise.all(Array.from(doc.images).map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; })));
+    return await html2canvas(doc.getElementById('sheet'), {scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false});
+  } finally { fr.remove(); }
 }
 
 function showPrintSelectModal() {
@@ -7444,7 +7611,8 @@ const RECEIPT_CSS = `.inv-page{font-family:'Sarabun',sans-serif;color:#000;backg
 `;
 
 // ตัวใบเสร็จ 1 ใบ — qrId ต้องไม่ซ้ำกันในหน้าเดียว (พิมพ์รวดเดียวมีหลายใบ แต่ละใบมี QR ของยอดตัวเอง)
-function receiptPageHtml(inv, qrId) {
+// opt.docType = เปลี่ยนหัวกระดาษ + ไม่แสดงเลขที่ (แชร์บิลใช้ "ใบแจ้งรายการ" — ไม่ใช่ใบเสร็จจริง ไม่มีเลข RC)
+function receiptPageHtml(inv, qrId, opt) {
   const t=U.invTotal(inv);
   const hasBank = !!(CFG.bankName || CFG.bankAccount || CFG.bankAccountName);
   const rows=(inv.items||[]).map((item,idx)=>`
@@ -7472,9 +7640,9 @@ function receiptPageHtml(inv, qrId) {
       ${CFG.businessTaxId?`<p>เลขผู้เสียภาษี: ${U.esc(CFG.businessTaxId)}</p>`:''}
     </div>
     <div class="inv-doc-info">
-      <div class="doc-type">ใบเสร็จรับเงิน</div>
+      <div class="doc-type">${opt && opt.docType ? U.esc(opt.docType) : 'ใบเสร็จรับเงิน'}</div>
       <table>
-        <tr><td>เลขที่</td><td>${U.esc(inv.invoiceNo)}</td></tr>
+        ${opt && opt.docType ? '' : `<tr><td>เลขที่</td><td>${U.esc(inv.invoiceNo)}</td></tr>`}
         <tr><td>วันที่</td><td>${U.date(inv.createdAt)}</td></tr>
       </table>
     </div>
