@@ -1047,6 +1047,9 @@ body.modal-open #bottom-nav {
 .ocpb:active { transform:scale(.97); }
 .ocpb:hover { border-color:#2563eb; }
 .ocpg.acc .ocpb { font-size:13.5px; padding:8px 3px; min-height:42px; }
+.ocpb .m, .ocpb .pp { display:block; }
+.ocpb .pp { font-size:13.5px; font-weight:600; color:#475569; white-space:nowrap; }
+.ocpg.acc .ocpb .pp { font-size:12px; white-space:normal; }
 .ocpb.fav { border-color:#f59e0b; background:#fffbeb; }
 .ocpb.fav small { display:block; font-size:12px; font-weight:600; color:#b45309; margin-top:2px; }
 .ocpb.trim { font-size:17px; font-weight:800; padding:14px 5px; }
@@ -3944,7 +3947,10 @@ function renderOcSteps() {
     // ปุ่มใหญ่แทนช่องเลื่อนหา (เจ้าของเลือก 3 พ.ย. 69): ของที่ร้านนี้สั่งบ่อย 6 อันดับขึ้นก่อน
     // ที่เหลือกด "ดูสินค้าทั้งหมด" · ร้านที่ยังไม่เคยสั่ง = โชว์ทั้งหมดเลย
     const favs = ocFavs(window._orderCustId);
-    const pbtn = (p, sub) => `<button type="button" class="ocpb${sub ? ' fav' : ''}" data-id="${U.esc(String(p.id))}" onclick="ocProdChange(this.dataset.id)">${U.esc(p.name)}${sub ? `<small>${sub}</small>` : ''}</button>`;
+    // ส่วนในวงเล็บขึ้นบรรทัดที่ 2 เสมอ (เจ้าของขอ 4 พ.ย. 69 — เดิมตัดคำกลางวงเล็บ อ่านยาก)
+    const pname = nm => { const m = String(nm || '').match(/^(.*?)\s*(\(.*\))\s*$/);
+      return m && m[1] ? `<span class="m">${U.esc(m[1])}</span><span class="pp">${U.esc(m[2])}</span>` : `<span class="m">${U.esc(nm)}</span>`; };
+    const pbtn = (p, sub) => `<button type="button" class="ocpb${sub ? ' fav' : ''}" data-id="${U.esc(String(p.id))}" onclick="ocProdChange(this.dataset.id)">${pname(p.name)}${sub ? `<small>${sub}</small>` : ''}</button>`;
     let inner = '';
     if (favs.length) {
       const nm = custName.length > 14 ? 'ร้านนี้' : U.esc(custName);
