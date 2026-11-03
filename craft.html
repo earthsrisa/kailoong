@@ -2270,8 +2270,8 @@ async function craftPushDisable() {
     if (sub) {
       const id = cpSubId(sub.endpoint);
       const rec = await cpRecord(sub).catch(() => null);
-      if (rec && rec.admin !== false) {
-        // เครื่องนี้ยังรับแจ้งเตือนฝั่งแอดมินอยู่ → ปิดเฉพาะฝั่งช่าง ห้ามยกเลิกทั้งเครื่อง
+      if (rec && (rec.admin !== false || rec.view)) {
+        // เครื่องนี้ยังรับแจ้งเตือนฝั่งแอดมิน/หน้าดูออเดอร์อยู่ → ปิดเฉพาะฝั่งช่าง ห้ามยกเลิกทั้งเครื่อง
         await cpDoc().update({ ['value.' + id + '.craft']: false });
       } else {
         await sub.unsubscribe().catch(() => {});
@@ -2315,14 +2315,15 @@ async function pushNewOrderCraft(customerName, items, orderNo, takenBy, customer
     const snap = await cpDoc().get();
     const map = (snap.exists && snap.data().value) || {};
     const mine = ((await cpGetSub().catch(() => null)) || {}).endpoint;
-    const admins = [], crafts = [];
+    const admins = [], crafts = [], views = [];
     for (const s of Object.values(map)) {
       if (!s || !s.endpoint || s.endpoint === mine) continue;
       const t = { endpoint: s.endpoint, keys: s.keys };
       if (s.admin !== false) admins.push(t);   // ข้อมูลรุ่น v89 ไม่มีช่องนี้ = มาจากหน้าแอดมิน
       else if (s.craft) crafts.push(t);
+      else if (s.view) views.push(t);          // หน้าดูออเดอร์ของคนงาน (view.html)
     }
-    if (!admins.length && !crafts.length) return;
+    if (!admins.length && !crafts.length && !views.length) return;
     const list = items || [];
     // "รวม N ใบ" นับเฉพาะหีบ · อุปกรณ์เสริมบอกเป็นจำนวนรายการ — ต้องตรงกับ pushNewOrder() ใน index.html
     const accN = list.filter(i => isAccessory(i.productName)).length;
@@ -2340,6 +2341,7 @@ async function pushNewOrderCraft(customerName, items, orderNo, takenBy, customer
     const jobs = [];
     if (admins.length) jobs.push(send(admins, '📦 ออเดอร์ใหม่ — ' + name, '/#orders'));
     if (crafts.length) jobs.push(send(crafts, '🔨 งานใหม่เข้า — ' + name, '/craft.html'));
+    if (views.length) jobs.push(send(views, '📦 ออเดอร์ใหม่ — ' + name, '/view.html'));
     const gone = (await Promise.all(jobs)).flatMap(r => r.gone || []);
     if (gone.length) {
       const upd = {};
@@ -3287,7 +3289,7 @@ klRegisterSW();
     <h1>🔨 หน้าช่างแต่ง</h1>
     <div class="sub">
       <span class="live-dot"></span>อัปเดต real-time
-      <span id="klVer" style="opacity:.6;margin-left:6px;">· v115</span>
+      <span id="klVer" style="opacity:.6;margin-left:6px;">· v116</span>
     </div>
   </div>
   <button id="pushBtn" class="off" onclick="craftPushToggle()" title="แจ้งเตือนงานใหม่" aria-label="แจ้งเตือนงานใหม่">

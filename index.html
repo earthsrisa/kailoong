@@ -1069,7 +1069,7 @@ body.modal-open #bottom-nav {
   display: flex; align-items: center; gap: 14px;
   padding: 14px 12px; color: #c9d9ec; font-size: 15px; font-weight: 500;
   border-radius: 10px; cursor: pointer; border: none; background: none; width: 100%;
-  transition: background .15s;
+  transition: background .15s; text-decoration: none;
 }
 #bnav-more-menu .bm-item:hover, #bnav-more-menu .bm-item.active { background: #243040; color: #fff; }
 #bnav-more-menu .bm-item i { width: 24px; text-align: center; font-size: 17px; color: #60a5fa; }
@@ -1539,6 +1539,7 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
     <button class="nav-link active" data-page="dashboard" onclick="navigate('dashboard')"><i class="fa-solid fa-chart-pie"></i><span>หน้าหลัก</span></button>
     <button class="nav-link" data-page="orders" onclick="navigate('orders')"><i class="fa-solid fa-clock-rotate-left"></i><span>ประวัติออเดอร์</span></button>
     <button class="nav-link" data-page="invoices" onclick="navigate('invoices')"><i class="fa-solid fa-file-invoice"></i><span>ใบเสร็จรับเงิน</span></button>
+    <a class="nav-link" href="/view.html" onclick="return goViewPage()"><i class="fa-solid fa-clipboard-list"></i><span>หน้าดูออเดอร์ (คนงาน)</span></a>
     <div class="nav-section">ข้อมูลหลัก</div>
     <button class="nav-link" data-page="customers" onclick="navigate('customers')"><i class="fa-solid fa-users"></i><span>ลูกค้า</span></button>
     <button class="nav-link" data-page="products" onclick="navigate('products')"><i class="fa-solid fa-box"></i><span>สินค้า</span></button>
@@ -1555,6 +1556,7 @@ html.pwa-ios #page-content { padding-bottom: max(14px, env(safe-area-inset-botto
 <!-- Bottom nav more-menu overlay -->
 <div id="bnav-more-overlay" onclick="closeBnavMore()"></div>
 <div id="bnav-more-menu">
+  <a class="bm-item" href="/view.html" onclick="closeBnavMore();return goViewPage()"><i class="fa-solid fa-clipboard-list"></i>หน้าดูออเดอร์ (คนงาน)</a>
   <button class="bm-item" data-page="customers" onclick="closeBnavMore();navigate('customers')"><i class="fa-solid fa-users"></i>ลูกค้า</button>
   <button class="bm-item" data-page="products" onclick="closeBnavMore();navigate('products')"><i class="fa-solid fa-box"></i>สินค้า</button>
   <button class="bm-item" data-page="craftsmen" onclick="closeBnavMore();navigate('craftsmen')"><i class="fa-solid fa-hammer"></i>ช่างแต่ง</button>
@@ -1878,6 +1880,8 @@ function goCraftPage() {
   try { sessionStorage.setItem('kl_fromAdmin', '1'); } catch(e) {}
   return true;
 }
+// หน้าดูออเดอร์ของคนงาน (view.html) — ธงเดียวกัน หน้านั้นจะโชว์ปุ่ม "← กลับ"
+function goViewPage() { return goCraftPage(); }
 
 // ── สวิตช์เปิด-ปิดปุ่มรับออเดอร์ของช่างแต่ง ──
 // เก็บใน settings/craftOrderEnabled — หน้าช่างฟังแบบ real-time
@@ -2640,7 +2644,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v115';
+const APP_VERSION = 'v116';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -8458,8 +8462,8 @@ async function pushDisable() {
       const id = pushSubId(sub.endpoint);
       const snap = await pushDoc().get().catch(() => null);
       const rec = snap && snap.exists ? (snap.data().value || {})[id] : null;
-      if (rec && rec.craft) {
-        // เครื่องนี้ยังรับแจ้งเตือนของหน้าช่างอยู่ → ปิดเฉพาะฝั่งแอดมิน ห้ามยกเลิกทั้งเครื่อง
+      if (rec && (rec.craft || rec.view)) {
+        // เครื่องนี้ยังรับแจ้งเตือนของหน้าช่าง/หน้าดูออเดอร์อยู่ → ปิดเฉพาะฝั่งแอดมิน ห้ามยกเลิกทั้งเครื่อง
         await pushDoc().update({ ['value.' + id + '.admin']: false });
       } else {
         await sub.unsubscribe().catch(() => {});
@@ -8506,14 +8510,15 @@ async function pushNewOrder({ customerName, items, orderNo, merged, customerId, 
     const mine = ((await pushGetSub().catch(() => null)) || {}).endpoint;
     // แยกเครื่องเป็น 2 กลุ่ม — เครื่องที่เป็นทั้งแอดมินและช่าง ได้ข้อความแอดมินอย่างเดียว (ไม่เด้งซ้ำ)
     // ⚠️ ตรรกะนี้ต้องตรงกับ pushNewOrderCraft() ใน craft.html
-    const admins = [], crafts = [];
+    const admins = [], crafts = [], views = [];
     for (const s of Object.values(map)) {
       if (!s || !s.endpoint || s.endpoint === mine) continue;
       const t = { endpoint: s.endpoint, keys: s.keys };
       if (s.admin !== false) admins.push(t);   // ข้อมูลรุ่น v89 ไม่มีช่องนี้ = มาจากหน้าแอดมิน
       else if (s.craft) crafts.push(t);        // เปิดไว้จากหน้าช่างอย่างเดียว
+      else if (s.view) views.push(t);          // หน้าดูออเดอร์ของคนงาน (view.html)
     }
-    if (!admins.length && !crafts.length) return;
+    if (!admins.length && !crafts.length && !views.length) return;
     const list = items || [];
     // "รวม N ใบ" นับเฉพาะหีบ · อุปกรณ์เสริมบอกเป็นจำนวนรายการ (หน่วยต่างกัน ชิ้น/มัด/ม้วน รวมกันไม่ได้)
     const accN = list.filter(i => isAccessory(i.productName || i.name)).length;
@@ -8530,6 +8535,8 @@ async function pushNewOrder({ customerName, items, orderNo, merged, customerId, 
       { title: (merged ? '➕ สั่งเพิ่ม — ' : '📦 ออเดอร์ใหม่ — ') + name, body, url: '/#orders', tag }));
     if (crafts.length) jobs.push(pushSend(crafts,
       { title: (merged ? '➕ สั่งเพิ่ม — ' : '🔨 งานใหม่เข้า — ') + name, body, url: '/craft.html', tag }));
+    if (views.length) jobs.push(pushSend(views,
+      { title: (merged ? '➕ สั่งเพิ่ม — ' : '📦 ออเดอร์ใหม่ — ') + name, body, url: '/view.html', tag }));
     const gone = (await Promise.all(jobs)).flatMap(r => r.gone || []);
     if (gone.length) {
       const upd = {};

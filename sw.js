@@ -1,4 +1,4 @@
-const CACHE = 'kailoong-v115';        // ไฟล์ของแอพเอง — ล้างทิ้งทุกครั้งที่ขึ้นเวอร์ชัน
+const CACHE = 'kailoong-v116';        // ไฟล์ของแอพเอง — ล้างทิ้งทุกครั้งที่ขึ้นเวอร์ชัน
 const CDN   = 'kailoong-cdn-v1';     // ไฟล์จากเน็ตนอก — คนละถัง จะได้ไม่โดนล้างตามเวอร์ชันแอพ
                                      // (URL พวกนี้มีเลขเวอร์ชันในตัวอยู่แล้ว ของใหม่ = คนละ URL)
 
@@ -12,7 +12,10 @@ const ASSETS = [
   '/icon-192.png',
   '/icon-512.png',
   '/craft-icon-180.png',
-  '/apple-touch-icon.png'
+  '/apple-touch-icon.png',
+  '/view.html',
+  '/manifest-view.json',
+  '/view-icon-180.png'
 ];
 
 self.addEventListener('install', e => {
@@ -219,9 +222,17 @@ self.addEventListener('notificationclick', e => {
       await self.clients.openWindow(target.href);
       return;
     }
-    // แจ้งเตือนของแอดมิน → เลือกหน้าต่างแอดมิน ไม่เอาหน้าช่าง (หน้าช่างไม่มีหน้าออเดอร์)
+    // แจ้งเตือนของหน้าดูออเดอร์ (คนงาน) → เด้งหน้านั้นขึ้นมา (อัปเดตสดอยู่แล้ว)
+    const isView = u => { try { return new URL(u).pathname.startsWith('/view'); } catch (_) { return false; } };
+    if (target.pathname.startsWith('/view')) {
+      const vw = wins.find(w => isView(w.url));
+      if (vw) { await vw.focus(); return; }
+      await self.clients.openWindow(target.href);
+      return;
+    }
+    // แจ้งเตือนของแอดมิน → เลือกหน้าต่างแอดมิน ไม่เอาหน้าช่าง/หน้าดูออเดอร์ (ไม่มีหน้าออเดอร์)
     const admin = wins.find(w => {
-      try { const u = new URL(w.url); return u.origin === target.origin && !u.pathname.includes('craft'); }
+      try { const u = new URL(w.url); return u.origin === target.origin && !u.pathname.includes('craft') && !isView(w.url); }
       catch (_) { return false; }
     });
     if (admin) {

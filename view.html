@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="th" style="background:#eef2f7">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="ออเดอร์">
+<meta name="theme-color" content="#0f766e">
+<link rel="apple-touch-icon" sizes="180x180" href="/view-icon-180.png">
+<!-- หน้าดูรายการออเดอร์สำหรับคนงานทั่วไป (เจ้าของขอ 3 พ.ย. 69)
+     ดูอย่างเดียว: ไม่มีราคา ไม่มีปุ่มกด ไม่เขียนอะไรลงฐานข้อมูล
+     ⚠️ ไฟล์ใหม่ต้องอยู่ในรายการไฟล์ของ push_fix_gui.hta ด้วย ไม่งั้นไม่ขึ้นเว็บ -->
+<link rel="manifest" href="/manifest-view.json">
+<title>รายการออเดอร์ — ขายโลง</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap"
+      rel="stylesheet" media="print" onload="this.media='all';this.onload=null">
+<script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+  * { box-sizing:border-box; }
+  body { margin:0; background:#eef2f7; color:#0f172a; font-family:'Sarabun',system-ui,-apple-system,'Segoe UI',sans-serif; -webkit-text-size-adjust:100%; }
+  .top { position:sticky; top:0; z-index:10; background:#0f766e; color:#fff; padding:calc(10px + env(safe-area-inset-top)) 16px 12px; box-shadow:0 2px 10px rgba(0,0,0,.15); }
+  .top .row1 { display:flex; align-items:center; gap:10px; }
+  .top h1 { margin:0; font-size:20px; font-weight:800; flex:1; }
+  .top .sub { font-size:13.5px; color:#ccfbf1; margin-top:2px; }
+  .rf { border:0; background:rgba(255,255,255,.18); color:#fff; border-radius:10px; width:42px; height:42px; font-size:20px; cursor:pointer; }
+  .rf.bell { font-size:18px; } .rf.bell.on { background:#fde047; } .rf.busy { opacity:.5; pointer-events:none; }
+  .rf.share { display:flex; align-items:center; justify-content:center; }
+  .toast { position:fixed; left:50%; bottom:calc(24px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:#0f172a; color:#fff; padding:10px 18px; border-radius:12px; font-size:15px; font-weight:600; z-index:50; box-shadow:0 4px 14px rgba(0,0,0,.25); }
+  .rf.back { display:flex; align-items:center; justify-content:center; text-decoration:none; font-weight:800; }
+  .rf.spin { animation:sp .8s linear infinite; }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  .wrap { padding:12px 12px calc(30px + env(safe-area-inset-bottom)); max-width:720px; margin:0 auto; }
+  /* สายส่ง = หัวแถบสี · ลูกค้าแต่ละคน = การ์ดแยกของตัวเอง (เจ้าของขอ 3 พ.ย. 69 ว่าชื่อลูกค้าปนกัน ดูยาก) */
+  .route { margin-bottom:20px; }
+  .route-h { display:flex; align-items:center; gap:8px; padding:11px 14px; margin-bottom:8px; border-radius:14px; color:#fff; box-shadow:0 1px 4px rgba(15,23,42,.12); }
+  .route-h .n { flex:1; font-size:18px; font-weight:800; text-shadow:0 1px 2px rgba(0,0,0,.25); }
+  .route-h .c { font-size:14px; font-weight:800; background:rgba(255,255,255,.9); color:#0f172a; border-radius:10px; padding:2px 10px; }
+  .cust { background:#fff; border-radius:14px; margin:0 0 10px 12px; overflow:hidden; border:1px solid #dbe3ec; border-left:5px solid #94a3b8; box-shadow:0 1px 3px rgba(15,23,42,.06); }
+  .cust-h { display:flex; align-items:center; gap:10px; padding:9px 12px; background:#f1f5f9; border-bottom:1px solid #e2e8f0; }
+  .cust-h .who { flex:1; min-width:0; }
+  .cust-h .nm { display:inline-block; max-width:100%; font-size:18px; font-weight:800; line-height:1.3; color:#fff; border-radius:10px; padding:3px 12px; margin-bottom:3px; overflow-wrap:anywhere; }
+  .cust-h .dt { display:block; font-size:13px; color:#64748b; }
+  .cust-h .cc { font-size:14px; font-weight:800; color:#334155; white-space:nowrap; }
+  .cust-b { padding:2px 12px 4px; }
+  .ready { font-size:12.5px; font-weight:700; background:#fef9c3; color:#854d0e; border-radius:10px; padding:1px 9px; margin-left:4px; }
+  .it { display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px dashed #e2e8f0; }
+  .it:first-of-type { border-top:0; }
+  .it .lb { flex:1; min-width:0; font-size:16px; font-weight:600; line-height:1.4; }
+  .it .note { display:block; font-size:13px; font-weight:400; color:#b45309; }
+  .it .q { font-size:20px; font-weight:800; min-width:34px; text-align:right; }
+  .bd { display:inline-block; font-size:12.5px; font-weight:700; border-radius:10px; padding:1px 8px; margin-left:4px; white-space:nowrap; vertical-align:1px; }
+  .bd.done { background:#dcfce7; color:#15803d; }
+  .bd.part { background:#fef3c7; color:#b45309; }
+  .bd.not  { background:#f1f5f9; color:#64748b; }
+  .bd.acc  { background:#e0e7ff; color:#4338ca; }
+  .empty, .msg { text-align:center; color:#64748b; padding:50px 16px; font-size:16px; }
+  .tip { margin:0 0 12px; padding:10px 14px; border-radius:12px; background:#eff6ff; color:#1e40af; font-size:14px; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="row1">
+    <a class="rf back" id="backAdmin" href="/" aria-label="กลับหน้าแอดมิน" style="display:none">&#8592;</a>
+    <h1>รายการรอส่ง</h1>
+    <button class="rf share" onclick="shareLink()" aria-label="แชร์ลิงก์หน้านี้"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>
+    <button class="rf bell" id="pushBtn" onclick="vpToggle()" aria-label="แจ้งเตือนออเดอร์ใหม่" style="display:none"></button>
+    <button class="rf" id="rfBtn" onclick="refreshAll()" aria-label="ดึงข้อมูลใหม่">&#8635;</button>
+  </div>
+  <div class="sub" id="sub">กำลังโหลด...</div>
+</div>
+<div class="wrap" id="list"><div class="msg">กำลังโหลด...</div></div>
+
+<script>
+// ── เว็บจริง หรือ เว็บทดสอบ ── ⚠️ รายชื่อต้องตรงกับใน index.html / craft.html
+var KL_PROD_HOSTS = ['kailoong.vercel.app',
+                     'kailoong-earthlo0021-8469s-projects.vercel.app',
+                     'kailoong-git-main-earthlo0021-8469s-projects.vercel.app'];
+var KL_IS_TEST = KL_PROD_HOSTS.indexOf(location.hostname) < 0;
+if (KL_IS_TEST) {
+  document.title = '🧪 ทดสอบ · ' + document.title;
+  var klTf = document.createElement('div');
+  klTf.style.cssText = 'position:fixed;inset:0;border:4px solid #f97316;pointer-events:none;z-index:100000;';
+  klTf.innerHTML = '<div style="position:absolute;top:0;left:50%;transform:translateX(-50%);background:#f97316;color:#fff;'
+    + 'font:700 12px/1 system-ui,sans-serif;padding:5px 14px 6px;border-radius:0 0 10px 10px;white-space:nowrap;">🧪 เว็บทดสอบ · ไม่ใช่ข้อมูลจริง</div>';
+  document.body.appendChild(klTf);
+}
+</script>
+<script>
+const FIREBASE_CONFIG_PROD = {
+  apiKey: "AIzaSyAC85V_FLtSDR0BR3tJEvDDpv1hSIx2Zug",
+  authDomain: "kailoong-e63ed.firebaseapp.com",
+  projectId: "kailoong-e63ed",
+  storageBucket: "kailoong-e63ed.firebasestorage.app",
+  messagingSenderId: "388629310479",
+  appId: "1:388629310479:web:9eb9565ac22ad5914b477a"
+};
+// ⚠️ ต้องตรงกับใน index.html / craft.html
+const FIREBASE_CONFIG_TEST = {
+  apiKey: "AIzaSyDmDHYILIPeZO0IplMxYO4c9mq-zBQShZk",
+  authDomain: "kailoong-test.firebaseapp.com",
+  projectId: "kailoong-test",
+  storageBucket: "kailoong-test.firebasestorage.app",
+  messagingSenderId: "142486923524",
+  appId: "1:142486923524:web:5079302d0a348641688851"
+};
+const FIREBASE_CONFIG = (window.KL_IS_TEST === false) ? FIREBASE_CONFIG_PROD : FIREBASE_CONFIG_TEST;
+let db = null;
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function withTimeout(promise, ms, msg) {
+  let t;
+  return Promise.race([
+    promise.finally(() => clearTimeout(t)),
+    new Promise((_, rej) => { t = setTimeout(() => rej(new Error(msg || 'หมดเวลารอ')), ms); })
+  ]);
+}
+function thDate(ts) { return ts ? new Date(ts).toLocaleDateString('th-TH-u-ca-buddhist', {day:'numeric', month:'short'}) : ''; }
+function hhmm(ts) { const d = new Date(ts); return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0'); }
+
+// ── ตัวช่วยอ่านสถานะ — ⚠️ ต้องตรงกับ index.html / craft.html ──
+const ACC_HINTS = ['เทพ','นางฟ้า','มุม','กางเขน','ดอกพิกุล','พลาสติก','ม้วน'];
+function itemKey(i) { return `${i.productName}|${i.color||''}|${i.trimColor||''}|${i.extra||''}`; }
+function itemKeyLegacy(i) { return `${i.productName}|${i.color||''}|${i.trimColor||''}`; }
+function readCraftEntry(cs, i) { if (!cs) return undefined; const k = itemKey(i); return cs[k] !== undefined ? cs[k] : cs[itemKeyLegacy(i)]; }
+function getCraftedQty(e, q) { if (!e) return 0; if (e.craftedQty !== undefined) return Math.min(e.craftedQty, q); return e.isCrafted ? q : 0; }
+const deliverKey = itemKey;
+function getDeliveredQty(e, q, all) { if (!e) return all ? q : 0; if (e.deliveredQty !== undefined) return Math.min(e.deliveredQty, q); return all ? q : 0; }
+function isAccessory(name) {
+  const p = (_ref.products || {})[name];
+  if (p) return String(p).trim() !== 'โลง';
+  return ACC_HINTS.some(k => (name || '').includes(k));
+}
+function itemLabel(i) {
+  const isChrist = i.trimColor === 'คริสต์' || i.style === 'คริสต์';
+  return (i.productName || '')
+    + (i.color && i.color !== '-' ? ' (' + i.color + ')' : '')
+    + (isChrist ? ' ✝คริสต์' : (i.trimColor && i.trimColor !== '-' ? ' เส้น' + i.trimColor : ''))
+    + (i.extra ? ' ' + i.extra : '');
+}
+
+// ── ข้อมูลประกอบ: สายส่งของลูกค้า + สีสาย + หน่วยสินค้า ──
+// เก็บไว้ในเครื่อง ดึงใหม่ทุก 6 ชม. หรือกด ↻ (ลูกค้า/สินค้าเปลี่ยนไม่บ่อย ไม่ต้องอ่านทุกครั้งที่เปิด — ประหยัดโควตา)
+const REF_KEY = 'kl_view_ref_' + FIREBASE_CONFIG.projectId, REF_EVERY = 6 * 3600 * 1000;
+let _ref = { routes: {}, colors: {}, products: {}, at: 0 };
+try { const r = JSON.parse(localStorage.getItem(REF_KEY) || 'null'); if (r && r.routes) _ref = r; } catch (e) {}
+async function loadRef(force) {
+  if (!force && _ref.at && Date.now() - _ref.at < REF_EVERY) return;
+  try {
+    const [cs, ps, rc] = await Promise.all([
+      withTimeout(db.collection('customers').get({ source: 'server' }), 15000),
+      withTimeout(db.collection('products').get({ source: 'server' }), 15000),
+      withTimeout(db.collection('settings').doc('routeColors').get({ source: 'server' }), 15000).catch(() => null),
+    ]);
+    const routes = {}, products = {};
+    cs.docs.forEach(d => { const c = d.data(); const r = String(c.route || '').replace(/\s+/g, ' ').trim(); if (r) routes[d.id] = r; });
+    ps.docs.forEach(d => { const p = d.data(); if (p.isDeleted !== true && p.name) products[p.name] = p.unit || 'โลง'; });
+    const colors = (rc && rc.exists && rc.data().value) || _ref.colors || {};
+    _ref = { routes, colors, products, at: Date.now() };
+    try { localStorage.setItem(REF_KEY, JSON.stringify(_ref)); } catch (e) {}
+    render();
+  } catch (e) { console.warn('loadRef:', e); }
+}
+
+// ── ออเดอร์: ใช้ที่เก็บในเครื่องชุดเดียวกับหน้าแอดมิน/หน้าช่าง + ฟังเฉพาะที่เปลี่ยน ──
+// ⚠️ รูปแบบที่เก็บต้องตรงกับ DB._persist ใน index.html และ KLStore ใน craft.html
+const KLStore = {
+  _p: null,
+  _open() {
+    if (!this._p) this._p = new Promise(res => {
+      try {
+        const r = indexedDB.open('kl-data', 1);
+        r.onupgradeneeded = () => { try { r.result.createObjectStore('cols'); } catch (e) {} };
+        r.onsuccess = () => res(r.result); r.onerror = () => res(null); r.onblocked = () => res(null);
+      } catch (e) { res(null); }
+    });
+    return withTimeout(this._p, 3000).catch(() => null);
+  },
+  _key(col) { return FIREBASE_CONFIG.projectId + ':' + col; },
+  async get(col) {
+    const d = await this._open(); if (!d) return null;
+    return withTimeout(new Promise(res => {
+      try { const q = d.transaction('cols').objectStore('cols').get(this._key(col)); q.onsuccess = () => res(q.result || null); q.onerror = () => res(null); }
+      catch (e) { res(null); }
+    }), 3000).catch(() => null);
+  },
+  async put(col, v) {
+    const d = await this._open(); if (!d) return;
+    try { d.transaction('cols', 'readwrite').objectStore('cols').put(v, this._key(col)); } catch (e) {}
+  },
+};
+const ORD_FULL_EVERY = 6 * 3600 * 1000;
+let _ordP = null, _unsub = null, _lastAt = 0;
+function _ordMerge(d) {
+  const x = { id: d.id, ...d.data() };
+  if (x.updatedAt && typeof x.updatedAt.toMillis === 'function') x.updatedAt = x.updatedAt.toMillis();
+  if (typeof x.updatedAt === 'number' && !d.metadata.hasPendingWrites && x.updatedAt > _ordP.maxTs) _ordP.maxTs = x.updatedAt;
+  _ordP.rows.set(String(x.id), x);
+}
+let _saveT = null;
+function _ordSave() {
+  clearTimeout(_saveT);
+  _saveT = setTimeout(() => { if (_ordP) KLStore.put('orders', { rows: [..._ordP.rows.values()], maxTs: _ordP.maxTs, fullAt: _ordP.fullAt, v: 1 }); }, 400);
+}
+async function startOrders(full) {
+  if (_unsub) { _unsub(); _unsub = null; }
+  const v = await KLStore.get('orders');
+  _ordP = (v && Array.isArray(v.rows)) ? { rows: new Map(v.rows.map(r => [String(r.id), r])), maxTs: v.maxTs || 0, fullAt: v.fullAt || 0 } : null;
+  if (_ordP) render();     // โชว์ของในเครื่องก่อน ไม่ต้องรอเน็ต
+  if (full || !_ordP || !_ordP.rows.size || Date.now() - _ordP.fullAt > ORD_FULL_EVERY) {
+    // source:'server' — get() ธรรมดาตอนเน็ตหลุดคืน "ผลว่าง" จากแคช
+    let snap = null;
+    try { snap = await withTimeout(db.collection('orders').get({ source: 'server' }), 20000, 'หมดเวลารอข้อมูล'); }
+    catch (e) { if (!_ordP || !_ordP.rows.size) throw e; }
+    if (snap) {
+      _ordP = { rows: new Map(), maxTs: 0, fullAt: Date.now() };
+      snap.docs.forEach(_ordMerge); _ordSave();
+    }
+  }
+  _lastAt = Date.now(); render();
+  const since = firebase.firestore.Timestamp.fromMillis(Math.max(1, _ordP.maxTs));
+  _unsub = db.collection('orders').where('updatedAt', '>', since).onSnapshot(snap => {
+    if (snap.metadata.fromCache && snap.empty) return;
+    snap.docs.forEach(_ordMerge);
+    _lastAt = Date.now();
+    if (snap.docs.length) _ordSave();
+    render();
+  }, err => { console.error(err); showTip('⚠️ เชื่อมต่อไม่ได้ กด ↻ เพื่อลองใหม่'); });
+}
+
+// ── วาดจอ: สายส่ง → ลูกค้า → ของที่ยังไม่ได้ส่ง ──
+// สีประจำลูกค้า — ⚠️ เหมือน OC_AVA / ocAvaColor ใน index.html (ลูกค้าคนเดียวกันได้สีเดียวกันทุกหน้า)
+const CUST_COLORS = ['#2563eb','#16a34a','#d97706','#7c3aed','#db2777','#0891b2','#dc2626','#4f46e5'];
+function custColor(name) {
+  let h = 0;
+  for (let i = 0; i < (name||'').length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return CUST_COLORS[h % CUST_COLORS.length];
+}
+function render() {
+  const box = document.getElementById('list');
+  if (!_ordP) return;
+  const groups = new Map();
+  for (const o of _ordP.rows.values()) {
+    if (o.isDeleted === true) continue;
+    // รวมจำนวนตาม key ในใบก่อน แล้วค่อยหักที่ส่งแล้ว (ที่ส่งแล้วเก็บเป็นยอดรวมต่อ key)
+    const need = new Map();
+    for (const i of (o.items || [])) {
+      const k = deliverKey(i); const q = Number(i.qty) || 0;
+      if (need.has(k)) need.get(k).qty += q; else need.set(k, { i, qty: q });
+    }
+    const left = [];
+    for (const [k, n] of need) {
+      const sent = getDeliveredQty((o.deliveryStatus || {})[k], n.qty, o.isDelivered);
+      const remain = n.qty - sent;
+      if (remain <= 0) continue;
+      const crafted = getCraftedQty(readCraftEntry(o.craftStatus, n.i), n.qty);
+      left.push({ label: itemLabel(n.i), note: n.i.specialNote || '', remain, ready: Math.max(0, crafted - sent), acc: isAccessory(n.i.productName) });
+    }
+    if (!left.length) continue;
+    const gk = o.customerId || o.customerName || '-';
+    let g = groups.get(gk);
+    if (!g) groups.set(gk, g = { name: o.customerName || '-', custId: o.customerId, first: o.createdAt || 0, items: [] });
+    g.first = Math.min(g.first, o.createdAt || g.first);
+    for (const it of left) {
+      const ex = g.items.find(x => x.label === it.label && x.note === it.note);
+      if (ex) { ex.remain += it.remain; ex.ready += it.ready; } else g.items.push({ ...it });
+    }
+  }
+  const NONE = 'อื่น ๆ (ยังไม่ได้ตั้งสายส่ง)';
+  const routes = new Map();
+  for (const g of groups.values()) {
+    const r = (g.custId && _ref.routes[g.custId]) || NONE;
+    if (!routes.has(r)) routes.set(r, []);
+    routes.get(r).push(g);
+  }
+  const order = [...routes.keys()].sort((a, b) => a === NONE ? 1 : b === NONE ? -1 : a.localeCompare(b, 'th'));
+  let totalCoffin = 0, totalCust = groups.size;
+  const html = order.map(r => {
+    const list = routes.get(r).sort((a, b) => a.first - b.first);
+    const pcs = list.reduce((a, g) => a + g.items.filter(x => !x.acc).reduce((s, x) => s + x.remain, 0), 0);
+    totalCoffin += pcs;
+    const col = r === NONE ? '#94a3b8' : (_ref.colors[r] || '#fbbf24');
+    return `<div class="route">
+      <div class="route-h" style="background:${col}"><span class="n">${esc(r)}</span><span class="c">${list.length} ร้าน · ${pcs} ใบ</span></div>
+      ${list.map(g => {
+        const allReady = g.items.every(x => x.acc || x.ready >= x.remain);
+        const cpcs = g.items.filter(x => !x.acc).reduce((s, x) => s + x.remain, 0);
+        const ac = custColor(g.name);
+        return `<div class="cust" style="border-left-color:${ac}"><div class="cust-h">
+            <span class="who"><span class="nm" style="background:${ac}">${esc(g.name)}</span><span class="dt">สั่ง ${thDate(g.first)}</span>${allReady ? '<span class="ready">พร้อมส่ง</span>' : ''}</span>
+            ${cpcs ? `<span class="cc">${cpcs} ใบ</span>` : ''}
+          </div><div class="cust-b">
+          ${g.items.map(x => {
+            const bd = x.acc ? '<span class="bd acc">อุปกรณ์</span>'
+              : x.ready >= x.remain ? '<span class="bd done">แต่งแล้ว</span>'
+              : x.ready > 0 ? `<span class="bd part">แต่งแล้ว ${x.ready}/${x.remain}</span>`
+              : '<span class="bd not">ยังไม่แต่ง</span>';
+            return `<div class="it"><span class="lb">${esc(x.label)}${bd}${x.note ? `<span class="note">${esc(x.note)}</span>` : ''}</span><span class="q">${x.remain}</span></div>`;
+          }).join('')}</div></div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+  box.innerHTML = html || '<div class="empty">ส่งของครบแล้ว ไม่มีรายการรอส่ง</div>';
+  document.getElementById('sub').textContent = `${totalCust} ลูกค้า · โลง ${totalCoffin} ใบ` + (_lastAt ? ` · อัปเดต ${hhmm(_lastAt)}` : '');
+}
+function showTip(t) {
+  const box = document.getElementById('list');
+  if (!document.getElementById('tip')) box.insertAdjacentHTML('afterbegin', `<div class="tip" id="tip">${esc(t)}</div>`);
+}
+
+// ═══════════════════════════════════════
+//  แจ้งเตือนออเดอร์ใหม่ (Web Push) — ปุ่มกระดิ่งมุมขวาบน
+//  รายชื่อเครื่อง: settings/pushSubs (ช่อง view:true) · ตัวส่ง: pushNewOrder ใน index.html / pushNewOrderCraft ใน craft.html
+//  เครื่องที่เปิดฝั่งแอดมินหรือช่างไว้ด้วย จะได้ข้อความของฝั่งนั้นแทน (ไม่เด้งซ้ำ)
+// ═══════════════════════════════════════
+// ⚠️ ต้องตรงกับ VAPID_PUBLIC ใน index.html / craft.html
+const VAPID_PUBLIC = 'BIlBe8nCh6Lvbwut0lidGPImm9I491QKsF1dFO7sl_ZSDP8LZg3O0qJ51gWRftY2Q8OmyLOlzMWedgP1nk1XCzA';
+const vpDoc = () => db.collection('settings').doc('pushSubs');
+function vpSupported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+function vpIsIOS() { return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function vpStandalone() { return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
+// ⚠️ ต้องคำนวณเหมือน pushSubId() ใน index.html ทุกตัวอักษร
+function vpSubId(endpoint) {
+  let h = 0; for (let i = 0; i < endpoint.length; i++) h = (h * 31 + endpoint.charCodeAt(i)) >>> 0;
+  return 'd' + h.toString(36) + endpoint.length.toString(36);
+}
+function vpKey() {
+  const s = VAPID_PUBLIC, b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
+  return Uint8Array.from(b, c => c.charCodeAt(0));
+}
+async function vpGetSub() {
+  if (!vpSupported()) return null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  return reg ? reg.pushManager.getSubscription() : null;
+}
+async function vpRecord(sub) {
+  const snap = await vpDoc().get();
+  return ((snap.exists && snap.data().value) || {})[vpSubId(sub.endpoint)] || null;
+}
+async function vpState() {
+  if (vpIsIOS() && !vpStandalone()) return 'ios-install';
+  if (!vpSupported()) return 'unsupported';
+  if (Notification.permission === 'denied') return 'denied';
+  const sub = await vpGetSub().catch(() => null);
+  if (!sub) return 'off';
+  try { const r = await vpRecord(sub); return r && r.view ? 'on' : 'off'; }
+  catch (_) { return 'off'; }
+}
+async function vpPaint() {
+  const b = document.getElementById('pushBtn'); if (!b) return;
+  const st = await vpState().catch(() => 'unsupported');
+  b.style.display = st === 'unsupported' ? 'none' : '';
+  b.classList.toggle('on', st === 'on');
+  b.innerHTML = st === 'on' ? '&#128276;' : '&#128277;';   // 🔔 / 🔕
+  b.dataset.state = st;
+}
+async function vpToggle() {
+  const b = document.getElementById('pushBtn');
+  const st = (b && b.dataset.state) || await vpState();
+  if (st === 'on') { if (confirm('ปิดแจ้งเตือนออเดอร์ใหม่บนเครื่องนี้?')) vpDisable(); }
+  else if (st === 'off') vpEnable();
+  else if (st === 'ios-install') alert('iPhone ต้องติดตั้งก่อน:\nกดปุ่มแชร์ (สี่เหลี่ยมมีลูกศรชี้ขึ้น) → "เพิ่มไปยังหน้าจอโฮม"\nแล้วเปิดจากไอคอนนั้น จากนั้นกดกระดิ่งอีกครั้ง\n(ต้องเป็น iOS 16.4 ขึ้นไป)');
+  else if (st === 'denied') alert('การแจ้งเตือนถูกบล็อกไว้\nต้องไปอนุญาตการแจ้งเตือนของเว็บนี้ในตั้งค่าเครื่อง/เบราว์เซอร์ก่อน แล้วกดกระดิ่งอีกครั้ง');
+  else alert('เครื่องนี้ไม่รองรับการแจ้งเตือน');
+}
+async function vpEnable() {
+  const b = document.getElementById('pushBtn'); if (b) b.classList.add('busy');
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') { alert(perm === 'denied' ? 'ถูกปฏิเสธ — ต้องไปอนุญาตในตั้งค่าเครื่องก่อน' : 'ยังไม่ได้กดอนุญาต'); return; }
+    const reg = await withTimeout(navigator.serviceWorker.ready, 8000, 'ระบบแจ้งเตือนยังไม่พร้อม ลองปิดแล้วเปิดใหม่');
+    const key = vpKey();
+    let sub = await reg.pushManager.getSubscription();
+    if (sub && sub.options && sub.options.applicationServerKey) {   // สมัครไว้ด้วยกุญแจคนละตัว → ต้องสมัครใหม่
+      const old = new Uint8Array(sub.options.applicationServerKey);
+      if (old.length !== key.length || old.some((x, i) => x !== key[i])) { await sub.unsubscribe(); sub = null; }
+    }
+    if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+    const j = sub.toJSON();
+    const rec = await vpRecord(sub).catch(() => null);
+    const os = /Android/.test(navigator.userAgent) ? 'Android' : vpIsIOS() ? 'iPhone/iPad' : /Windows/.test(navigator.userAgent) ? 'Windows' : 'อุปกรณ์';
+    // merge = ถ้าเครื่องนี้เปิดฝั่งแอดมิน/ช่างไว้ด้วย ช่องเดิมยังอยู่ครบ · เครื่องใหม่ = หน้าดูออเดอร์อย่างเดียว
+    await vpDoc().set({ value: { [vpSubId(j.endpoint)]: {
+      endpoint: j.endpoint, keys: j.keys, at: Date.now(), view: true,
+      label: (rec && rec.label) || (os + ' · หน้าดูออเดอร์'),
+      admin: rec ? rec.admin !== false : false,
+    } } }, { merge: true });
+    // ส่งทดสอบหาเครื่องตัวเอง — พิสูจน์ว่าทั้งสายใช้ได้จริง
+    const r = await fetch('/api/push', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ subs: [{ endpoint: j.endpoint, keys: j.keys }], title: '✅ เปิดแจ้งเตือนแล้ว',
+        body: 'เครื่องนี้จะเด้งเตือนทุกครั้งที่มีออเดอร์ใหม่', url: '/view.html', tag: 'kl-test' }) });
+    const res = await r.json().catch(() => ({}));
+    if (!(r.ok && res.sent)) alert('บันทึกเครื่องแล้ว แต่ส่งทดสอบไม่ผ่าน: ' + (res.error || ('HTTP ' + r.status)));
+  } catch (e) {
+    alert('เปิดแจ้งเตือนไม่สำเร็จ: ' + (e.message || e));
+  } finally {
+    if (b) b.classList.remove('busy');
+    vpPaint();
+  }
+}
+async function vpDisable() {
+  try {
+    const sub = await vpGetSub();
+    if (sub) {
+      const id = vpSubId(sub.endpoint);
+      const rec = await vpRecord(sub).catch(() => null);
+      if (rec && (rec.admin !== false || rec.craft)) {
+        // เครื่องนี้ยังรับแจ้งเตือนฝั่งแอดมิน/ช่างอยู่ → ปิดเฉพาะหน้าดูออเดอร์ ห้ามยกเลิกทั้งเครื่อง
+        await vpDoc().update({ ['value.' + id + '.view']: false });
+      } else {
+        await sub.unsubscribe().catch(() => {});
+        await vpDoc().update({ ['value.' + id]: firebase.firestore.FieldValue.delete() }).catch(() => {});
+      }
+    }
+  } catch (e) { alert('ปิดไม่สำเร็จ: ' + (e.message || e)); }
+  vpPaint();
+}
+// ต้องมี service worker ถึงจะรับแจ้งเตือนได้ (ตัวเดียวกับหน้าแอดมิน/หน้าช่าง)
+// มีตัวใหม่รออยู่ → สลับเงียบ ๆ ตอนสลับแอพ (หน้านี้ไม่มีอะไรให้กรอก ไม่ต้องถาม)
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  navigator.serviceWorker.register('/sw.js').catch(e => console.warn('sw register failed', e));
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState !== 'hidden') return;
+    try { const reg = await navigator.serviceWorker.getRegistration(); if (reg && reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+  });
+}
+
+// ── ปุ่มแชร์ลิงก์หน้านี้ให้คนงาน (LINE ฯลฯ) — แชร์ไม่ได้ = คัดลอกลิงก์ ──
+function toast(t) {
+  const d = document.createElement('div'); d.className = 'toast'; d.textContent = t;
+  document.body.appendChild(d); setTimeout(() => d.remove(), 2500);
+}
+async function shareLink() {
+  const url = location.origin + '/view.html';
+  const text = 'ดูรายการออเดอร์รอส่งของร้าน\n(iPhone: เปิดใน Safari → ปุ่มแชร์ → "เพิ่มไปยังหน้าจอโฮม")';
+  if (navigator.share) {
+    try { await navigator.share({ title: 'รายการออเดอร์', text, url }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }   // กดยกเลิกเอง = ไม่ต้องทำอะไร
+  }
+  try { await navigator.clipboard.writeText(url); toast('คัดลอกลิงก์แล้ว ไปวางในแชทได้เลย'); }
+  catch (e) { prompt('คัดลอกลิงก์นี้ไปส่งให้คนงาน:', url); }
+}
+
+let _busy = false;
+async function refreshAll() {
+  if (_busy) return; _busy = true;
+  const b = document.getElementById('rfBtn'); b.classList.add('spin');
+  try { await Promise.all([startOrders(true), loadRef(true)]); }
+  catch (e) { showTip('⚠️ ดึงข้อมูลไม่สำเร็จ เช็คเน็ตแล้วกด ↻ อีกครั้ง'); }
+  finally { _busy = false; b.classList.remove('spin'); }
+}
+// กลับมาเปิดหลังพักไว้ ≥1 นาที → ต่อตัวฟังใหม่ (มือถือชอบตัดท่อตอนพักแอพ)
+let _hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') { _hiddenAt = Date.now(); return; }
+  if (_hiddenAt && Date.now() - _hiddenAt >= 60000 && db) { _hiddenAt = 0; startOrders(false).catch(() => {}); loadRef(false); }
+});
+
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    // ปุ่ม "←" กลับหน้าแอดมิน — โผล่เฉพาะตอนเปิดมาจากเมนูหน้าแอดมิน (ธง kl_fromAdmin ใน sessionStorage เหมือนหน้าช่าง)
+    try { if (sessionStorage.getItem('kl_fromAdmin') === '1') document.getElementById('backAdmin').style.display = ''; } catch (e) {}
+    loadRef(false);
+    vpPaint();
+    await startOrders(false);
+  } catch (e) {
+    console.error(e);
+    document.getElementById('list').innerHTML = '<div class="msg">โหลดข้อมูลไม่สำเร็จ<br>เช็คเน็ตแล้วกด ↻ ด้านบน</div>';
+    document.getElementById('sub').textContent = 'ยังไม่ได้ข้อมูล';
+  }
+});
+</script>
+</body>
+</html>
