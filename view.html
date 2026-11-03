@@ -151,18 +151,21 @@ const REF_KEY = 'kl_view_ref_' + FIREBASE_CONFIG.projectId, REF_EVERY = 6 * 3600
 let _ref = { routes: {}, colors: {}, products: {}, at: 0 };
 try { const r = JSON.parse(localStorage.getItem(REF_KEY) || 'null'); if (r && r.routes) _ref = r; } catch (e) {}
 async function loadRef(force) {
-  if (!force && _ref.at && Date.now() - _ref.at < REF_EVERY) return;
+  if (!force && _ref.at && _ref.stickers && Date.now() - _ref.at < REF_EVERY) return;   // ของเก่าไม่มีสีสติ๊กเกอร์ = ดึงใหม่
   try {
     const [cs, ps, rc] = await Promise.all([
       withTimeout(db.collection('customers').get({ source: 'server' }), 15000),
       withTimeout(db.collection('products').get({ source: 'server' }), 15000),
       withTimeout(db.collection('settings').doc('routeColors').get({ source: 'server' }), 15000).catch(() => null),
     ]);
-    const routes = {}, products = {};
-    cs.docs.forEach(d => { const c = d.data(); const r = String(c.route || '').replace(/\s+/g, ' ').trim(); if (r) routes[d.id] = r; });
+    const routes = {}, products = {}, stickers = {};
+    cs.docs.forEach(d => {
+      const c = d.data(); const r = String(c.route || '').replace(/\s+/g, ' ').trim(); if (r) routes[d.id] = r;
+      if (c.isDeleted !== true) stickers[String(c.name || '').trim()] = custStickerName(c);   // '' = ไม่มีสติ๊กเกอร์
+    });
     ps.docs.forEach(d => { const p = d.data(); if (p.isDeleted !== true && p.name) products[p.name] = p.unit || 'โลง'; });
     const colors = (rc && rc.exists && rc.data().value) || _ref.colors || {};
-    _ref = { routes, colors, products, at: Date.now() };
+    _ref = { routes, colors, products, stickers, at: Date.now() };
     try { localStorage.setItem(REF_KEY, JSON.stringify(_ref)); } catch (e) {}
     render();
   } catch (e) { console.warn('loadRef:', e); }
@@ -235,9 +238,33 @@ async function startOrders(full) {
 }
 
 // ── วาดจอ: สายส่ง → ลูกค้า → ของที่ยังไม่ได้ส่ง ──
-// สีประจำลูกค้า — ⚠️ เหมือน OC_AVA / ocAvaColor ใน index.html (ลูกค้าคนเดียวกันได้สีเดียวกันทุกหน้า)
+// สีประจำลูกค้า — ⚠️ เหมือน ocAvaColor / STICKER_COLORS / custStickerName ใน index.html (ลูกค้าคนเดียวกันได้สีเดียวกันทุกหน้า)
+// ตั้งสีสติ๊กเกอร์ไว้ = ใช้สีนั้น · ยังไม่ได้ตั้ง = สุ่มจากชื่อ
+const STICKER_COLORS = {
+  'ม่วง':   { bg:'#7c3aed', fg:'#fff' },
+  'น้ำเงิน': { bg:'#1d4ed8', fg:'#fff' },
+  'ดำ':     { bg:'#111827', fg:'#fff' },
+  'เขียว':  { bg:'#15803d', fg:'#fff' },
+  'แดง':    { bg:'#dc2626', fg:'#fff' },
+  'ส้ม':    { bg:'#ea580c', fg:'#fff' },
+  'ชมพู':   { bg:'#db2777', fg:'#fff' },
+  'เหลือง': { bg:'#facc15', fg:'#111827' },
+};
+const STICKER_DEFAULTS = { 'ป้าแมว':'ม่วง', 'ครูนุช':'น้ำเงิน', 'ป้าดา':'ดำ', 'ป้าขวัญ':'เขียว' };
+function custStickerName(c) {
+  const v = c.stickerColor;
+  if (v === 'none') return '';
+  if (v && STICKER_COLORS[v]) return v;
+  return STICKER_DEFAULTS[String(c.name || '').trim()] || '';
+}
+function custSticker(name) {
+  const nm = String(name || '').trim(), m = _ref.stickers || {};
+  return STICKER_COLORS[nm in m ? m[nm] : STICKER_DEFAULTS[nm]] || null;
+}
+function custFg(name) { const s = custSticker(name); return s ? s.fg : '#fff'; }
 const CUST_COLORS = ['#2563eb','#16a34a','#d97706','#7c3aed','#db2777','#0891b2','#dc2626','#4f46e5'];
 function custColor(name) {
+  const s = custSticker(name); if (s) return s.bg;
   let h = 0;
   for (let i = 0; i < (name||'').length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return CUST_COLORS[h % CUST_COLORS.length];
@@ -293,7 +320,7 @@ function render() {
         const cpcs = g.items.filter(x => !x.acc).reduce((s, x) => s + x.remain, 0);
         const ac = custColor(g.name);
         return `<div class="cust" style="border-left-color:${ac}"><div class="cust-h">
-            <span class="who"><span class="nm" style="background:${ac}">${esc(g.name)}</span><span class="dt">สั่ง ${thDate(g.first)}</span>${allReady ? '<span class="ready">พร้อมส่ง</span>' : ''}</span>
+            <span class="who"><span class="nm" style="background:${ac};color:${custFg(g.name)}">${esc(g.name)}</span><span class="dt">สั่ง ${thDate(g.first)}</span>${allReady ? '<span class="ready">พร้อมส่ง</span>' : ''}</span>
             ${cpcs ? `<span class="cc">${cpcs} ใบ</span>` : ''}
           </div><div class="cust-b">
           ${g.items.map(x => {

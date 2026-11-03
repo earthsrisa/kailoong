@@ -2644,7 +2644,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v116';
+const APP_VERSION = 'v117';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -3047,7 +3047,7 @@ function dashRecentRow(o) {
   <tr${isNew ? ' class="is-new"' : ''} style="--cc:${ocAvaColor(name)}">
     <td class="c-date">${U.dateCompact(o.createdAt)}</td>
     <td class="c-cust">
-      <span class="nmpill" style="background:${ocAvaColor(name)}">${U.esc(name)}</span>
+      <span class="nmpill" style="background:${ocAvaColor(name)};color:${ocAvaFg(name)}">${U.esc(name)}</span>
       ${isNew ? '<span class="new-dot">ใหม่</span>' : ''}${craftTakenBadge(o)}
     </td>
     <td class="c-items">
@@ -3140,7 +3140,21 @@ function orderCraftInfo(o) {
 // สีอวตารลูกค้า — สุ่มจากชื่อแบบคงที่ ลูกค้าคนเดิมได้สีเดิมทุกครั้ง
 // ช่วยให้กวาดตาหาลูกค้าที่คุ้นเคยได้เร็วโดยไม่ต้องอ่านชื่อ
 const OC_AVA = ['#2563eb','#16a34a','#d97706','#7c3aed','#db2777','#0891b2','#dc2626','#4f46e5'];
+// สีชื่อลูกค้า = สีสติ๊กเกอร์ที่ตั้งไว้ (หน้าต่างแก้ไขลูกค้า) · ยังไม่ได้ตั้ง = สุ่มจากชื่อเหมือนเดิม (เจ้าของขอ 3 พ.ย. 69)
+// ⚠️ view.html ใช้หลักเดียวกัน (custColor)
+let _ocStkList = null, _ocStkMap = new Map();
+function ocSticker(name) {
+  const nm = String(name || '').trim();
+  const list = (DB._cache.customers && DB._cache.customers.data) || [];
+  if (list !== _ocStkList) {   // ข้อมูลลูกค้าเปลี่ยน (ได้ array ใหม่ทุกครั้ง) → ทำตารางชื่อ→สีใหม่
+    _ocStkList = list; _ocStkMap = new Map();
+    list.forEach(c => { if (c.isDeleted !== true) _ocStkMap.set(String(c.name || '').trim(), STICKER_COLORS[custStickerName(c)] || null); });
+  }
+  return _ocStkMap.has(nm) ? _ocStkMap.get(nm) : (STICKER_COLORS[STICKER_DEFAULTS[nm]] || null);
+}
+function ocAvaFg(name) { const s = ocSticker(name); return s ? s.fg : '#fff'; }
 function ocAvaColor(name) {
+  const s = ocSticker(name); if (s) return s.bg;
   let h = 0;
   for (let i = 0; i < (name||'').length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return OC_AVA[h % OC_AVA.length];
@@ -3177,7 +3191,7 @@ function orderCardHtml(o) {
   return `<div class="ocard s-${ci.state}" style="--cc:${ocAvaColor(name)}">
     <div class="top">
       <div class="who">
-        <div class="nm"><span class="nmpill" style="background:${ocAvaColor(name)}">${U.esc(name)}</span>${(Date.now()-o.createdAt)<7200000?' <span style="background:#ef4444;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 7px;vertical-align:middle;">ใหม่</span>':''}</div>
+        <div class="nm"><span class="nmpill" style="background:${ocAvaColor(name)};color:${ocAvaFg(name)}">${U.esc(name)}</span>${(Date.now()-o.createdAt)<7200000?' <span style="background:#ef4444;color:#fff;font-size:11px;font-weight:700;border-radius:10px;padding:1px 7px;vertical-align:middle;">ใหม่</span>':''}</div>
         <div class="no"><span class="code">${U.esc(o.orderNo||'-')}</span>${U.date(o.createdAt)}${craftTakenBadge(o)}</div>
       </div>
       <div class="amt"><div class="n">${U.baht(U.orderTotal(o))}</div><div class="u">บาท</div></div>
@@ -5827,7 +5841,7 @@ function custCardHtml(c) {
   return `<div class="ccard" style="--cc:${ocAvaColor(c.name||'')}">
     <div class="top">
       <div class="who">
-        <div class="nm"><span class="nmpill" style="background:${ocAvaColor(c.name||'')}">${U.esc(c.name||'-')}</span>${nPrice
+        <div class="nm"><span class="nmpill" style="background:${ocAvaColor(c.name||'')};color:${ocAvaFg(c.name||'')}">${U.esc(c.name||'-')}</span>${nPrice
           ? `<span class="ctag"><i class="fa-solid fa-tag"></i>ราคาพิเศษ ${nPrice}</span>` : ''}</div>
         ${phone ? `<div class="ph"><i class="fa-solid fa-phone me-1" style="opacity:.6;"></i>${U.esc(phone)}</div>` : ''}
       </div>
