@@ -1028,6 +1028,30 @@ body.modal-open #bottom-nav {
 .ocfoot .save:disabled { background:#cbd5e1; box-shadow:none; color:#f8fafc; }
 .ocfoot .cancel { width:100%; height:40px; border:none; background:none; margin-top:7px;
   font-family:inherit; font-size:13.5px; font-weight:600; color:#64748b; cursor:pointer; }
+/* บรรทัดเดียว: ยอดรวมซ้าย ปุ่มบันทึกขวา */
+.ocfoot .row1 { display:flex; align-items:center; gap:10px; }
+.ocfoot .tt { flex:0 0 auto; min-width:0; display:flex; flex-direction:column; line-height:1.15; }
+.ocfoot .tt span { font-size:13px; font-weight:700; color:#475569; white-space:nowrap; }
+.ocfoot .tt b { font-size:22px; font-weight:800; color:#15803d; white-space:nowrap; }
+.ocfoot .tt .disc { border:0; background:none; padding:0 0 0 4px; font-family:inherit; font-size:12.5px; font-weight:700; color:#2563eb; cursor:pointer; }
+.ocfoot .row1 .save { flex:1; width:auto; min-width:0; height:50px; font-size:16px; }
+.ocfoot .r input { display:inline-block; }
+/* ปุ่มเลือกสินค้า / สีเส้น (แทนช่องเลื่อนหา) */
+.ocpg-h { font-size:13px; font-weight:800; color:#475569; margin:4px 0 6px; }
+.ocpg-h ~ .ocpg-h { margin-top:12px; }
+.ocpg { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+.ocpg.acc { grid-template-columns:1fr 1fr 1fr; }
+.ocpb { border:2px solid #d1d5db; background:#fff; border-radius:11px; padding:11px 5px; min-height:48px;
+  font-family:'Sarabun',sans-serif; font-size:15px; font-weight:700; color:#0f172a; line-height:1.25;
+  cursor:pointer; text-align:center; transition:transform .05s ease; }
+.ocpb:active { transform:scale(.97); }
+.ocpb:hover { border-color:#2563eb; }
+.ocpg.acc .ocpb { font-size:13.5px; padding:8px 3px; min-height:42px; }
+.ocpb.fav { border-color:#f59e0b; background:#fffbeb; }
+.ocpb.fav small { display:block; font-size:12px; font-weight:600; color:#b45309; margin-top:2px; }
+.ocpb.trim { font-size:17px; font-weight:800; padding:14px 5px; }
+.ocpg-more { width:100%; margin-top:9px; border:2px dashed #94a3b8; background:#fff; border-radius:11px; padding:10px;
+  font-family:'Sarabun',sans-serif; font-size:15px; font-weight:700; color:#334155; cursor:pointer; }
 /* modal-footer ปกติจัดปุ่มชิดขวาเรียงแถว — ฟอร์มนี้ต้องเต็มความกว้าง */
 #orderModal .modal-footer { display:block; padding:12px 14px 14px; }
 
@@ -2644,7 +2668,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v117';
+const APP_VERSION = 'v118';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -3561,6 +3585,10 @@ async function saveAddItems(orderId) {
 async function showCreateOrderModal(editId) {
   const [customers, products] = await Promise.all([DB.getCustomers(), DB.getProducts()]);
   const edit = editId ? await DB.getOrder(editId) : null;
+  // ออเดอร์ในเครื่อง → ปุ่ม "สั่งบ่อย" (ไม่รอ ถ้ายังไม่มาก็แค่ยังไม่มีปุ่มสั่งบ่อย มาแล้ววาดใหม่)
+  window._orderAllOrders = (DB._cache.orders && DB._cache.orders.data) || [];
+  window._ocShowAll = false;
+  if (!window._orderAllOrders.length) DB.getOrders().then(r => { window._orderAllOrders = r; if (!(window._ordCur||{}).productId) paintOcSteps({noScroll:true}); }).catch(() => {});
 
   window._orderProds  = products;
   window._orderCusts  = customers;   // ใช้สร้างช่องเลือกลูกค้าในขั้นที่ 1
@@ -3620,17 +3648,20 @@ async function showCreateOrderModal(editId) {
 
   // แถบยอดรวม + ปุ่มบันทึก อยู่ใน modal-footer ซึ่ง Bootstrap ตรึงไว้ติดขอบล่างอยู่แล้ว
   // (modal-dialog-scrollable ทำให้เลื่อนเฉพาะเนื้อใน หัวกับท้ายอยู่กับที่)
+  // แถบล่างเหลือบรรทัดเดียว (3 พ.ย. 69): ยอดรวม + ปุ่มบันทึก · ส่วนลดซ่อนไว้ใต้ปุ่มเล็ก (มีส่วนลดอยู่แล้ว = กางไว้)
+  // ยกเลิก = ปุ่ม ✕ มุมขวาบนของหน้าต่าง
+  const hasDisc = (edit?.discount || 0) > 0;
   const foot = `<div class="ocfoot">
-      <div class="r"><span>ยอดก่อนส่วนลด</span><b id="os_sub" style="color:#0f172a;">0 บาท</b></div>
-      <div class="r"><span>ส่วนลด (บาท)</span>
-        <input type="number" class="form-control form-control-sm" id="of_discount" min="0"
+      <div class="r${hasDisc ? '' : ' d-none'}" id="ocDiscRow"><span>ยอดก่อนส่วนลด <b id="os_sub" style="color:#0f172a;">0 บาท</b></span>
+        <span>ส่วนลด <input type="number" class="form-control form-control-sm d-inline-block" id="of_discount" min="0"
           value="${edit?.discount||0}" oninput="calcOrderTotal()"
-          style="width:104px;text-align:right;font-weight:700;">
+          style="width:96px;text-align:right;font-weight:700;"> บาท</span>
       </div>
-      <div class="g"><span>รวมทั้งสิ้น</span><b id="os_total">0 บาท</b></div>
-      <button type="button" class="save" id="ocSaveBtn" onclick="saveOrder()">
-        <i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์</button>
-      <button type="button" class="cancel" data-bs-dismiss="modal">ยกเลิก</button>
+      <div class="row1">
+        <div class="tt"><span>รวมทั้งสิ้น${hasDisc ? '' : ` <button type="button" class="disc" id="ocDiscBtn" onclick="document.getElementById('ocDiscRow').classList.remove('d-none');this.remove();document.getElementById('of_discount').focus()">+ ส่วนลด</button>`}</span><b id="os_total">0 บาท</b></div>
+        <button type="button" class="save" id="ocSaveBtn" onclick="saveOrder()">
+          <i class="fa-solid fa-check me-1"></i>บันทึกออเดอร์</button>
+      </div>
     </div>`;
 
   showModal('orderModal',
@@ -3910,10 +3941,25 @@ function renderOcSteps() {
   if (prod) {
     html += ocDone('สินค้า', U.esc(prod.name), "ocProdChange('')");
   } else {
-    return html + ocStep(n, 'เลือกสินค้า', true,
-      `<select class="oc-sel" id="oc_prod" onchange="ocProdChange(this.value)">
-         <option value="">— เลือกสินค้า —</option>${ocProdOptions(prods, cur.productId)}
-       </select>`);
+    // ปุ่มใหญ่แทนช่องเลื่อนหา (เจ้าของเลือก 3 พ.ย. 69): ของที่ร้านนี้สั่งบ่อย 6 อันดับขึ้นก่อน
+    // ที่เหลือกด "ดูสินค้าทั้งหมด" · ร้านที่ยังไม่เคยสั่ง = โชว์ทั้งหมดเลย
+    const favs = ocFavs(window._orderCustId);
+    const pbtn = (p, sub) => `<button type="button" class="ocpb${sub ? ' fav' : ''}" data-id="${U.esc(String(p.id))}" onclick="ocProdChange(this.dataset.id)">${U.esc(p.name)}${sub ? `<small>${sub}</small>` : ''}</button>`;
+    let inner = '';
+    if (favs.length) {
+      const nm = custName.length > 14 ? 'ร้านนี้' : U.esc(custName);
+      inner += `<div class="ocpg-h">⭐ ${nm} สั่งบ่อย</div><div class="ocpg">${favs.map(f => pbtn(f.p, `สั่งไป ${f.n} ครั้ง`)).join('')}</div>`;
+    }
+    if (!favs.length || window._ocShowAll) {
+      const sorted = [...prods].sort((a,b) => (a.name||'').localeCompare(b.name||'', 'th'));
+      const cof = sorted.filter(p => !isAccessory(p.name)), acc = sorted.filter(p => isAccessory(p.name));
+      if (cof.length) inner += `<div class="ocpg-h">⚰️ โลงทั้งหมด</div><div class="ocpg">${cof.map(p => pbtn(p)).join('')}</div>`;
+      if (acc.length) inner += `<div class="ocpg-h">🔧 อุปกรณ์เสริม</div><div class="ocpg acc">${acc.map(p => pbtn(p)).join('')}</div>`;
+      if (favs.length) inner += `<button type="button" class="ocpg-more" onclick="ocShowAll(false)">ย่อกลับ ▴</button>`;
+    } else {
+      inner += `<button type="button" class="ocpg-more" onclick="ocShowAll(true)">ดูสินค้าทั้งหมด (${prods.length}) ▾</button>`;
+    }
+    return html + ocStep(n, 'เลือกสินค้า', true, inner);
   }
   n++;
 
@@ -3946,11 +3992,10 @@ function renderOcSteps() {
   if (lines.length) {
     trimDone = !!cur.trimColor;
     if (!trimDone) {
+      // ปุ่มระบายสีตามจริง (ชุดสีเดียวกับป้ายเส้นในใบพิมพ์รายการรอส่ง) กดทีเดียว
       return html + ocStep(n, 'เลือกสีเส้น', true,
-        `<select class="oc-sel" onchange="ocTrim(this.value)">
-           <option value="">— เลือกสีเส้น —</option>
-           ${lines.map(l => `<option value="${U.esc(l)}">${U.esc(l)} ${TRIM_ICON[l]||'▫'}</option>`).join('')}
-         </select>`);
+        `<div class="ocpg">${lines.map(l =>
+          `<button type="button" class="ocpb trim" style="${trimChipStyle(l)}" data-t="${U.esc(l)}" onclick="ocTrim(this.dataset.t)">${U.esc(l)}</button>`).join('')}</div>`);
     }
     html += ocDone('สีเส้น',
       `<span style="font-size:17px;">${TRIM_ICON[cur.trimColor]||'▫'}</span>${U.esc(cur.trimColor)}`,
@@ -4034,22 +4079,12 @@ function paintOcSteps(opt) {
 
   // เพิ่งกดเพิ่มรายการ → ถามตรง ๆ ว่าจะเพิ่มอีกไหม แทนที่จะรีเซ็ตฟอร์มเงียบ ๆ
   // (คนที่ไม่รู้ว่าใส่หลายรายการในใบเดียวได้ จะได้เห็นทุกครั้งจนจำได้)
-  if (window._ordJustAdded) {
-    const j = window._ordJustAdded;
-    // ปุ่มบันทึกอยู่ที่แถบล่างของหน้าต่างปุ่มเดียว ไม่ใส่ซ้ำตรงนี้
-    // (ของเดิมมีปุ่มบันทึก 2 ที่ ทำให้ไม่รู้ว่าต้องกดอันไหน)
-    el.innerHTML = `
-      <div class="oc-added">
-        <div class="oc-added-t"><i class="fa-solid fa-circle-check me-1"></i>เพิ่ม <b>${U.esc(j.label)}</b> แล้ว</div>
-      </div>
-      <button type="button" class="oc-big blue" onclick="ocAddMore()">
-        <i class="fa-solid fa-plus me-1"></i>เพิ่มสินค้าอีก</button>`;
-    ocScrollTo(el.firstElementChild);
-    paintCustBar();
-    return;
-  }
-
-  el.innerHTML = renderOcSteps();
+  // เพิ่งกดเพิ่มรายการ → บอกว่าเพิ่มแล้ว แล้วให้เลือกชิ้นต่อไปได้เลย
+  // (เดิมต้องกด "เพิ่มสินค้าอีก" อีกทีทุกครั้ง — เอาออก 3 พ.ย. 69 ตามแบบร่างที่เจ้าของเลือก)
+  const j = window._ordJustAdded;
+  window._ordJustAdded = null;
+  el.innerHTML = (j ? `<div class="oc-added"><div class="oc-added-t"><i class="fa-solid fa-circle-check me-1"></i>เพิ่ม <b>${U.esc(j.label)}</b> แล้ว · เลือกชิ้นต่อไปได้เลย</div></div>` : '')
+    + renderOcSteps();
   paintCustBar();
   ocPaintProg();
   // ขั้นที่กำลังทำคือการ์ดขอบน้ำเงิน (.oca) — เด่นด้วย CSS อยู่แล้ว แค่เลื่อนไปหา
@@ -4143,6 +4178,26 @@ function ocPickCust(id) {
   onOrderCustChange(sel);
 }
 
+// ── ของที่ลูกค้าคนนี้สั่งบ่อย 6 อันดับ (นับจำนวนใบออเดอร์ที่มีของชิ้นนั้น ไม่ใช่จำนวนหีบ) ──
+// ใช้ออเดอร์ในเครื่อง (window._orderAllOrders) ไม่ต้องรอเน็ต · สินค้าที่ลบไปแล้วไม่เอามา
+function ocFavs(custId) {
+  if (!custId) return [];
+  const prods = window._orderProds || [];
+  const byId = new Map(prods.map(p => [String(p.id), p]));
+  const byName = new Map(prods.map(p => [p.name, p]));
+  const cnt = new Map();
+  for (const o of (window._orderAllOrders || [])) {
+    if (String(o.customerId) !== String(custId) || o.isDeleted === true) continue;
+    const seen = new Set();
+    for (const i of (o.items || [])) {
+      const p = byId.get(String(i.productId)) || byName.get(i.productName);
+      if (p && !seen.has(p.id)) { seen.add(p.id); cnt.set(p.id, (cnt.get(p.id) || 0) + 1); }
+    }
+  }
+  return [...cnt].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([id, n]) => ({ p: prods.find(p => p.id === id), n }));
+}
+function ocShowAll(on) { window._ocShowAll = !!on; paintOcSteps(); }
+
 // กด "เพิ่มสินค้าอีก" — กลับไปที่ขั้นเลือกสินค้า
 function ocAddMore() {
   window._ordJustAdded = null;
@@ -4153,6 +4208,7 @@ function ocAddMore() {
 async function ocProdChange(id) {
   const cur = window._ordCur;
   cur.productId = id; cur.color=''; cur.trimColor=''; cur.extra='';
+  window._ocShowAll = false;   // เลือกเสร็จ → ครั้งหน้ากลับมาเห็นแค่ของสั่งบ่อยก่อน
   // อุปกรณ์เสริมไม่มีสี/เส้น → ข้ามไปขั้นจำนวนได้เลย
   const prod = (window._orderProds||[]).find(p => p.id === id);
   if (prod && isAccessory(prod.name)) { cur.color=''; cur.trimColor=''; }
@@ -9100,6 +9156,9 @@ async function confirmRestore() {
     // ตั้งค่าร้าน (ชื่อร้าน ที่อยู่ PromptPay ฯลฯ)
     for (const st of (data.settings||[])) {
       const { id, ...rest } = st;
+      // เว็บทดสอบ: ไม่เอารายชื่อมือถือที่เปิดแจ้งเตือน (pushSubs) จากไฟล์ของเว็บจริงมา
+      // ไม่งั้นลองรับออเดอร์ในเว็บทดสอบ มือถือจริงของแอดมิน/ช่าง/คนงานจะเด้ง "ออเดอร์ใหม่" (เจ้าของขอ 3 พ.ย. 69)
+      if (KL_IS_TEST && id === 'pushSubs') continue;
       if (id) await DB._fs.collection('settings').doc(String(id)).set(rest, { merge: true });
     }
     // ตัวนับเลขออเดอร์: ตั้งใหม่ให้ตรงกับข้อมูลที่กู้คืน กันเลขซ้ำ
