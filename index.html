@@ -1053,6 +1053,8 @@ body.modal-open #bottom-nav {
 .ocpb.fav { border-color:#f59e0b; background:#fffbeb; }
 .ocpb.fav small { display:block; font-size:12px; font-weight:600; color:#b45309; margin-top:2px; }
 .ocpb.trim { font-size:17px; font-weight:800; padding:14px 5px; }
+.ocpb.lining { border-color:#7c3aed; background:#f5f3ff; color:#4c1d95; }
+.ocpb.lining small { display:block; font-size:12px; font-weight:600; color:#6d28d9; margin-top:2px; }
 .ocpg-more { width:100%; margin-top:9px; border:2px dashed #94a3b8; background:#fff; border-radius:11px; padding:10px;
   font-family:'Sarabun',sans-serif; font-size:15px; font-weight:700; color:#334155; cursor:pointer; }
 /* modal-footer ปกติจัดปุ่มชิดขวาเรียงแถว — ฟอร์มนี้ต้องเต็มความกว้าง */
@@ -2671,7 +2673,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v119';
+const APP_VERSION = 'v120';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -3829,6 +3831,23 @@ function showOrderConfirm() {
         <div style="font-size:12px;color:#3b82f6;font-weight:500;margin-top:2px;">
           ไม่ได้เปิดใบใหม่ ของทั้งหมดจะอยู่ในใบเดียวกัน</div></div>`;
     }).catch(()=>{});
+  } else {
+    // ── แก้ใบที่ออกบิลไปแล้ว → เตือน (ยังกดยืนยันต่อได้) ──
+    // บิลเป็นเอกสารแยก แก้ออเดอร์แล้วบิลไม่เปลี่ยนตาม → ข้อมูลบิลกับออเดอร์ไม่ตรงกัน
+    (async () => {
+      const o = await DB.getOrder(document.getElementById('of_editId')?.value);
+      const invIds = [...new Set(Object.values((o && o.billedStatus) || {}).map(b => b && b.invoiceId).filter(Boolean))];
+      if (!invIds.length) return;
+      const nos = (await Promise.all(invIds.map(x => DB.getInvoice(x).catch(() => null))))
+        .filter(inv => inv && inv.isDeleted !== true).map(inv => inv.invoiceNo).filter(Boolean);
+      const box = document.getElementById('ocMergeNote');
+      if (!box || !nos.length) return;
+      box.innerHTML = `<div style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:11px;
+        padding:10px 13px;margin-bottom:12px;font-size:13.5px;color:#92400e;font-weight:700;">
+        ⚠️ ใบนี้ออกบิลไปแล้ว: ${nos.map(n => U.esc(n)).join(', ')}
+        <div style="font-size:12.5px;font-weight:500;margin-top:3px;">
+          แก้ตรงนี้ <b>บิลจะไม่เปลี่ยนตาม</b> — ถ้าจะแก้ของที่ออกบิลไปแล้ว ให้ลบบิลที่หน้าใบเสร็จก่อน แล้วค่อยออกบิลใหม่</div></div>`;
+    })().catch(()=>{});
   }
 }
 
@@ -4026,6 +4045,22 @@ function renderOcSteps() {
     n++;
   }
 
+  // ── ขั้นบุผ้า (เฉพาะสินค้าที่ติ๊ก "บุผ้าได้" ในหน้าสินค้า) — ต้องเลือก จะได้ไม่ลืมบอกช่าง ──
+  // เก็บรวมในช่อง extra (ต่อท้ายขนาด) → ป้าย/การนับแต่ง/ส่ง/ออกบิล ใช้ของเดิมได้ทั้งหมด ไม่ต้องแก้ craft/view
+  // แก้รายการเก่าที่ใส่ผ้าไว้ แต่หลังจากนั้นเอาติ๊ก "ใส่ผ้าได้" ออกจากสินค้า → ยังต้องโชว์/คงไว้ ไม่งั้นคำ (ใส่ผ้า) หายเงียบ ๆ
+  if (!isAcc && (prod.linable || cur.lining === true)) {
+    if (cur.lining == null) {
+      const lp = Number(prod.liningPrice) || 0;
+      return html + ocStep(n, 'ใส่ผ้าข้างใน?', true,
+        `<div class="ocpg">
+           <button type="button" class="ocpb" onclick="ocLining(false)">ไม่ใส่ผ้า</button>
+           <button type="button" class="ocpb lining" onclick="ocLining(true)">ใส่ผ้า${lp ? `<small>+${U.baht(lp)} บาท/ใบ</small>` : ''}</button>
+         </div>`);
+    }
+    html += ocDone('ใส่ผ้าข้างใน', cur.lining ? LINING_TXT : 'ไม่ใส่ผ้า', "ocLining(null)");
+    n++;
+  }
+
   // ── ขั้นสุดท้าย จำนวน + ราคา + ปุ่มเพิ่ม ──
   // อุปกรณ์เสริมมักสั่งทีละร้อย → เพิ่มปุ่ม ±10 ให้กดเร็ว
   const unit = isAcc ? (prod.unit || 'ชิ้น') : 'ใบ';
@@ -4121,6 +4156,7 @@ function ocPaintProg() {
   if (!isAcc && getProductColorsFor(prod.name, prods).length) total++;
   if (!isAcc && getProductLines(prod.name, prods).length)     total++;
   if (!isAcc && spec.extra?.length)                           total++;
+  if (!isAcc && (prod.linable || cur.lining === true))        total++;
   pill.textContent = `ขั้น ${Math.min(done + 1, total)} / ${total}`;
 }
 
@@ -4204,6 +4240,22 @@ function ocFavs(custId) {
 }
 function ocShowAll(on) { window._ocShowAll = !!on; paintOcSteps(); }
 
+// ── บุผ้าข้างใน (เจ้าของขอ 17 พ.ย. 69 — ไม่อยากเพิ่มชนิดหีบ) ──
+// เก็บเป็นคำ "บุผ้า" ต่อท้ายช่อง extra ของรายการ เช่น "บุผ้า" / "หน้า 24 นิ้ว บุผ้า"
+// ⚠️ ช่อง extra อยู่ใน key นับแต่ง/ส่ง/ออกบิล (deliverKey, itemKey) → ใบบุผ้ากับใบธรรมดานับแยกกันเอง
+const LINING_TXT = '(ใส่ผ้า)';   // ⚠️ เดิม 'บุผ้า' (ใช้แค่บนเว็บทดสอบ) — ocSplitExtra ยังอ่านคำเดิมได้
+function ocJoinExtra(size, lining) { return [size || '', lining ? LINING_TXT : ''].filter(Boolean).join(' '); }
+function ocSplitExtra(extra) {
+  const s = String(extra || '');
+  const w = [LINING_TXT, 'บุผ้า'].find(t => s === t || s.endsWith(' ' + t));
+  return { lining: !!w, size: w ? s.slice(0, s.length - w.length).trim() : s };
+}
+async function ocLining(v) {
+  window._ordCur.lining = v;   // null = กลับไปเลือกใหม่
+  await ocRefreshPrice();
+  paintOcSteps();
+}
+
 // กด "เพิ่มสินค้าอีก" — กลับไปที่ขั้นเลือกสินค้า
 function ocAddMore() {
   window._ordJustAdded = null;
@@ -4213,7 +4265,7 @@ function ocAddMore() {
 
 async function ocProdChange(id) {
   const cur = window._ordCur;
-  cur.productId = id; cur.color=''; cur.trimColor=''; cur.extra='';
+  cur.productId = id; cur.color=''; cur.trimColor=''; cur.extra=''; cur.lining = null;
   window._ocShowAll = false;   // เลือกเสร็จ → ครั้งหน้ากลับมาเห็นแค่ของสั่งบ่อยก่อน
   // อุปกรณ์เสริมไม่มีสี/เส้น → ข้ามไปขั้นจำนวนได้เลย
   const prod = (window._orderProds||[]).find(p => p.id === id);
@@ -4255,26 +4307,71 @@ async function ocRefreshPrice() {
   if (window._orderCustId) {
     try { price = await DB.getEffectivePrice(window._orderCustId, prod.id, price, cur.trimColor||''); } catch(e){}
   }
+  if (cur.lining && prod.linable) price += Number(prod.liningPrice) || 0;   // บุผ้า = บวกเพิ่มจากราคาปกติ/ราคาพิเศษ
   cur.price = price;
   const el = document.getElementById('oc_price'); if (el) el.value = price;
 }
 
 // ── เพิ่มเข้าตะกร้า ──
-function ocAdd() {
+// ── ของเหมือนกัน (สินค้า+สี+เส้น+ขนาด) แต่ราคาไม่ตรง → ถามว่าใช้ราคาไหน ──
+// ของ key เดียวกันต้องอยู่บรรทัดเดียวเสมอ (แยกบรรทัด = ยอดค้างส่งรายบรรทัดนับขาด)
+// คืนราคาที่เลือก หรือ null = ยกเลิก
+function ocPickPrice(label, oldPrice, newPrice, oldTxt = 'ราคาที่มีอยู่แล้ว') {
+  return new Promise(resolve => {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2100;display:flex;align-items:center;justify-content:center;padding:16px;';
+    const btn = (p, sub, bg) => `<button type="button" data-p="${p}" style="width:100%;padding:12px;border-radius:11px;border:none;background:${bg};color:#fff;font-size:16px;font-weight:800;margin-top:9px;cursor:pointer;font-family:'Sarabun',sans-serif;">${U.money(p)} บาท<div style="font-size:12px;font-weight:500;opacity:.9;">${sub}</div></button>`;
+    ov.innerHTML = `<div style="background:#fff;border-radius:16px;width:100%;max-width:400px;padding:16px 17px;box-shadow:0 12px 40px rgba(0,0,0,.3);">
+      <div style="font-size:16px;font-weight:800;color:#1a2332;">ราคาไม่ตรงกัน ใช้ราคาไหน?</div>
+      <div style="font-size:13.5px;color:#374151;margin-top:4px;"><b>${U.esc(label)}</b> มีอยู่แล้ว แต่ราคาไม่เท่ากัน — รวมเป็นบรรทัดเดียว ทุกชิ้นใช้ราคาเดียวกัน</div>
+      ${btn(oldPrice, oldTxt, '#475569')}${btn(newPrice, 'ราคาที่เพิ่งกรอก', '#2563eb')}
+      <button type="button" data-p="x" style="width:100%;padding:10px;border-radius:11px;border:2px solid #d1d5db;background:#fff;color:#374151;font-size:14px;font-weight:700;margin-top:9px;cursor:pointer;font-family:'Sarabun',sans-serif;">ยกเลิก</button></div>`;
+    ov.addEventListener('click', e => {
+      const b = e.target.closest('button[data-p]');
+      if (!b) return;
+      ov.remove();
+      resolve(b.dataset.p === 'x' ? null : Number(b.dataset.p));
+    });
+    document.body.appendChild(ov);
+  });
+}
+
+async function ocAdd() {
   const cur = window._ordCur;
   if (!cur.productId) { U.toast('กรุณาเลือกสินค้า','error'); return; }
   const prod = (window._orderProds||[]).find(p => p.id === cur.productId);
   if (!prod) return;
   const price = parseFloat(document.getElementById('oc_price')?.value || 0) || 0;
-  const key = x => `${x.productId}|${x.color}|${x.trimColor}|${x.extra}|${x.price}`;
+  // ไม่รวมราคาใน key — ของเดียวกันราคาต่างต้องถาม ไม่ใช่แยกบรรทัด
+  const key = x => `${x.productId}|${x.color}|${x.trimColor}|${x.extra}`;
   const nw = {productId:prod.id, productName:prod.name, color:cur.color||'', trimColor:cur.trimColor||'',
-              extra:cur.extra||'', qty:cur.qty, price, specialNote:''};
+              extra:ocJoinExtra(cur.extra, cur.lining === true), qty:cur.qty, price, specialNote:''};
   const cart = window._ordCart;
   const editIdx = window._ordEditIdx;
+  const lbl = ocRowLabel(nw).replace(/<[^>]*>/g, ' ').replace(/\s+/g,' ').trim();
 
   // ── โหมดแก้ไข: ทับของเดิมชิ้นนั้น ไม่ใช่เพิ่มชิ้นใหม่ ──
   // หมายเหตุพิเศษของเดิมต้องไม่หาย เพราะฟอร์มขั้นตอนไม่มีช่องนั้น
   if (editIdx >= 0 && cart[editIdx]) {
+    // แก้แล้วกลายเป็นของเดียวกับอีกบรรทัด → รวมเข้าบรรทัดนั้น
+    const dup = cart.findIndex((x, j) => j !== editIdx && key(x) === key(nw));
+    if (dup >= 0) {
+      let p = nw.price;
+      if (Number(cart[dup].price) !== Number(nw.price)) {
+        p = await ocPickPrice(lbl, cart[dup].price, nw.price, 'ราคาของบรรทัดที่มีอยู่');
+        if (p === null) return;              // ยกเลิก = ยังอยู่ในโหมดแก้ไขเหมือนเดิม
+      }
+      const notes = [cart[dup].specialNote, cart[editIdx].specialNote].filter(Boolean).join(' | ');
+      cart[dup] = { ...cart[dup], qty: (Number(cart[dup].qty)||0) + (Number(nw.qty)||0), price: p, specialNote: notes };
+      cart.splice(editIdx, 1);
+      window._ordEditIdx = -1;
+      window._ordCur = {productId:'', color:'', trimColor:'', extra:'', qty:1, price:0};
+      window._ordJustAdded = null;
+      U.toast('รวมกับรายการเดิมแล้ว ✓');
+      renderOrdCart(dup > editIdx ? dup - 1 : dup);
+      paintOcSteps();
+      return;
+    }
     cart[editIdx] = { ...nw, specialNote: cart[editIdx].specialNote || '' };
     window._ordEditIdx = -1;
     window._ordCur = {productId:'', color:'', trimColor:'', extra:'', qty:1, price:0};
@@ -4287,13 +4384,19 @@ function ocAdd() {
 
   const ex = cart.findIndex(x => key(x) === key(nw));
   let hl;
-  if (ex >= 0) { cart[ex].qty += nw.qty; hl = ex; }
+  if (ex >= 0) {
+    let p = cart[ex].price;
+    if (Number(cart[ex].price) !== Number(nw.price)) {
+      p = await ocPickPrice(lbl, cart[ex].price, nw.price, 'ราคาของบรรทัดที่มีอยู่');
+      if (p === null) return;                // ยกเลิก = ไม่เพิ่ม ค่าที่กรอกยังอยู่
+    }
+    cart[ex].qty += nw.qty; cart[ex].price = p; hl = ex;
+  }
   else { cart.push(nw); hl = cart.length - 1; }
   // รีเซ็ตกลับไปขั้น "เลือกสินค้า" พร้อมกรอกรายการต่อไป
   window._ordCur = {productId:'', color:'', trimColor:'', extra:'', qty:1, price:0};
   // จำไว้ว่าเพิ่งเพิ่มอะไร เพื่อเอาไปถามว่าจะเพิ่มอีกไหม
-  window._ordJustAdded = { label: ocRowLabel(nw).replace(/<[^>]*>/g, ' ').replace(/\s+/g,' ').trim(),
-                           count: cart.length };
+  window._ordJustAdded = { label: lbl, count: cart.length };
   renderOrdCart(hl);
   paintOcSteps();
 }
@@ -4316,8 +4419,9 @@ function ocEdit(i) {
   if (!x) return;
   window._ordEditIdx  = i;
   window._ordJustAdded = null;
-  window._ordCur = { productId:x.productId, color:x.color||'', trimColor:x.trimColor||'',
-                     extra:x.extra||'', qty:x.qty||1, price:x.price||0 };
+  const ex = ocSplitExtra(x.extra);   // "หน้า 24 นิ้ว บุผ้า" → ขนาด + บุผ้า แยกกลับไปเป็น 2 ขั้น
+  window._ordCur = { productId:x.productId, color:x.color||'', trimColor:x.trimColor||'', lining: ex.lining,
+                     extra:ex.size, qty:x.qty||1, price:x.price||0 };
   paintOcSteps();
   renderOrdCart();
 }
@@ -5722,18 +5826,25 @@ async function doSaveOrder() {
         // ไม่ใช่ต่อท้ายเป็นบรรทัดใหม่ — ใบจะได้ไม่ยาวรุงรัง และตรงกับพฤติกรรม
         // ของปุ่ม "เพิ่มรายการเข้าออเดอร์" ที่มีอยู่เดิม
         const combined = origItems.map(i => ({...i}));
-        items.forEach(n => {
+        for (const n of items) {
           const j = combined.findIndex(x =>
             String(x.productId) === String(n.productId) &&
             (x.color||'')     === (n.color||'') &&
             (x.trimColor||'') === (n.trimColor||'') &&
             (x.extra||'')     === (n.extra||''));
           if (j >= 0) {
+            // ราคาไม่ตรงกับในใบเดิม → ถาม (เดิมใช้ราคาใบเดิมเงียบ ๆ ราคาใหม่หาย)
+            if (Number(combined[j].price||0) !== Number(n.price||0)) {
+              const lbl = ocRowLabel(n).replace(/<[^>]*>/g, ' ').replace(/\s+/g,' ').trim();
+              const p = await ocPickPrice(lbl, combined[j].price||0, n.price||0, `ราคาในใบ ${mergeTarget.orderNo||'เดิม'} ของวันนี้`);
+              if (p === null) { U.toast('ยังไม่ได้บันทึก — แก้ราคาแล้วกดบันทึกใหม่ได้'); return; }
+              combined[j].price = p;
+            }
             combined[j].qty = (Number(combined[j].qty)||0) + (Number(n.qty)||0);
             if (n.specialNote) combined[j].specialNote =
               (combined[j].specialNote ? combined[j].specialNote + ' | ' : '') + n.specialNote;
           } else combined.push({...n});
-        });
+        }
         const merged = { ...mergeTarget, items: combined };
         // ส่วนลดของสองใบบวกกัน — ยอดรวมที่ลูกค้าต้องจ่ายจึงยังถูกต้อง
         merged.discount = (Number(mergeTarget.discount) || 0) + (Number(data.discount) || 0);
@@ -6146,9 +6257,12 @@ async function showCustomerPriceModal(custId) {
             placeholder="ปกติ" oninput="cpPaint()"><span class="b">บ.</span></div>
         </div></div>`;
     }
+    // ราคาพิเศษแบบเก่า (ตัวเลขเดียว ตั้งไว้ตอนสินค้ายังไม่แยกราคาตามสีเส้น) — ตอนรับออเดอร์ยังถูกใช้กับทุกเส้น
+    // เดิมหน้านี้ไม่โชว์เลย → เจ้าของไม่รู้ว่ามี (17 พ.ย. 69 ราคาออกมาแพงกว่าที่ตั้ง) · ตอนนี้เติมให้เห็นทุกเส้น ลบ/แก้ได้
+    const legacy = typeof cpObj === 'number' ? cpObj : null;
     const rows = lines.map(l => {
       const def = p.priceMap?.[l] ?? p.price;
-      const val = (typeof cpObj === 'object' && cpObj?.[l] !== undefined) ? cpObj[l] : '';
+      const val = (typeof cpObj === 'object' && cpObj?.[l] !== undefined) ? cpObj[l] : (legacy ?? '');
       // สีเส้นแบบ '-' หรือ '(ไม่แต่ง)' ไม่ต้องเติมคำว่า "เส้น" ข้างหน้า จะอ่านไม่รู้เรื่อง
       const plain = ['-','(ไม่แต่ง)',''].includes(l);
       return `<div class="cprow${val!==''?' special':''}">
@@ -6164,7 +6278,8 @@ async function showCustomerPriceModal(custId) {
     }).join('');
     return `<div class="cpprod" data-name="${U.esc(p.name)}">
       <div class="ph"><span class="pi"><i class="fa-solid fa-box"></i></span>${U.esc(p.name)}
-        <span class="set" style="display:none;"></span></div>${rows}</div>`;
+        <span class="set" style="display:none;"></span></div>${legacy !== null ? `<div style="background:#fef3c7;color:#92400e;font-size:12.5px;padding:6px 12px;">
+          <i class="fa-solid fa-triangle-exclamation me-1"></i>ราคาพิเศษ ${U.baht(legacy)} บาท ตั้งไว้ตั้งแต่ก่อนแยกราคาตามสีเส้น (ใช้กับทุกเส้นอยู่) — ไม่ใช้แล้ว ลบตัวเลขออกแล้วกดบันทึก</div>` : ''}${rows}</div>`;
   }).join('');
 
   const body = `
@@ -6536,6 +6651,13 @@ async function showProductModal(id) {
     <div class="col-sm-3"><label class="form-label">หน่วย</label>
       <input type="text" class="form-control" id="pf_unit" value="${U.esc(p?.unit||'โลง')}" oninput="pfToggleCm()"></div>
     <div class="col-12" id="pf_price_wrap">${initPriceFields}</div>
+    <div class="col-12"><label class="form-label"><i class="fa-solid fa-layer-group me-1"></i>ใส่ผ้า (บุผ้าข้างใน)</label>
+      <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px 14px;font-size:14px;">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="pf_linable" ${p?.linable ? 'checked' : ''}
+          onchange="document.getElementById('pf_lining_price').disabled=!this.checked"> หีบนี้สั่งแบบใส่ผ้าได้</label>
+        <span>บวกเพิ่ม <input type="number" class="form-control form-control-sm d-inline-block" id="pf_lining_price" min="0" inputmode="decimal"
+          value="${p?.liningPrice || 0}" ${p?.linable ? '' : 'disabled'} style="width:96px;text-align:right;"> บาท/ใบ</span></div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px;">ติ๊กแล้ว ตอนรับออเดอร์จะมีขั้น "ใส่ผ้าข้างใน?" ให้เลือก · ใบที่ใส่ผ้ามีป้าย "(ใส่ผ้า)" ช่างเห็นด้วย และนับแยกกับใบธรรมดา</div></div>
     ${pfCraftsmenHtml(p, craftsmen)}
     <input type="hidden" id="pf_id" value="${p?.id||''}">
   </form>`;
@@ -6628,7 +6750,9 @@ async function saveProduct() {
     // รหัสสินค้า/ประเภท เอาออกจากฟอร์มแล้ว (ไม่ได้ใช้) — แก้ของเดิมจะคงค่าเดิมไว้ผ่าน {...old,...data}
     const data={name,
       unit:document.getElementById('pf_unit')?.value.trim()||'โลง',
-      price:defaultPrice, priceMap, lines, colors};
+      price:defaultPrice, priceMap, lines, colors,
+      linable: !!document.getElementById('pf_linable')?.checked,
+      liningPrice: parseFloat(document.getElementById('pf_lining_price')?.value || 0) || 0};
     let oldName = '';
     if (id){const old=await DB.getProduct(id);oldName=old?.name||'';await DB.putProduct({...old,...data});U.toast('แก้ไขสินค้าแล้ว ✓');}
     else{await DB.addProduct(data);U.toast('เพิ่มสินค้าแล้ว ✓');}
