@@ -2220,7 +2220,7 @@ const DB = {
   },
   // ดึงทั้งหมดรอบหน้า (ปุ่มรีเฟรช / หลังกู้คืนข้อมูล)
   forceFull() {
-    Object.values(this._persist).forEach(p => { if (p) p.fullAt = 0; });
+    Object.values(this._persist).forEach(p => { if (p) { p.fullAt = 0; p.force = true; } });  // force = รอดึงจริง ไม่ทำเบื้องหลัง (ไม่ถูกบันทึกลงเครื่อง)
     this._cache = {};
   },
   async _all(col, opt) {
@@ -2237,8 +2237,10 @@ const DB = {
       return data;
     }
     const p = await this._loadPersist(col);
-    // ชุดในเครื่องว่างเปล่า = น่าจะเคยเก็บผลว่างผิด ๆ ไว้ → ดึงทั้งหมดใหม่ ไม่รอครบ 6 ชม.
-    if (!p || !p.rows.size || now - p.fullAt > this._FULL_EVERY) {
+    // ชุดในเครื่องว่างเปล่า = น่าจะเคยเก็บผลว่างผิด ๆ ไว้ → ดึงทั้งหมดใหม่ (ต้องรอ เพราะไม่มีอะไรให้โชว์)
+    // มีของในเครื่องแล้วแต่ครบ 6 ชม. → ไม่รอ: ดึงเฉพาะที่เปลี่ยนตามปกติ แล้วดึงทั้งหมดเบื้องหลัง
+    // (21 พ.ย. 69 iPhone 4G เปิดแอพรอ 11–20 วิ ทุกรอบ 6 ชม. ทั้งที่มีข้อมูลในเครื่องอยู่แล้ว)
+    if (!p || !p.rows.size || p.force) {
       // ── ดึงทั้งหมด (ครั้งแรก / ครบ 6 ชม. / กดรีเฟรช) ──
       // ต้องเอาจากเซิร์ฟเวอร์เท่านั้น: get() ธรรมดาตอนเน็ตหลุด (หรือช่วง _resetNet ตัดท่อ) คืน "ผลว่าง" จากแคชแทน error
       // → เดิมเก็บชุดว่างนั้นลงเครื่อง ลูกค้า/สินค้าหายไป 6 ชม. รับออเดอร์ไม่ได้
@@ -2247,6 +2249,7 @@ const DB = {
         snap = await this._read(() => this._fs.collection(col).get({ source: 'server' }), col);
       } catch (e) {
         if (!p || !p.rows.size) throw e;
+        p.force = false;   // ลองแล้วไม่ได้ → รอบหน้าไม่ต้องรออีก (ไปทำเบื้องหลังแทน)
         klNoteData({ err: ('ดึงทั้งหมดไม่ได้ ใช้ข้อมูลในเครื่อง (' + col + ') · ' + (e && (e.code || e.message) || e)).slice(0, 140) });
         this._syncMem(col);
         return this._cache[col].data;
@@ -2265,9 +2268,29 @@ const DB = {
       } catch (e) {
         klNoteData({ err: ('ใช้ข้อมูลในเครื่อง (' + col + ') · ' + (e && (e.code || e.message) || e)).slice(0, 140) });
       }
+      if (now - p.fullAt > this._FULL_EVERY) this._bgFull(col);
     }
     this._syncMem(col);
     return this._cache[col].data;
+  },
+  // ── ดึงทั้งหมดเบื้องหลัง (กันพลาดทุก 6 ชม.) — ไม่ขวางหน้าจอ ไม่ตัดท่อเน็ต ไม่ขึ้นป้าย "เน็ตช้า" ──
+  // รวมเข้าชุดเดิม (ไม่ล้างทิ้ง) — กฎห้ามลบจริงอยู่แล้ว และของที่เพิ่งเขียนในเครื่องจะไม่หายระหว่างรอ
+  // ไม่สำเร็จ = ไม่ขยับ fullAt → รอบหน้าลองใหม่
+  _bgFullRun: {},
+  _bgFull(col) {
+    if (this._bgFullRun[col]) return;
+    this._bgFullRun[col] = true;
+    const t0 = Date.now();
+    withTimeout(this._fs.collection(col).get({ source: 'server' }), 60000, 'bg full ' + col)
+      .then(snap => {
+        const p = this._persist[col]; if (!p) return;
+        let ch = false; snap.docs.forEach(d => { if (this._merge(col, d)) ch = true; });
+        p.fullAt = t0;
+        this._save(col);
+        if (ch) this._syncMem(col);
+      })
+      .catch(e => klNoteData({ err: ('ดึงทั้งหมดเบื้องหลังไม่ได้ (' + col + ') · ' + (e && (e.code || e.message) || e)).slice(0, 140) }))
+      .finally(() => { this._bgFullRun[col] = false; });
   },
   _bust(col) { delete this._cache[col]; },
   async _get(col, id) {
@@ -2673,7 +2696,7 @@ function fabNewOrder() {
 // ── เวอร์ชันของโค้ดที่เครื่องนี้โหลดมาจริง ──
 // ใช้ดูว่าเครื่องได้โค้ดใหม่แล้วหรือยัง (ถ้าเลขไม่ตรงกับที่เพิ่งพุช = ยังใช้ของเก่าค้างอยู่)
 // ⚠️ ต้องเปลี่ยนพร้อมกับเลขใน sw.js ทุกครั้ง
-const APP_VERSION = 'v120';
+const APP_VERSION = 'v121';
 const APP_BUILD   = '12 ก.ย. 69';
 
 const PAGE_TITLES = { dashboard:'หน้าหลัก', orders:'ประวัติออเดอร์', invoices:'ใบเสร็จรับเงิน', customers:'ลูกค้า', products:'สินค้า', craftsmen:'จัดการช่างแต่ง', reports:'รายงาน', expenses:'รายจ่ายโรงงาน', settings:'ตั้งค่าร้าน', trash:'ถังขยะ' };
@@ -2969,10 +2992,14 @@ async function renderDashboard(el) {
   if (!window._dashCustSet) window._dashCustSet = new Set();
   const initDashCust = buildDashCustContent(pendingOrders);
 
-  const [bkWarn, ssoWarn] = await Promise.all([backupWarningHtml(), ssoWarningHtml()]);
+  // แถบเตือน (ประกันสังคม / สำรองข้อมูล) ต้องอ่านจากเซิร์ฟเวอร์ → ไม่รอ วาดหน้าก่อนแล้วค่อยเติม
+  // (21 พ.ย. 69 เน็ตช้า หน้าหลักรอแถบเตือนเพิ่มอีก 4 วิ)
+  Promise.all([ssoWarningHtml(), backupWarningHtml()]).then(([ssoWarn, bkWarn]) => {
+    const box = el.querySelector('#dashWarns');
+    if (box && el.isConnected) box.innerHTML = ssoWarn + bkWarn;
+  }).catch(() => {});
   el.innerHTML=`
-  ${ssoWarn}
-  ${bkWarn}
+  <div id="dashWarns"></div>
   <div class="row g-3 mb-3">
     <!-- ออเดอร์ค้างส่ง + customer filter -->
     <div class="col-xl-4">
